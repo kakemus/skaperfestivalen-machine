@@ -208,7 +208,7 @@ every(1000 / FPS, () => {
   const now = performance.now();
   if (holdUntil && now > holdUntil) { holdUntil = 0; startScene(settings.scene === "auto" ? sceneNames[0] : settings.scene); }
   if (!holdUntil && settings.scene === "auto" && now - sceneStart > settings.sceneSeconds * 1000) nextScene();
-  const t = (now - sceneStart) / 1000;
+  const t = Math.max(0, (performance.now() - sceneStart) / 1000); // a scene started this tick would otherwise get t < 0
   const inp = currentInput(t);
   scene.frame(ibm, t, inp);
   $("inputs").textContent =

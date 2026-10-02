@@ -175,5 +175,168 @@ export function message({ top = "", bottom = "" } = {}) {
   };
 }
 
+// ---------- wilder ones ----------
+
+const BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
+// Slot k (0-7) = an ordered-dither shade, (k+1)/8 of the pixels on.
+function defineShades(lcd) {
+  for (let k = 0; k < 8; k++)
+    lcd.defineChar(k, Array.from({ length: 8 }, (_, y) =>
+      [0, 1, 2, 3, 4].reduce((bits, x) => bits | (BAYER[y % 4][x % 4] < (k + 1) * 2 ? 1 << (4 - x) : 0), 0)));
+}
+const shade = v => (v < 0.08 ? " " : String.fromCharCode(Math.min(7, Math.floor(v * 8))));
+
+/** Swirling plasma in 8 dither shades; tilt bends it, sound speeds it up. */
+export function plasma() {
+  let phase = 0;
+  return {
+    label: "Plasma",
+    setup(lcd) { lcd.clear(); defineShades(lcd); },
+    frame(lcd, t, inp) {
+      phase += (1 + inp.sound * 4) / 15;
+      const rows = [0, 1].map(r => Array.from({ length: W }, (_, x) => {
+        const v = Math.sin(x * 0.35 + phase) + Math.sin((x * (0.2 + inp.tiltX * 0.15) + r * 1.7 + phase * 1.3))
+          + Math.sin(Math.hypot(x - 10 - inp.tiltX * 6, (r - 0.5) * 6) * 0.6 - phase * 1.7);
+        return shade((v + 3) / 6);
+      }).join(""));
+      lcd.show(rows[0], rows[1]);
+    },
+  };
+}
+
+/** A wave drawn across both lines at 16 pixel heights; tilt = frequency, sound = amplitude. */
+export function oscilloscope() {
+  let phase = 0;
+  return {
+    label: "Oscilloscope",
+    setup(lcd) {
+      lcd.clear();
+      for (let k = 0; k < 8; k++) lcd.defineChar(k, Array.from({ length: 8 }, (_, y) => (y === k ? 0b11111 : 0)));
+    },
+    frame(lcd, t, inp) {
+      phase += 0.35;
+      const freq = 0.45 + inp.tiltX * 0.3, amp = 3 + 4.5 * Math.min(1, 0.3 + inp.sound);
+      let top = "", bottom = "";
+      for (let x = 0; x < W; x++) {
+        const v = Math.sin(x * freq + phase) + 0.35 * Math.sin(x * freq * 2.7 - phase * 1.6);
+        const y = Math.max(0, Math.min(15, Math.round(7.5 - v * amp)));
+        top += y < 8 ? String.fromCharCode(y) : " ";
+        bottom += y >= 8 ? String.fromCharCode(y - 8) : " ";
+      }
+      lcd.show(top, bottom);
+    },
+  };
+}
+
+/** Pac-Man eats dots along the bottom line with a ghost on his tail. */
+export function pacman() {
+  const PAC = [
+    [".###.", "#####", "###..", "##...", "###..", "#####", ".###.", "....."],
+    [".###.", "#####", "#####", "#####", "#####", "#####", ".###.", "....."],
+  ];
+  const GHOST = [
+    [".###.", "#####", "#.#.#", "#####", "#####", "#####", "#.#.#", "....."],
+    [".###.", "#####", "#.#.#", "#####", "#####", "#####", ".#.#.", "....."],
+  ];
+  let x = 0, score = 0, dots = "";
+  return {
+    label: "Pac-Man",
+    setup(lcd) { lcd.clear(); x = -1; dots = ".".repeat(W).split(""); dots[14] = "o"; },
+    frame(lcd, t, inp) {
+      lcd.defineChar(0, PAC[Math.floor(t * 8) % 2]);
+      lcd.defineChar(1, GHOST[Math.floor(t * 4) % 2]);
+      x += 0.25 + Math.max(0, inp.tiltX) * 0.3;
+      if (x > W + 4) { x = -1; dots = ".".repeat(W).split(""); dots[14] = "o"; }
+      const px = Math.floor(x), gx = px - 4;
+      if (px >= 0 && px < W && dots[px] !== " ") { score += dots[px] === "o" ? 50 : 10; dots[px] = " "; }
+      const row = dots.slice();
+      if (gx >= 0 && gx < W) row[gx] = "\x01";
+      if (px >= 0 && px < W) row[px] = "\x00";
+      lcd.show(`1UP ${String(score).padStart(5, "0")}  HI 99990`, row.join(""));
+    },
+  };
+}
+
+/** A friendly message that keeps breaking into noise. */
+export function glitch({ messages = [["HELLO, HUMAN", "PLEASE INSERT JOY"], ["I AM VERY NORMAL", "TOTALLY NORMAL"], ["FEED ME TICKETS", "* * * * * * *"]] } = {}) {
+  let burstUntil = 0, nextBurst = 1;
+  return {
+    label: "Glitch",
+    setup(lcd) {
+      lcd.clear();
+      lcd.defineChar(0, Array(8).fill(0b11111));
+      lcd.defineChar(1, [0b10101, 0b01010, 0b10101, 0b01010, 0b10101, 0b01010, 0b10101, 0b01010]);
+    },
+    frame(lcd, t, inp) {
+      const [top, bottom] = messages[Math.floor(t / 6) % messages.length].map(s => center(s));
+      if (t > nextBurst || inp.shake) { burstUntil = t + 0.2 + Math.random() * 0.6; nextBurst = t + 1 + Math.random() * 3; }
+      if (t > burstUntil) return lcd.show(top, bottom);
+      const noise = s => [...s].map(ch => {
+        const r = Math.random();
+        if (r < 0.25) return String.fromCharCode(33 + Math.floor(Math.random() * 94));
+        if (r < 0.35) return Math.random() < 0.5 ? "\x00" : "\x01";
+        if (r < 0.45) return String.fromCharCode(0xa1 + Math.floor(Math.random() * 94));
+        return ch;
+      }).join("");
+      const shift = Math.floor(Math.random() * 5) - 2;
+      const roll = s => s.slice(-shift) + s.slice(0, -shift) || s;
+      Math.random() < 0.3 ? lcd.show(noise(bottom), noise(top)) : lcd.show(roll(noise(top)), noise(bottom));
+    },
+  };
+}
+
+/** Stars streaming out from the middle; louder = faster. */
+export function warp() {
+  let stars = [];
+  return {
+    label: "Warp",
+    setup(lcd) { lcd.clear(); stars = []; },
+    frame(lcd, t, inp) {
+      const speed = 1 + inp.sound * 3;
+      while (stars.length < 14) stars.push({ x: 9.5 + inp.tiltX * 4, v: (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.1), row: Math.random() < 0.5 ? 0 : 1 });
+      for (const s of stars) { s.x += s.v * speed; s.v *= 1.12; }
+      stars = stars.filter(s => s.x >= 0 && s.x < W);
+      const rows = [Array(W).fill(" "), Array(W).fill(" ")];
+      for (const s of stars) {
+        const d = Math.abs(s.x - 9.5);
+        rows[s.row][Math.floor(s.x)] = d < 3 ? "." : d < 6 ? "+" : "*";
+        const trail = Math.floor(s.x - Math.sign(s.v));
+        if (d > 5 && trail >= 0 && trail < W && rows[s.row][trail] === " ") rows[s.row][trail] = "-";
+      }
+      lcd.show(rows[0].join(""), rows[1].join(""));
+    },
+  };
+}
+
+/** Pixel-smooth drops falling through both lines, splashing into symbols at the bottom. */
+export function rain() {
+  let drops = [];
+  return {
+    label: "Rain",
+    setup(lcd) {
+      lcd.clear();
+      // slot k = a 3-pixel streak whose lowest pixel is row k
+      for (let k = 0; k < 8; k++) lcd.defineChar(k, Array.from({ length: 8 }, (_, y) => (y <= k && y > k - 3 ? 0b00100 : 0)));
+      drops = [];
+    },
+    frame(lcd, t, inp) {
+      const rate = 0.25 + inp.sound * 0.6;
+      if (Math.random() < rate) drops.push({ x: Math.floor(Math.random() * W), y: 0, v: 0.6 + Math.random() * 0.6 });
+      for (const d of drops) d.y += d.v * (1 + Math.abs(inp.tiltY));
+      const rows = [Array(W).fill(" "), Array(W).fill(" ")];
+      drops = drops.filter(d => {
+        if (d.y >= 16) { rows[1][d.x] = d.y < 18 ? "*" : rows[1][d.x]; return d.y < 18; }
+        const y = Math.floor(d.y);
+        rows[y < 8 ? 0 : 1][d.x] = String.fromCharCode(y % 8);
+        return true;
+      });
+      lcd.show(rows[0].join(""), rows[1].join(""));
+    },
+  };
+}
+
 // The scenes the machine cycles through while idle, in order.
-export const SCENES = { marquee, typewriter, slots, equalizer, eyes, walker };
+export const SCENES = {
+  marquee, typewriter, slots, equalizer, eyes, walker,
+  plasma, oscilloscope, pacman, glitch, warp, rain,
+};
