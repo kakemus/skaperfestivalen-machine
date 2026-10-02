@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Machine — Skaperfestivalen</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f0f11;
+    color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #sidebar {
+    width: 380px;
+    flex-shrink: 0;
+    background: #18181c;
+    border-right: 1px solid #2a2a30;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+  }
+  h1 { font-size: 16px; text-transform: uppercase; letter-spacing: 1px; color: #fff; }
+  h1 span { opacity: 0.5; font-weight: normal; }
+  .section { background: #222228; padding: 12px; border-radius: 6px; border: 1px solid #2e2e36; }
+  .section h3 { font-size: 12px; color: #888; text-transform: uppercase; margin-bottom: 8px; }
+  label { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin: 8px 0 4px; align-items: center; }
+  .field label { display: block; }
+  input[type="range"] { width: 55%; accent-color: #ffcf3d; }
+  input[type="text"], input[type="number"], textarea, select, button {
+    width: 100%;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 9px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  textarea { resize: vertical; line-height: 1.4; min-height: 60px; }
+  button { background: #2a2a35; cursor: pointer; font-weight: bold; border: 1px solid #444; margin-top: 8px; }
+  button:hover { background: #3a3a48; }
+  .btn-group { display: flex; gap: 8px; }
+  .primary { background: #ffcf3d; color: #1a1400; border-color: #ffcf3d; font-size: 15px; padding: 12px; }
+  .primary:hover { background: #ffe07a; }
+  .conn { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; font-size: 13px; }
+  .conn button { margin: 0; width: auto; padding: 6px 10px; font-size: 12px; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #555; margin-right: 8px; }
+  .dot.on { background: #4dff88; box-shadow: 0 0 6px #4dff88; }
+  .hint { font-size: 11px; opacity: 0.55; margin-top: 6px; line-height: 1.4; }
+  .check { justify-content: flex-start; }
+  .check input { width: auto; }
+  #inputs { font: 11px/1.6 Menlo, monospace; opacity: 0.8; margin-top: 6px; }
+  #log { min-height: 90px; max-height: 200px; overflow-y: auto; font-size: 12px; line-height: 1.5; background: #111; border-radius: 4px; padding: 8px; border: 1px solid #2e2e36; }
+  #log .err { color: #ff6b6b; }
+  #log .ok { color: #7dff9f; }
+
+  #viewport { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; align-content: flex-start; justify-content: safe center; padding: 28px; overflow: auto; background: #08080a; }
+  .panel { max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .panel-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
+  #ticketPreview { background: #fff; width: 360px; max-width: 100%; image-rendering: pixelated; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
+  #lcd { max-width: 100%; background: #1b1b1b; padding: 18px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
+  #lcd canvas { display: block; width: 560px; max-width: 100%; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<aside id="sidebar">
+  <h1>Machine <span>· Skaperfestivalen</span></h1>
+
+  <div class="section">
+    <h3>Connections</h3>
+    <div class="conn">
+      <span><i class="dot" id="dotPrinter"></i>Printer</span><button id="connectPrinter">Connect</button>
+      <span><i class="dot" id="dotMicrobit"></i>micro:bit</span><button id="connectMicrobit">Connect</button>
+      <span><i class="dot" id="dotIbm"></i>IBM display</span><button id="connectIbm">Connect</button>
+    </div>
+    <p class="hint">Each needs one real click the first time; after that the page reconnects by itself.</p>
+  </div>
+
+  <div class="section">
+    <h3>Ticket</h3>
+    <select id="design"></select>
+    <div id="fields"></div>
+    <div class="btn-group">
+      <button id="randomize">Randomize</button>
+      <button id="resetFields">Reset text</button>
+    </div>
+    <button id="printTicket" class="primary">Print ticket</button>
+    <button id="play">Play (spin + print)</button>
+    <button id="cut">Cut paper</button>
+  </div>
+
+  <div class="section">
+    <h3>Printer</h3>
+    <label class="check"><input type="checkbox" id="slowMode"> Slow printing (paper creeps out)</label>
+    <label>Slow speed <input type="range" id="slowSpeed" min="1" max="30" step="1"><span id="slowSpeedVal"></span></label>
+    <label>Blank paper after ticket <input type="range" id="feedMm" min="0" max="60" step="1"><span id="feedMmVal"></span></label>
+  </div>
+
+  <div class="section">
+    <h3>IBM display</h3>
+    <select id="scene"></select>
+    <label>Seconds per scene <input type="range" id="sceneSeconds" min="5" max="60" step="1"><span id="sceneSecondsVal"></span></label>
+    <input type="text" id="msgTop" maxlength="20" placeholder="Top line (20 letters)">
+    <input type="text" id="msgBottom" maxlength="20" placeholder="Bottom line" style="margin-top:6px">
+    <button id="showMsg">Show text</button>
+  </div>
+
+  <div class="section">
+    <h3>micro:bit</h3>
+    <p class="hint">A = play (spin the reels, then print a prize ticket) · B = next display scene · shake = spin the reels. With no micro:bit talking, a "ghost" tilts and makes noise so the display stays alive.</p>
+    <div id="inputs"></div>
+  </div>
+
+  <div class="section">
+    <h3>Log</h3>
+    <div id="log"></div>
+  </div>
+</aside>
+
+<main id="viewport">
+  <div class="panel">
+    <div class="panel-label" id="previewLabel">Ticket preview</div>
+    <canvas id="ticketPreview" width="576" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-label">IBM display (live copy)</div>
+    <div id="lcd"><canvas id="lcdCanvas"></canvas></div>
+  </div>
+</main>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
