@@ -1,9 +1,8 @@
 # Machine — Skaperfestivalen
 
-An arcade / slot machine built from found electronics, for Skaperfestivalen at Deichman (Oslo).
-Visitors play it with micro:bits; it answers on an old IBM till display and prints tickets on a
-thermal printer. More salvaged hardware will be added as the project grows (next up: a shop-till
-barcode scanner — see "Ideas in progress").
+An arcade machine built from found electronics, for Skaperfestivalen at Deichman (Oslo): a yes/no
+quiz game whose progress is a long printed paper strip moving up behind a backlit window. Driven by
+micro:bits, with an old IBM till display for the questions and a thermal printer. See "The game".
 
 Started 2026-10-02, split out of the maker's earlier art project (`~/Documents/occult-printer`, a
 buried oracle printer). Some code was **copied** from there, never imported — the two machines are
@@ -81,15 +80,28 @@ defines custom character 0–7. ~30 writes per second.
 - The printer for this machine isn't decided yet; `raster.js` assumes 80 mm paper (576 dots). A
   58 mm printer needs `PRINT_WIDTH = 384`.
 
-## Ideas in progress
+## The game (explained by the maker 2026-10-04 — the plan to build towards)
 
-- **"Test your strength" tower** (sketch, 2026-10-02): a high striker — something climbs a tall
-  column and rings a bell at the top ("RING! DING!"), with the barcode scanner as a smiling box on
-  it. Open questions asked: what climbs the column, what the hand on the left holds, what the
-  arrow at the bottom means. One proposal: prize tickets carry a barcode; scanning one at the
-  tower rings the bell (already-scanned tickets get refused on the IBM display). Most till scanners
-  act as a USB keyboard (type the code + Enter), so the page can just listen for keystrokes — test
-  that first. If it's a laser scanner, don't design anything where people stare into it.
+- **Coin** starts it (a simple coin mechanism → a micro:bit pin).
+- The **IBM display asks yes/no questions**; the player answers on **YES / NO buttons** (maybe a
+  third micro:bit, or arcade buttons wired to one).
+- Each correct answer moves the game one step up: a **long thermal-printed strip** of "screens"
+  is mounted as a **belt** between **two motors, one micro:bit at each end, synced by radio**, and
+  moves one screen up; only one screen shows, through the window of a salvaged till-scanner
+  housing ("the overhead part"), **backlit** so the paper glows. A **bell dings** each step.
+- The **printer** prints the strip itself, and a small **reward** each time the player progresses.
+  If the belt can't be built, printing each screen is the fallback.
+- An earlier sketch (2026-10-02) was first misread as a "test your strength" tower with a barcode
+  scanner — wrong: the scanner housing is just the viewing window.
+
+Suggested to the maker, not decided: registration marks printed at each screen + a light sensor
+so the belt stops exactly on a screen (paper slips; two motors drift); one motor pulls while the
+other holds tension (an endless loop with one motor is the fallback); a servo-hammer bell is
+simplest; LED backlight only (heat/UV fades thermal paper). Open questions asked: number of
+screens and window height; what a wrong answer does (game over / rewind / lose a step); which
+motors. Proposed first build, all testable without hardware: the game state machine with keyboard
+stand-ins and an on-screen belt, radio messages (`BELT:STEP`, `BELL:DING`, `COIN`) + firmware for
+the belt/bell boards, a belt-strip designer that prints the screens with marks, reward prints.
 
 ## Working with this user
 
