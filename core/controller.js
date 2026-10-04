@@ -95,6 +95,20 @@ export async function disconnect() {
   await reader?.cancel().catch(() => {});
 }
 
+// Send one "KEY:VALUE" line to the micro:bit on USB (the machine board, or the
+// receiver, which passes it on by radio). Returns false when nothing is connected.
+const encoder = new TextEncoder();
+let writing = Promise.resolve();
+export function send(line) {
+  if (!port?.writable) return false;
+  writing = writing.then(async () => {
+    const writer = port.writable.getWriter();
+    try { await writer.write(encoder.encode(line + "\n")); }
+    finally { writer.releaseLock(); }
+  }).catch(e => emit("controller:error", { message: "Couldn't send to the micro:bit: " + e.message }));
+  return true;
+}
+
 async function readLoop() {
   const decoder = new TextDecoderStream();
   const closed = port.readable.pipeTo(decoder.writable).catch(() => {});

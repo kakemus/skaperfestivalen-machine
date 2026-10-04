@@ -5,9 +5,15 @@ import * as printer from "./core/printer.js";
 import * as controller from "./core/controller.js";
 import * as ibm from "./core/ibmDisplay.js";
 import { TICKETS } from "./tickets/index.js";
-import { SCENES, INPUT_DEFAULTS, message } from "./display/scenes.js";
+import { SCENES, INPUT_DEFAULTS } from "./display/scenes.js";
 import { setupReplica } from "./display/replica.js";
 import { every, after } from "./core/clock.js";
+import { textScene } from "./display/lcdText.js";
+import { createGame } from "./game/game.js";
+import { DEFAULT_QUESTIONS, parseQuestions } from "./game/questions.js";
+import { ding } from "./game/sound.js";
+import { createBelt } from "./belt/belt.js";
+import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
 const $ = id => document.getElementById(id);
 const FPS = 15;
@@ -21,6 +27,7 @@ function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value
 
 const settings = load("machineSettings", {
   design: "prize", values: {}, slowMode: false, slowSpeed: 6, feedMm: 15, scene: "auto", sceneSeconds: 15,
+  questions: null, answerSeconds: 30, rewardPrints: true, scanIsCoin: true, coinPrompt: true, strip: {},
 });
 const saveSettings = () => save("machineSettings", settings);
 
@@ -146,7 +153,9 @@ sceneSelect.value = settings.scene in SCENES || settings.scene === "auto" ? sett
 bindRange("sceneSeconds", "sceneSeconds", v => `${v} s`);
 
 let scene = null, sceneName = null, sceneStart = 0, holdUntil = 0;
+let lastIdle = null;
 function startScene(name, instance = SCENES[name]()) {
+  if (name in SCENES) lastIdle = name;
   sceneName = name;
   scene = instance;
   sceneStart = performance.now();
@@ -154,7 +163,10 @@ function startScene(name, instance = SCENES[name]()) {
   return scene;
 }
 function nextScene(step = 1) {
-  const i = sceneNames.indexOf(sceneName);
+  if (game?.state === "attract" && settings.coinPrompt && sceneName !== "coin") {
+    return startScene("coin", textScene("SETT INN MYNT FOR Å SPILLE!"));
+  }
+  const i = sceneNames.indexOf(lastIdle);
   startScene(sceneNames[(i + step + sceneNames.length) % sceneNames.length]);
 }
 sceneSelect.onchange = () => {
@@ -164,7 +176,7 @@ sceneSelect.onchange = () => {
 };
 $("showMsg").onclick = () => {
   holdUntil = performance.now() + 30000; // hold the message for 30 s
-  startScene("message", message({ top: $("msgTop").value, bottom: $("msgBottom").value }));
+  startScene("message", textScene([$("msgTop").value, $("msgBottom").value].filter(Boolean).join(" "))); // handles Æ Ø Å
 };
 startScene(settings.scene === "auto" ? sceneNames[0] : settings.scene);
 
@@ -183,8 +195,8 @@ on("controller:button", ({ button, pressed, synthetic }) => {
   heard();
   live[button] = pressed;
   if (!pressed || synthetic) return;
-  if (button === "a") play();
-  if (button === "b") { holdUntil = 0; nextScene(); }
+  if (game.state === "attract") { if (button === "a") game.coin(); else nextScene(); return; }
+  game.answer(button === "a");
 });
 
 function ghost(t) {
@@ -231,6 +243,114 @@ function play() {
   });
 }
 $("play").onclick = play;
+
+// ---------- the game ----------
+const stripCfg = () => ({ ...DEFAULT_STRIP, ...settings.strip });
+const belt = createBelt({ canvas: $("beltView"), send: line => controller.send(line) });
+let game = null;
+
+function questions() { return parseQuestions(settings.questions ?? DEFAULT_QUESTIONS); }
+
+game = createGame({
+  questions,
+  answerSeconds: () => settings.answerSeconds,
+  belt,
+  text(str, opts) { holdUntil = Infinity; startScene("game", textScene(str, opts)); },
+  idle() { holdUntil = 0; startScene(settings.scene === "auto" ? (lastIdle || sceneNames[0]) : settings.scene); },
+  bell(times) { ding(times); controller.send(`BELL:DING:${times}`); },
+  printReward(level) {
+    if (settings.rewardPrints) printTicket("reward", { level }).catch(e => log(e.message, "err"));
+  },
+  printWin() {
+    printTicket("prize", { reels: "★ ★ ★", result: "DU VANT!", message: `Du klarte alle ${belt.last} nivåene!` }).catch(e => log(e.message, "err"));
+  },
+  log,
+  onState({ state, level, question }) {
+    const words = {
+      attract: "Waiting for a coin", starting: "Starting…", asking: `Level ${level} — waiting for JA / NEI`,
+      climbing: `Right! Climbing to level ${level}`, lost: "Wrong — rewinding", won: "WON!", resetting: "Rewinding…",
+    };
+    $("gameStatus").textContent = words[state] + (state === "asking" && question ? `\n${question.text} → ${question.answer ? "JA" : "NEI"}` : "");
+    $("beltLabel").textContent = `Belt window · screen ${belt.position} of ${belt.last}`;
+  },
+});
+$("gameStatus").style.whiteSpace = "pre-wrap";
+
+$("coin").onclick = () => game.coin();
+$("answerYes").onclick = () => game.answer(true);
+$("answerNo").onclick = () => game.answer(false);
+$("resetGame").onclick = () => game.reset();
+
+// lines from the machine micro:bit (buttons, coin, belt reports)
+on("controller:raw", ({ line }) => {
+  heard();
+  belt.handleLine(line);
+  if (line === "ANSWER:YES") game.answer(true);
+  else if (line === "ANSWER:NO") game.answer(false);
+  else if (line.startsWith("COIN")) game.coin();
+});
+
+// keyboard + barcode scanner. A scanner "types" its code very fast and ends with
+// Enter; single keys are held back a moment so a code's letters aren't taken
+// as J/N/C presses.
+let scanBuffer = "", lastKeyAt = 0, pendingKey = null;
+window.addEventListener("keydown", e => {
+  if (e.target.closest?.("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  const now = performance.now();
+  const fast = now - lastKeyAt < 50;
+  lastKeyAt = now;
+  if (e.key === "Enter") {
+    if (scanBuffer.length >= 3) onScan(scanBuffer);
+    scanBuffer = "";
+    clearTimeout(pendingKey);
+    return;
+  }
+  if (e.key.length !== 1) return;
+  scanBuffer = fast ? scanBuffer + e.key : e.key;
+  clearTimeout(pendingKey);
+  if (fast) return; // part of a scan
+  const key = e.key.toLowerCase();
+  pendingKey = setTimeout(() => {
+    if (key === "c") game.coin();
+    else if (key === "j" || key === "y") game.answer(true);
+    else if (key === "n") game.answer(false);
+  }, 80);
+});
+function onScan(code) {
+  log(`Scanned: ${code}`);
+  if (settings.scanIsCoin) game.coin();
+}
+
+// game settings
+bindRange("answerSeconds", "answerSeconds", v => `${v} s`);
+for (const id of ["rewardPrints", "scanIsCoin", "coinPrompt"]) {
+  $(id).checked = settings[id];
+  $(id).onchange = () => { settings[id] = $(id).checked; saveSettings(); };
+}
+function showQuestionCount() { $("questionCount").textContent = `${questions().length} questions`; }
+$("questions").value = settings.questions ?? DEFAULT_QUESTIONS;
+$("questions").oninput = () => { settings.questions = $("questions").value; saveSettings(); showQuestionCount(); };
+$("resetQuestions").onclick = () => { settings.questions = null; $("questions").value = DEFAULT_QUESTIONS; saveSettings(); showQuestionCount(); };
+showQuestionCount();
+
+// belt strip settings
+function rebuildStrip() {
+  const cfg = stripCfg();
+  belt.setStrip(drawStrip(cfg), cfg);
+  $("stripInfo").textContent = `${cfg.levels + 1} screens · strip ≈ ${stripLengthCm(cfg).toFixed(0)} cm long · marks at the left edge, START has the long one`;
+  $("beltLabel").textContent = `Belt window · screen ${belt.position} of ${belt.last}`;
+}
+for (const [id, key, unit] of [["stripLevels", "levels", ""], ["stripScreenMm", "screenMm", " mm"]]) {
+  const el = $(id), out = $(id + "Val");
+  el.value = stripCfg()[key];
+  out.textContent = el.value + unit;
+  el.oninput = () => { settings.strip = { ...settings.strip, [key]: Number(el.value) }; out.textContent = el.value + unit; saveSettings(); rebuildStrip(); };
+}
+$("stripTitles").value = stripCfg().titles;
+$("stripTitles").oninput = () => { settings.strip = { ...settings.strip, titles: $("stripTitles").value }; saveSettings(); rebuildStrip(); };
+$("printStrip").onclick = () => printer.print({ label: "Belt strip", build: () => drawStrip(stripCfg()), slow: false });
+$("previewStrip").onclick = () => showCanvas(drawStrip(stripCfg()), `Belt strip · ${stripLengthCm(stripCfg()).toFixed(0)} cm`);
+rebuildStrip();
 
 buildFields();
 schedulePreview();

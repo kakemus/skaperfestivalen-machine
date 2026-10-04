@@ -63,6 +63,9 @@
   .panel { max-width: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px; }
   .panel-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
   #ticketPreview { background: #fff; width: 360px; max-width: 100%; image-rendering: pixelated; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
+  #beltView { width: 300px; max-width: 100%; border: 14px solid #1b1b1b; border-radius: 6px; box-shadow: 0 0 40px rgba(255,190,90,.35), 0 10px 30px rgba(0,0,0,.8); }
+  .status { font: 13px/1.4 Menlo, monospace; background: #111; border: 1px solid #333; border-radius: 4px; padding: 8px; color: #ffcf3d; }
+  code { font-size: 11px; background: #111; padding: 1px 4px; border-radius: 3px; }
   #lcd { max-width: 100%; background: #1b1b1b; padding: 18px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
   #lcd canvas { display: block; width: 560px; max-width: 100%; image-rendering: pixelated; }
 </style>
@@ -79,6 +82,36 @@
       <span><i class="dot" id="dotIbm"></i>IBM display</span><button id="connectIbm">Connect</button>
     </div>
     <p class="hint">Each needs one real click the first time; after that the page reconnects by itself.</p>
+  </div>
+
+  <div class="section">
+    <h3>Game</h3>
+    <div id="gameStatus" class="status">Waiting for a coin</div>
+    <button id="coin" class="primary">Insert coin</button>
+    <div class="btn-group">
+      <button id="answerYes">JA (yes)</button>
+      <button id="answerNo">NEI (no)</button>
+    </div>
+    <button id="resetGame">Reset game (rewind)</button>
+    <p class="hint">Keyboard: C = coin, J/Y = ja, N = nei. Handheld micro:bit: A = ja, B = nei (A starts a game when idle).</p>
+    <label>Seconds to answer <input type="range" id="answerSeconds" min="10" max="90" step="5"><span id="answerSecondsVal"></span></label>
+    <label class="check"><input type="checkbox" id="rewardPrints"> Print a reward slip on each right answer</label>
+    <label class="check"><input type="checkbox" id="scanIsCoin"> Scanning a barcode = inserting a coin</label>
+    <label class="check"><input type="checkbox" id="coinPrompt"> Show "SETT INN MYNT" between idle scenes</label>
+    <label for="questions" style="display:block">Questions — one per line: <code>question | JA</code> or <code>| NEI</code></label>
+    <textarea id="questions" rows="8" spellcheck="false"></textarea>
+    <div class="btn-group"><span id="questionCount" class="hint"></span><button id="resetQuestions" class="btn-secondary">Default questions</button></div>
+  </div>
+
+  <div class="section">
+    <h3>Belt strip</h3>
+    <label>Screens to win <input type="range" id="stripLevels" min="3" max="15" step="1"><span id="stripLevelsVal"></span></label>
+    <label>Screen height <input type="range" id="stripScreenMm" min="40" max="200" step="5"><span id="stripScreenMmVal"></span></label>
+    <label for="stripTitles" style="display:block">Screen titles (START first, the win screen last)</label>
+    <textarea id="stripTitles" rows="5" spellcheck="false"></textarea>
+    <button id="printStrip">Print the whole strip</button>
+    <button id="previewStrip" class="btn-secondary">Show the whole strip in the preview</button>
+    <p class="hint" id="stripInfo"></p>
   </div>
 
   <div class="section">
@@ -112,7 +145,7 @@
 
   <div class="section">
     <h3>micro:bit</h3>
-    <p class="hint">A = play (spin the reels, then print a prize ticket) · B = next display scene · shake = spin the reels. With no micro:bit talking, a "ghost" tilts and makes noise so the display stays alive.</p>
+    <p class="hint">Game buttons above. Shake = spin the reels on the slot scene. With no micro:bit talking, a "ghost" tilts and makes noise so the display stays alive.</p>
     <div id="inputs"></div>
   </div>
 
@@ -126,6 +159,10 @@
   <div class="panel">
     <div class="panel-label" id="previewLabel">Ticket preview</div>
     <canvas id="ticketPreview" width="576" height="200"></canvas>
+  </div>
+  <div class="panel">
+    <div class="panel-label" id="beltLabel">Belt window (backlit)</div>
+    <canvas id="beltView"></canvas>
   </div>
   <div class="panel">
     <div class="panel-label">IBM display (live copy)</div>

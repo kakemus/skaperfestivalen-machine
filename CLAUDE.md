@@ -42,15 +42,30 @@ headers and always serves its own folder).
   inp) }` at 15 fps; `inp` is the controller state (tilt, sound, buttons, shake) or the "ghost"
   stand-in when no micro:bit has been heard for 5 s, so the display never freezes.
   `display/replica.js` draws the on-screen copy in the real 5×8-dot grid.
-- `firmware/` — MicroPython for the two micro:bits (flash at python.microbit.org): `controller.py`
+- `game/` — the quiz: `game.js` (state machine attract → coin → asking → right: belt up + bell +
+  reward / wrong or too slow: rewind → attract; won at the top; talks to everything through an `io`
+  object so it runs on screen alone), `questions.js` (default Norwegian yes/no list, "question |
+  JA"; the sidebar edits it, saved in localStorage), `sound.js` (synthesized bell for the laptop).
+- `belt/` — `strip.js` draws the whole printed strip (leader, START, levels, win screen, black
+  registration mark at the left edge mid-screen, START's mark 3× long); `belt.js` is the belt:
+  backlit on-screen window + sends `BELT:STEP` / `BELT:BACK:n` and waits for `BELT:DONE` (15 s
+  timeout, so the game never hangs without hardware).
+- `display/lcdText.js` — game text for the IBM display: upper-case, word-wrapped, paged, with
+  Æ Ø Å as custom characters 5–7 (the ROM very likely lacks them).
+- `firmware/` — MicroPython: `machine.py` is the main board (micro:bit on the ElecFreaks Wukong
+  motor board, plugged into the computer by USB): two TT motors (M1 top spool pulls, M2 bottom
+  feeds), LDR on P1 for the marks, bell relay on P2, YES/NO/coin switches on P8/P12/P13, A/B =
+  YES/NO; untested on hardware, speeds/threshold are first guesses at the top of the file. Also  (flash at python.microbit.org): `controller.py`
   (handheld: buttons, logo, shake, tilt, mic → radio + USB) and `receiver.py` (on USB, forwards
   radio lines). Radio group 42 in both. Same line format as the occult printer's controller, so
   boards flashed for that machine also work here.
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 
-Current micro:bit mapping (basics, expected to change): A = play (reels spin on the display, then a
-prize ticket prints 3 s later), B = next display scene, shake = respin.
+Inputs: keyboard C = coin, J/Y = ja, N = nei; a barcode scan (fast keys + Enter — the Metrologic
+scanner is a USB keyboard) = coin, switchable; handheld micro:bit A = ja / B = nei (A = coin when
+idle); machine board lines `ANSWER:YES|NO`, `COIN:1`. The old "Play (spin + print)" demo button
+still exists but nothing maps to it.
 
 ## The IBM display (USB 04b3:4526)
 
@@ -95,6 +110,11 @@ defines custom character 0–7. ~30 writes per second.
   scanner — wrong: the scanner housing is just the viewing window.
 
 Answers 2026-10-04: **about 10 screens**; a **wrong answer rewinds the belt** to the start.
+Since then (same day): the maker has an **ElecFreaks Wukong motor board** (drives both motors
+from one micro:bit, so one board runs the belt), **an LDR** (no TCRT5000/DRV8833 — under two weeks
+left, no time to order), the **Metrologic barcode scanner** connected (USB 0c2e:0200, acts as a
+keyboard), and a **working doorbell gong** for the bell (needs a relay; keep it low-voltage).
+The on-screen game was built and played through in the browser 2026-10-04.
 Hardware on hand: **yellow "TT" DC gear motors** (no position feedback — needs a driver board, e.g.
 DRV8833 or a micro:bit motor board, and its own 4×AA / 5–6 V supply; never straight off micro:bit
 pins) and an **MG90S metal-gear micro servo** (planned for the bell hammer; also wants separate
