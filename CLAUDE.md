@@ -113,7 +113,11 @@ Answers 2026-10-04: **about 10 screens**; a **wrong answer rewinds the belt** to
 Since then (same day): the maker has an **ElecFreaks Wukong motor board** (drives both motors
 from one micro:bit, so one board runs the belt), **an LDR** (no TCRT5000/DRV8833 — under two weeks
 left, no time to order), the **Metrologic barcode scanner** connected (USB 0c2e:0200, acts as a
-keyboard), and a **working doorbell gong** for the bell (needs a relay; keep it low-voltage).
+keyboard) — it's a handheld **MS5145 Eclipse** (not the till scanner whose housing is the window). Its
+**CodeGate** default sends a code only when its button is pressed; `docs/scanner-setup-codes.png`
+(MetroSelect guide 00-02544, p. 17-2) has "CodeGate Inactive Out of Stand" to scan without the
+button, `docs/scanner-enter-exit-and-reset.png` the enter/exit + recall-defaults page. Laser: it
+reads printed 1D codes only (no QR, no screens), and a **working doorbell gong** for the bell (needs a relay; keep it low-voltage).
 The on-screen game was built and played through in the browser 2026-10-04.
 Hardware on hand: **yellow "TT" DC gear motors** (no position feedback — needs a driver board, e.g.
 DRV8833 or a micro:bit motor board, and its own 4×AA / 5–6 V supply; never straight off micro:bit
