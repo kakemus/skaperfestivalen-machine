@@ -94,12 +94,21 @@ defines custom character 0–7. ~30 writes per second.
 - An earlier sketch (2026-10-02) was first misread as a "test your strength" tower with a barcode
   scanner — wrong: the scanner housing is just the viewing window.
 
+Answers 2026-10-04: **about 10 screens**; a **wrong answer rewinds the belt** to the start.
+Hardware on hand: **yellow "TT" DC gear motors** (no position feedback — needs a driver board, e.g.
+DRV8833 or a micro:bit motor board, and its own 4×AA / 5–6 V supply; never straight off micro:bit
+pins) and an **MG90S metal-gear micro servo** (planned for the bell hammer; also wants separate
+5 V). Because TT motors can't count, **registration marks + a light sensor (TCRT5000 or LDR
+against the backlight) are required**; a wider/double "home" mark at the strip start lets the
+rewind find screen 1. Strip ≈ 10 × 10–12 cm + leaders ≈ 1.2–1.5 m. Open: how far apart the two
+motors are, and whether a driver board is on hand. Recommended **one micro:bit + one DRV8833
+driving both spools** (scroll-style, no radio sync) over the original one-micro:bit-per-end radio
+sync, if the ends are close enough to wire.
+
 Suggested to the maker, not decided: registration marks printed at each screen + a light sensor
 so the belt stops exactly on a screen (paper slips; two motors drift); one motor pulls while the
 other holds tension (an endless loop with one motor is the fallback); a servo-hammer bell is
-simplest; LED backlight only (heat/UV fades thermal paper). Open questions asked: number of
-screens and window height; what a wrong answer does (game over / rewind / lose a step); which
-motors. Proposed first build, all testable without hardware: the game state machine with keyboard
+simplest; LED backlight only (heat/UV fades thermal paper). Still open: the window height. Proposed first build, all testable without hardware: the game state machine with keyboard
 stand-ins and an on-screen belt, radio messages (`BELT:STEP`, `BELL:DING`, `COIN`) + firmware for
 the belt/bell boards, a belt-strip designer that prints the screens with marks, reward prints.
 
