@@ -4,6 +4,7 @@
 // connection handling below carries fixes that were found on real hardware
 // there, so keep them unless the hardware proves otherwise.
 import { emit } from "./eventBus.js";
+import { inCharge } from "./singleTab.js";
 import { canvasToRasterBytes, DOTS_PER_MM } from "./raster.js";
 
 let activeDevice = null;
@@ -63,6 +64,7 @@ if (typeof navigator !== "undefined" && navigator.usb?.addEventListener) {
 // `auto` reuses a printer this page was already allowed to use, and stays
 // quiet if there is none — the picker needs a real click.
 export async function connect({ auto = false } = {}) {
+  if (!inCharge()) { if (!auto) emit("printer:error", { message: "Another tab is running the machine — use that one, or close it." }); return false; }
   let device = null;
   try {
     const devices = await navigator.usb.getDevices();

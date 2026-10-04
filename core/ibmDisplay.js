@@ -24,6 +24,7 @@
 // hardware runs behind that: only the newest version of each line/character
 // is sent, so a scene can't build up a backlog faster than the display eats it.
 import { emit } from "./eventBus.js";
+import { inCharge } from "./singleTab.js";
 
 export const WIDTH = 20;
 const VENDOR_ID = 0x04b3, PRODUCT_ID = 0x4526;
@@ -48,6 +49,7 @@ function isDisplayInterface(d) {
 // `auto` reuses a display this page was already allowed to use and stays
 // quiet otherwise (the picker needs a real click).
 export async function connect({ auto = false } = {}) {
+  if (!inCharge()) { if (!auto) emit("ibm:error", { message: "Another tab is running the machine — use that one, or close it." }); return false; }
   if (!("hid" in navigator)) {
     if (!auto) emit("ibm:error", { message: "WebHID isn't available — use Chrome." });
     return false;

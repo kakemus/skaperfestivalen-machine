@@ -8,6 +8,7 @@ import { TICKETS } from "./tickets/index.js";
 import { SCENES, INPUT_DEFAULTS } from "./display/scenes.js";
 import { setupReplica } from "./display/replica.js";
 import { every, after } from "./core/clock.js";
+import { whenInCharge } from "./core/singleTab.js";
 import { textScene } from "./display/lcdText.js";
 import { createGame } from "./game/game.js";
 import { DEFAULT_QUESTIONS, parseQuestions } from "./game/questions.js";
@@ -50,9 +51,12 @@ for (const [name, label] of [["printer", "Printer"], ["controller", "micro:bit"]
 $("connectPrinter").onclick = () => printer.connect();
 $("connectMicrobit").onclick = () => controller.connect();
 $("connectIbm").onclick = () => ibm.connect();
-printer.connect({ auto: true });
-controller.connect({ auto: true });
-ibm.connect({ auto: true });
+whenInCharge(() => {
+  $("otherTab").hidden = true;
+  printer.connect({ auto: true });
+  controller.connect({ auto: true });
+  ibm.connect({ auto: true });
+}, () => { $("otherTab").hidden = false; log("The machine is already open in another tab — this one won't touch the hardware.", "err"); });
 
 // ---------- tickets ----------
 const designSelect = $("design");
@@ -290,34 +294,38 @@ on("controller:raw", ({ line }) => {
   else if (line.startsWith("COIN")) game.coin();
 });
 
-// keyboard + barcode scanner. A scanner "types" its code very fast and ends with
-// Enter; single keys are held back a moment so a code's letters aren't taken
-// as J/N/C presses.
-let scanBuffer = "", lastKeyAt = 0, pendingKey = null;
+// keyboard + barcode scanner. A scanner "types" its code very fast (a few ms
+// per key) and usually ends with Enter — but some send Tab or nothing, so a
+// fast burst that simply stops also counts. Single keys are held back a moment
+// so a code's letters aren't taken as C/J/N presses.
+let scanBuffer = "", lastKeyAt = 0, pendingKey = null, burstEnd = null;
+function endBurst() {
+  clearTimeout(burstEnd);
+  if (scanBuffer.length >= 4) { clearTimeout(pendingKey); onScan(scanBuffer); }
+  scanBuffer = "";
+}
 window.addEventListener("keydown", e => {
   if (e.target.closest?.("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
   const now = performance.now();
   const fast = now - lastKeyAt < 50;
   lastKeyAt = now;
-  if (e.key === "Enter") {
-    if (scanBuffer.length >= 3) onScan(scanBuffer);
-    scanBuffer = "";
-    clearTimeout(pendingKey);
-    return;
-  }
+  if (e.key === "Enter" || (e.key === "Tab" && scanBuffer.length >= 4)) { e.preventDefault(); endBurst(); return; }
   if (e.key.length !== 1) return;
   scanBuffer = fast ? scanBuffer + e.key : e.key;
+  clearTimeout(burstEnd);
+  burstEnd = setTimeout(endBurst, 150);
   clearTimeout(pendingKey);
   if (fast) return; // part of a scan
   const key = e.key.toLowerCase();
   pendingKey = setTimeout(() => {
+    if (scanBuffer.length > 1) return; // turned out to be the start of a scan
     if (key === "c") game.coin();
     else if (key === "j" || key === "y") game.answer(true);
     else if (key === "n") game.answer(false);
   }, 80);
 });
 function onScan(code) {
-  log(`Scanned: ${code}`);
+  log(`Scanned: ${code}${settings.scanIsCoin ? " → coin" : ""}`, "ok");
   if (settings.scanIsCoin) game.coin();
 }
 

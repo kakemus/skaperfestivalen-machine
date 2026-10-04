@@ -64,6 +64,8 @@
   .panel-label { font-size: 11px; color: #777; text-transform: uppercase; letter-spacing: 1px; }
   #ticketPreview { background: #fff; width: 360px; max-width: 100%; image-rendering: pixelated; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
   #beltView { width: 300px; max-width: 100%; border: 14px solid #1b1b1b; border-radius: 6px; box-shadow: 0 0 40px rgba(255,190,90,.35), 0 10px 30px rgba(0,0,0,.8); }
+  .warn { background: #5a1d1d; border: 1px solid #ff6b6b; color: #fff; padding: 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
+  .warn[hidden] { display: none; }
   .status { font: 13px/1.4 Menlo, monospace; background: #111; border: 1px solid #333; border-radius: 4px; padding: 8px; color: #ffcf3d; }
   code { font-size: 11px; background: #111; padding: 1px 4px; border-radius: 3px; }
   #lcd { max-width: 100%; background: #1b1b1b; padding: 18px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
@@ -73,6 +75,7 @@
 <body>
 <aside id="sidebar">
   <h1>Machine <span>· Skaperfestivalen</span></h1>
+  <div id="otherTab" class="warn" hidden>This page is already open in another tab, which is running the machine. Close the other tab (this one then takes over by itself), or use that one.</div>
 
   <div class="section">
     <h3>Connections</h3>

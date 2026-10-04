@@ -4,6 +4,7 @@
 // controller:* events emitted here. Copied from the occult printer, so a
 // micro:bit flashed for that machine speaks the same language.
 import { emit } from "./eventBus.js";
+import { inCharge } from "./singleTab.js";
 
 const BAUD_RATE = 115200;
 
@@ -40,6 +41,7 @@ function resetButtonState({ emitReleases = true } = {}) {
 // it can only reuse a port the browser already granted, and stays quiet if
 // there isn't one, because opening the picker needs a real click.
 export async function connect({ auto = false } = {}) {
+  if (!inCharge()) { if (!auto) emit("controller:error", { message: "Another tab is running the machine — use that one, or close it." }); return false; }
   if (connecting || port) return !!port;
   if (!("serial" in navigator)) {
     if (!auto) emit("controller:error", { message: "Web Serial isn't supported in this browser — use Chrome or Edge." });
