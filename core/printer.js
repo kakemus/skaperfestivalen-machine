@@ -188,7 +188,7 @@ async function runJob(job) {
       const durationMs = (canvas.height / DOTS_PER_MM / slowSpeedMmPerSec) * 1000;
       await paceOntoPaper(canvas, { durationMs, signal: abort.signal });
     } else {
-      await transfer(canvasToRasterBytes(canvas));
+      await sendInBands(canvas, abort.signal);
     }
     emit("printer:printed", { label: job.label });
     job.resolve({ printed: true });
@@ -210,6 +210,28 @@ async function runJob(job) {
     job.reject(e);
   } finally {
     if (activeAbort === abort) activeAbort = null;
+  }
+}
+
+// The fast path. One raster image per print worked for tickets, but the
+// ~1.3 m belt strip (≈10,000 rows) came out as rows of random letters: the
+// printer has a limit on how tall a single raster image may be, and past it
+// drops out of image mode and prints the bytes as text (2026-10-04). So a
+// print goes out as bands, each its own image, which the printer lays end to
+// end with no gap. 512 rows (6.4 cm) is far below any limit seen on these.
+const BAND_ROWS = 512;
+async function sendInBands(canvas, signal) {
+  if (canvas.height <= BAND_ROWS) return transfer(canvasToRasterBytes(canvas));
+  const band = document.createElement("canvas");
+  band.width = canvas.width;
+  const ctx = band.getContext("2d", { willReadFrequently: true });
+  for (let y = 0; y < canvas.height; y += BAND_ROWS) {
+    signal.throwIfAborted();
+    const h = Math.min(BAND_ROWS, canvas.height - y);
+    if (band.height !== h) band.height = h;
+    ctx.clearRect(0, 0, band.width, h);
+    ctx.drawImage(canvas, 0, y, canvas.width, h, 0, 0, canvas.width, h);
+    await transfer(canvasToRasterBytes(band));
   }
 }
 
