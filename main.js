@@ -324,6 +324,10 @@ window.addEventListener("keydown", e => {
     else if (key === "n") game.answer(false);
   }, 80);
 });
+$("printScannerCodes").onclick = () => {
+  showCanvas(TICKETS.scannerSetup.draw(values("scannerSetup"), { feedMm: settings.feedMm }), "Scanner setup codes");
+  printTicket("scannerSetup").catch(e => log(e.message, "err"));
+};
 function onScan(code) {
   log(`Scanned: ${code}${settings.scanIsCoin ? " → coin" : ""}`, "ok");
   if (settings.scanIsCoin) game.coin();

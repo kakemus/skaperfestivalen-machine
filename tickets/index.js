@@ -5,5 +5,6 @@ import prize from "./prize.js";
 import fortune from "./fortune.js";
 import plain from "./plain.js";
 import reward from "./reward.js";
+import scannerSetup from "./scannerSetup.js";
 
-export const TICKETS = { prize, fortune, plain, reward };
+export const TICKETS = { prize, fortune, plain, reward, scannerSetup };
