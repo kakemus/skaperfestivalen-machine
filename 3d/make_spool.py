@@ -2,6 +2,8 @@
 
 No 3D software needed: run `python3 3d/make_spool.py` after changing a number
 below, and it rewrites 3d/spool.stl. (spool.scad is the same part for OpenSCAD.)
+`python3 3d/make_spool.py test` writes spool_fit_test.stl instead: just a short
+ring with the motor hole, to check the shaft fit before printing full spools.
 
 Shape: a solid of revolution. Two flanges keep the 80 mm paper running
 straight (the top one flares out at 45° so it prints standing on the flat
@@ -12,6 +14,7 @@ screw in a bracket). Tape the paper to the core.
 import math
 import os
 import struct
+import sys
 
 # ---- sizes in mm (change these, then re-run) ----
 PAPER_GAP = 84.0        # space between the flanges: 80 mm paper + 4 mm play
@@ -23,6 +26,10 @@ SHAFT_FLATS = 3.8       # … flats ≈ 3.7 mm apart (+ a little print clearance
 SHAFT_DEPTH = 9.0       # how far the shaft goes in
 AXLE_D = 3.3            # M3 screw as the axle at the far end
 SEGMENTS = 128          # smoothness
+
+FIT_TEST = sys.argv[1:] == ["test"]
+if FIT_TEST:   # a 12 mm ring: the shaft hole and a flange to hold, nothing else
+    PAPER_GAP, FLANGE_D = 8.0, 30.0
 
 CONE = (FLANGE_D - CORE_D) / 2   # top flange flares out at 45°, so it prints standing up without supports
 L = FLANGE_T * 2 + PAPER_GAP + CONE
@@ -91,7 +98,7 @@ for a, b, c in tris:
         edges[e] = edges.get(e, 0) + 1
 bad = sum(1 for (p, q), n in edges.items() if n != 1 or edges.get((q, p)) != 1)
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "spool.stl")
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "spool_fit_test.stl" if FIT_TEST else "spool.stl")
 with open(out, "wb") as f:
     f.write(b"skaperfestivalen belt spool".ljust(80, b" "))
     f.write(struct.pack("<I", len(tris)))
