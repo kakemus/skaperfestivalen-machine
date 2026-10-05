@@ -10,7 +10,11 @@
 # Lines it understands:   BELT:STEP        one screen up
 #                         BELT:BACK:n      n screens down (rewind)
 #                         BELL:DING:n      ring n times
-# Lines it sends:         BELT:DONE / BELT:ERROR:why,  ANSWER:YES / ANSWER:NO,  COIN:1
+#                         MOTOR:m:speed:ms run motor m (1/2) at speed (-100..100) for ms — testing
+#                         LIGHT?           report the light sensor reading — for tuning the LDR
+#                         PING             answers PONG — "is the board there?"
+# Lines it sends:         BELT:DONE / BELT:ERROR:why,  ANSWER:YES / ANSWER:NO,  COIN:1,
+#                         LIGHT:n, PONG
 #
 # WIRING (first guesses — check against the real build, and tune the numbers below):
 #   Wukong M1 = top spool (pulls the strip up),  M2 = bottom spool (feeds it).
@@ -22,12 +26,20 @@
 #   micro:bit's own A / B also work as YES / NO.
 #
 # NOT TESTED ON HARDWARE YET. The Wukong motor command (I2C address 0x10,
-# [motor, direction, speed, 0]) follows ElecFreaks' own MakeCode extension.
+# [motor, direction, speed, 0]) is the same as ElecFreaks' own MakeCode
+# extension (pxt-wukong, setMotorSpeed) — checked 2026-10-05.
+#
+# Until the LDR is wired, USE_LDR = False: a step is just STEP_RUN_MS of motor
+# time, so the motors can be tried out. Switch it to True once the light
+# sensor sees the marks (use LIGHT? to check the readings).
 from microbit import *
 import radio
 
 GROUP = 42
 WUKONG = 0x10
+
+USE_LDR = False        # False = timed steps (no light sensor yet), True = stop on marks
+STEP_RUN_MS = 1500     # timed mode: how long one screen-step runs the motors
 
 PULL_SPEED = 60        # 0-100, top spool while stepping up
 FEED_SPEED = 45        # 0-100, bottom spool letting paper out (a bit slower keeps it tight)
@@ -88,15 +100,39 @@ def run_until_mark(top, bottom):
     return True
 
 
+def run_for(top, bottom, ms):
+    motor(1, top)
+    motor(2, bottom)
+    sleep(ms)
+    stop()
+    return True
+
+
+def step(top, bottom, ms):
+    return run_until_mark(top, bottom) if USE_LDR else run_for(top, bottom, ms)
+
+
 def handle(line):
     if line == "BELT:STEP":
         display.show(Image.ARROW_N)
-        say("BELT:DONE" if run_until_mark(PULL_SPEED, FEED_SPEED) else "BELT:ERROR:no mark")
+        say("BELT:DONE" if step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS) else "BELT:ERROR:no mark")
     elif line.startswith("BELT:BACK:"):
         display.show(Image.ARROW_S)
         n = int(line.split(":")[2])
-        ok = all(run_until_mark(-FEED_SPEED * REWIND_SPEED // PULL_SPEED, -REWIND_SPEED) for _ in range(n))
+        back_ms = STEP_RUN_MS * PULL_SPEED // REWIND_SPEED
+        ok = all(step(-FEED_SPEED * REWIND_SPEED // PULL_SPEED, -REWIND_SPEED, back_ms) for _ in range(n))
         say("BELT:DONE" if ok else "BELT:ERROR:no mark")
+    elif line.startswith("MOTOR:"):
+        _, m, speed, ms = line.split(":")
+        display.show(m)
+        motor(int(m), int(speed))
+        sleep(min(int(ms), 5000))   # never more than 5 s, so a typo can't tear the paper
+        stop()
+        say("MOTOR:DONE")
+    elif line == "LIGHT?":
+        say("LIGHT:%d" % light())
+    elif line == "PING":
+        say("PONG")
     elif line.startswith("BELL:DING"):
         times = int(line.split(":")[2]) if line.count(":") == 2 else 1
         for _ in range(times):

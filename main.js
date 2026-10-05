@@ -29,6 +29,7 @@ function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value
 const settings = load("machineSettings", {
   design: "prize", values: {}, slowMode: false, slowSpeed: 6, feedMm: 15, scene: "auto", sceneSeconds: 15,
   questions: null, answerSeconds: 30, rewardPrints: true, scanIsCoin: true, coinPrompt: true, strip: {},
+  jogSpeed: 50, jogMs: 1000,
 });
 const saveSettings = () => save("machineSettings", settings);
 
@@ -292,6 +293,25 @@ on("controller:raw", ({ line }) => {
   if (line === "ANSWER:YES") game.answer(true);
   else if (line === "ANSWER:NO") game.answer(false);
   else if (line.startsWith("COIN")) game.coin();
+});
+
+// belt test buttons — straight commands to the machine board (firmware/machine.py)
+function toBoard(line) {
+  if (controller.send(line)) log(`→ ${line}`);
+  else log("No micro:bit connected — click Connect next to micro:bit first.", "err");
+}
+bindRange("jogSpeed", "jogSpeed", v => `${v}`);
+bindRange("jogMs", "jogMs", v => `${(v / 1000).toFixed(1)} s`);
+document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
+  const [m, dir] = btn.dataset.jog.split(":").map(Number);
+  toBoard(`MOTOR:${m}:${dir * settings.jogSpeed}:${settings.jogMs}`);
+});
+$("ping").onclick = () => toBoard("PING");
+$("readLight").onclick = () => toBoard("LIGHT?");
+$("beltStep").onclick = () => toBoard("BELT:STEP");
+$("beltBack").onclick = () => toBoard("BELT:BACK:1");
+on("controller:raw", ({ line }) => {
+  if (/^(PONG|LIGHT:|MOTOR:|BELT:)/.test(line)) log(`← ${line}`, line.includes("ERROR") ? "err" : "ok");
 });
 
 // keyboard + barcode scanner. A scanner "types" its code very fast (a few ms
