@@ -311,7 +311,7 @@ $("readLight").onclick = () => toBoard("LIGHT?");
 $("beltStep").onclick = () => toBoard("BELT:STEP");
 $("beltBack").onclick = () => toBoard("BELT:BACK:1");
 on("controller:raw", ({ line }) => {
-  if (/^(PONG|LIGHT:|MOTOR:|BELT:)/.test(line)) log(`← ${line}`, line.includes("ERROR") ? "err" : "ok");
+  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
 });
 
 // keyboard + barcode scanner. A scanner "types" its code very fast (a few ms

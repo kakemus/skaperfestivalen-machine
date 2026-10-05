@@ -61,10 +61,26 @@ def say(line):
     radio.send(line)
 
 
+wukong_ok = True
+
+
 def motor(m, speed):
-    """m = 1 or 2, speed -100..100 (negative = backwards)."""
+    """m = 1 or 2, speed -100..100 (negative = backwards). False if the Wukong doesn't answer."""
+    global wukong_ok
     direction = 1 if speed >= 0 else 2
-    i2c.write(WUKONG, bytes([m, direction, min(100, abs(speed)), 0]))
+    try:
+        i2c.write(WUKONG, bytes([m, direction, min(100, abs(speed)), 0]))
+    except OSError:
+        # Wukong switched off / micro:bit not seated (ENODEV). Used to crash the
+        # whole program at startup; now report it once and keep going.
+        if wukong_ok:
+            say("WUKONG:OFF")
+        wukong_ok = False
+        return False
+    if not wukong_ok:
+        say("WUKONG:ON")
+    wukong_ok = True
+    return True
 
 
 def stop():
@@ -86,8 +102,8 @@ def on_mark():
 def run_until_mark(top, bottom):
     """Run the motors, first off the current mark, then until the next one."""
     global bright
-    motor(1, top)
-    motor(2, bottom)
+    if not (motor(1, top) and motor(2, bottom)):
+        return False
     start = running_time()
     while on_mark():                       # leave the mark we're sitting on
         if running_time() - start > STEP_TIMEOUT_MS:
@@ -101,8 +117,8 @@ def run_until_mark(top, bottom):
 
 
 def run_for(top, bottom, ms):
-    motor(1, top)
-    motor(2, bottom)
+    if not (motor(1, top) and motor(2, bottom)):
+        return False
     sleep(ms)
     stop()
     return True
@@ -112,23 +128,29 @@ def step(top, bottom, ms):
     return run_until_mark(top, bottom) if USE_LDR else run_for(top, bottom, ms)
 
 
+def belt_error():
+    return "BELT:ERROR:Wukong is off" if not wukong_ok else "BELT:ERROR:no mark"
+
+
 def handle(line):
     if line == "BELT:STEP":
         display.show(Image.ARROW_N)
-        say("BELT:DONE" if step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS) else "BELT:ERROR:no mark")
+        say("BELT:DONE" if step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS) else belt_error())
     elif line.startswith("BELT:BACK:"):
         display.show(Image.ARROW_S)
         n = int(line.split(":")[2])
         back_ms = STEP_RUN_MS * PULL_SPEED // REWIND_SPEED
         ok = all(step(-FEED_SPEED * REWIND_SPEED // PULL_SPEED, -REWIND_SPEED, back_ms) for _ in range(n))
-        say("BELT:DONE" if ok else "BELT:ERROR:no mark")
+        say("BELT:DONE" if ok else belt_error())
     elif line.startswith("MOTOR:"):
         _, m, speed, ms = line.split(":")
         display.show(m)
-        motor(int(m), int(speed))
-        sleep(min(int(ms), 5000))   # never more than 5 s, so a typo can't tear the paper
-        stop()
-        say("MOTOR:DONE")
+        if motor(int(m), int(speed)):
+            sleep(min(int(ms), 5000))   # never more than 5 s, so a typo can't tear the paper
+            stop()
+            say("MOTOR:DONE")
+        else:
+            say("MOTOR:ERROR:Wukong is off")
     elif line == "LIGHT?":
         say("LIGHT:%d" % light())
     elif line == "PING":
