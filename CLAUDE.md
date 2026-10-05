@@ -125,6 +125,11 @@ keyboard) — it's a handheld **MS5145 Eclipse** (not the till scanner whose hou
 button, `docs/scanner-enter-exit-and-reset.png` the enter/exit + recall-defaults page. Laser: it
 reads printed 1D codes only (no QR, no screens), and a **working doorbell gong** for the bell (needs a relay; keep it low-voltage).
 The on-screen game was built and played through in the browser 2026-10-04.
+**2026-10-05: motors confirmed working.** Receiver (R) and machine board (M) flashed from this repo's
+hex files; M1 ran forward/back on command, both straight over USB and from the page's Belt test.
+Gotchas found on the way: a micro:bit seated **the wrong way round in the Wukong** shows up as
+`i2c.scan()` → `[]` / `OSError ENODEV` (the Wukong answers at 0x10 when seated right — check
+that first); motor wire order only sets direction.
 Hardware on hand: **yellow "TT" DC gear motors** (no position feedback — needs a driver board, e.g.
 DRV8833 or a micro:bit motor board, and its own 4×AA / 5–6 V supply; never straight off micro:bit
 pins) and an **MG90S metal-gear micro servo** (planned for the bell hammer; also wants separate
