@@ -19,8 +19,9 @@
 # WIRING (first guesses — check against the real build, and tune the numbers below):
 #   Wukong M1 = top spool (pulls the strip up),  M2 = bottom spool (feeds it).
 #   Motors run on the Wukong's own battery, never on the micro:bit.
-#   LDR:    3V ── LDR ── P1 ── 10 kΩ ── GND   (LDR behind the paper, facing the backlight,
-#           level with where the marks pass). Bright paper = high reading, mark = low.
+#   LDR:    3V ── LDR ── P1, plus either a 10 kΩ resistor P1 ── GND or (as built now) just the
+#           micro:bit's internal pull-down, which light() switches on. LDR behind the paper,
+#           facing the backlight, level with the marks. Bright paper = high reading, mark = low.
 #   Bell:   P2 → relay module IN (relay switches the bell's own low-voltage supply).
 #   YES button: P8 to GND.   NO button: P12 to GND.   Coin switch: P13 to GND.
 #   micro:bit's own A / B also work as YES / NO.
@@ -89,6 +90,16 @@ def stop():
 
 
 def light():
+    # The bare LDR goes from V (3.3 V) to P1, and the micro:bit's own pull-down
+    # resistor makes the other half of the divider (what the maker used in
+    # MakeCode: "set pull pin P1 to down"). Without it P1 read ~930-1023 even
+    # covered. Re-applied before every reading in case an analog read clears
+    # it. A real 10 kΩ from P1 to GND does the same job, more predictably.
+    try:
+        pin1.read_digital()
+        pin1.set_pull(pin1.PULL_DOWN)
+    except Exception:
+        pass
     return pin1.read_analog()
 
 
