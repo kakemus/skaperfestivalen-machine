@@ -329,7 +329,7 @@ function showVerdict() {
 $("liveLight").onchange = () => {
   const on = $("liveLight").checked;
   $("lightMeter").hidden = !on;
-  if (on) { light.polling = every(250, () => controller.send("LIGHT?")); showVerdict(); }
+  if (on) { light.polling = every(150, () => controller.send("LIGHT?")); showVerdict(); }
   else if (light.polling) { cancelTimer(light.polling); light.polling = null; }
 };
 $("markPaper").onclick = () => { light.paper = light.now; showVerdict(); };

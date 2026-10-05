@@ -100,7 +100,11 @@ def light():
         pin1.set_pull(pin1.PULL_DOWN)
     except Exception:
         pass
-    return pin1.read_analog()
+    # Measured on the board (2026-10-05): the first analog read after switching
+    # often jumps to ~930 while the next ones sit steady (~730), so throw it away
+    # and take the median of 7 — single reads made the meter jump up and down.
+    pin1.read_analog()
+    return sorted(pin1.read_analog() for _ in range(7))[3]
 
 
 bright = max(light(), 1)
