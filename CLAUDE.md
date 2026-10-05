@@ -65,6 +65,11 @@ headers and always serves its own folder).
   Claude's own processes got "Permission denied" on /Volumes/MICROBIT (macOS removable-volume
   privacy), so flashing from a session needs Removable Volumes allowed for Claude — dragging the
   hex in Finder always works.
+- `3d/` — printable parts. `spool.stl` (built by `make_spool.py`, no 3D software needed; same
+  part as `spool.scad`): belt spool for 80 mm paper, 22 mm core, 40 mm flanges, D-hole 5.5/3.8 mm
+  for the TT motor shaft, 3.3 mm M3 axle hole at the far end, top flange a 45° cone so it prints
+  standing on the flat flange without supports. Print two. `preview.html` shows it (via the dev
+  server). Untested on a real printer/motor yet — the shaft fit may need ±0.1–0.2 mm.
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spool preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #ccc; font: 13px sans-serif; }
+  #info { position: fixed; left: 12px; top: 10px; }
+</style>
+</head>
+<body>
+<div id="info">spool.stl — drag to turn, scroll to zoom (open via start.command's server: /3d/preview.html)</div>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from "three";
+import { STLLoader } from "three/addons/loaders/STLLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+document.body.append(renderer.domElement);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 1, 2000);
+camera.position.set(120, 90, 140);
+const controls = new OrbitControls(camera, renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x333333, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(80, 120, 60); scene.add(sun);
+new STLLoader().load("spool.stl", geo => {
+  geo.center();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xffcf3d, roughness: 0.6 }));
+  mesh.rotation.y = Math.PI / 2;
+  scene.add(mesh);
+});
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, camera); });
+</script>
+</body>
+</html>
