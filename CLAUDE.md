@@ -69,7 +69,10 @@ headers and always serves its own folder).
   part as `spool.scad`): belt spool for 80 mm paper, 22 mm core, 40 mm flanges, D-hole 5.5/3.8 mm
   for the TT motor shaft, 3.3 mm M3 axle hole at the far end, top flange a 45° cone so it prints
   standing on the flat flange without supports. Print two. `preview.html` shows it (via the dev
-  server). Untested on a real printer/motor yet — the shaft fit may need ±0.1–0.2 mm.
+  server). **Shaft fit confirmed snug** on the school's Bambu P2S (PLA, 0.20 mm, fit-test ring,
+  2026-10-05) — keep SHAFT_D 5.5 / SHAFT_FLATS 3.8. `two_spools.3mf` / `fit_test.3mf` (from
+  `make_3mf.py`) open in Bambu Studio as geometry only (its "invalid config" notice is expected);
+  the P2S prints from a USB stick (export the sliced `.gcode.3mf`).
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 
