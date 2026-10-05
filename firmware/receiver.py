@@ -10,14 +10,14 @@ GROUP = 42  # must match the other boards
 radio.config(group=GROUP, length=64)
 radio.on()
 uart.init(115200)
-display.show(Image.DIAMOND_SMALL)
+display.show("R")  # R = receiver, so the two boards are easy to tell apart
 line_in = ""
 
 while True:
     msg = radio.receive()
     if msg:
         print(msg)
-        display.set_pixel(2, 2, 9 if display.get_pixel(2, 2) < 9 else 3)  # blink on traffic
+        display.set_pixel(4, 0, 9 if display.get_pixel(4, 0) < 9 else 0)  # top-right corner blinks on traffic
     if uart.any():
         line_in += (uart.read() or b"").decode("utf-8", "ignore")
         while "\n" in line_in:

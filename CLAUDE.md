@@ -59,6 +59,12 @@ headers and always serves its own folder).
   (handheld: buttons, logo, shake, tilt, mic → radio + USB) and `receiver.py` (on USB, forwards
   radio lines). Radio group 42 in both. Same line format as the occult printer's controller, so
   boards flashed for that machine also work here.
+- `firmware/*.hex` — ready-to-flash files (drag onto the MICROBIT drive in Finder): receiver shows
+  **R**, machine board shows **M**. Built with `uflash 2.0.0` (`uflash firmware/X.py <dir>`, bundled
+  MicroPython V2 2.0.0-beta.5; universal V1+V2 hex). **Rebuild them whenever a `.py` changes.**
+  Claude's own processes got "Permission denied" on /Volumes/MICROBIT (macOS removable-volume
+  privacy), so flashing from a session needs Removable Volumes allowed for Claude — dragging the
+  hex in Finder always works.
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 

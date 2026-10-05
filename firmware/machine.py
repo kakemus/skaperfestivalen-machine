@@ -138,12 +138,12 @@ def handle(line):
         for _ in range(times):
             pin2.write_digital(1); sleep(BELL_MS)
             pin2.write_digital(0); sleep(300)
-    display.clear()
+    display.show("M")
 
 
 last = {"yes": 1, "no": 1, "coin": 1}
 line_in = ""
-display.show(Image.HAPPY)
+display.show("M")  # M = machine board
 stop()
 
 while True:
