@@ -7,7 +7,7 @@ import * as ibm from "./core/ibmDisplay.js";
 import { TICKETS } from "./tickets/index.js";
 import { SCENES, INPUT_DEFAULTS } from "./display/scenes.js";
 import { setupReplica } from "./display/replica.js";
-import { every, after } from "./core/clock.js";
+import { every, after, cancel as cancelTimer } from "./core/clock.js";
 import { whenInCharge } from "./core/singleTab.js";
 import { textScene } from "./display/lcdText.js";
 import { createGame } from "./game/game.js";
@@ -310,7 +310,39 @@ $("ping").onclick = () => toBoard("PING");
 $("readLight").onclick = () => toBoard("LIGHT?");
 $("beltStep").onclick = () => toBoard("BELT:STEP");
 $("beltBack").onclick = () => toBoard("BELT:BACK:1");
+// live light meter: polls LIGHT? and helps pick paper vs. mark
+const light = { now: null, paper: null, mark: null, polling: null };
+function showVerdict() {
+  const { paper, mark } = light;
+  if (paper == null || mark == null) {
+    $("lightVerdict").textContent = `Paper: ${paper ?? "–"} · mark: ${mark ?? "–"}. Hold each in front of the sensor and press its button.`;
+    return;
+  }
+  // the firmware calls it a mark below 60 % of the paper reading (MARK_FRACTION)
+  const ratio = mark / paper;
+  $("lightVerdict").textContent = ratio < 0.45
+    ? `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): clear difference — the belt can stop on marks reliably.`
+    : ratio < 0.6
+      ? `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): works, but only just. More backlight or a closer sensor would help.`
+      : `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): too close to tell apart. Move the sensor nearer the paper, shade it from room light, or brighten the backlight.`;
+}
+$("liveLight").onchange = () => {
+  const on = $("liveLight").checked;
+  $("lightMeter").hidden = !on;
+  if (on) { light.polling = every(250, () => controller.send("LIGHT?")); showVerdict(); }
+  else if (light.polling) { cancelTimer(light.polling); light.polling = null; }
+};
+$("markPaper").onclick = () => { light.paper = light.now; showVerdict(); };
+$("markMark").onclick = () => { light.mark = light.now; showVerdict(); };
 on("controller:raw", ({ line }) => {
+  if (!line.startsWith("LIGHT:")) return;
+  light.now = Number(line.slice(6));
+  $("lightNow").textContent = `Light: ${light.now} (0 = dark, 1023 = bright)`;
+  $("lightBar").style.width = `${Math.min(100, light.now / 10.23)}%`;
+});
+
+on("controller:raw", ({ line }) => {
+  if (light.polling && line.startsWith("LIGHT:")) return; // the meter shows these; don't flood the log
   if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
 });
 

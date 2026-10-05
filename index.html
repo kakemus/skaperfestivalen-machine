@@ -66,6 +66,9 @@
   #beltView { width: 300px; max-width: 100%; border: 14px solid #1b1b1b; border-radius: 6px; box-shadow: 0 0 40px rgba(255,190,90,.35), 0 10px 30px rgba(0,0,0,.8); }
   .warn { background: #5a1d1d; border: 1px solid #ff6b6b; color: #fff; padding: 10px; border-radius: 6px; font-size: 13px; line-height: 1.4; }
   .warn[hidden] { display: none; }
+  .meter[hidden] { display: none; }
+  .meter .bar { height: 14px; background: #111; border: 1px solid #333; border-radius: 4px; margin: 8px 0 6px; overflow: hidden; }
+  .meter .bar i { display: block; height: 100%; width: 0; background: #ffcf3d; transition: width .15s; }
   .status { font: 13px/1.4 Menlo, monospace; background: #111; border: 1px solid #333; border-radius: 4px; padding: 8px; color: #ffcf3d; }
   code { font-size: 11px; background: #111; padding: 1px 4px; border-radius: 3px; }
   #lcd { max-width: 100%; background: #1b1b1b; padding: 18px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.8); }
@@ -117,6 +120,13 @@
     <div class="btn-group"><button data-jog="2:1">M2 forward</button><button data-jog="2:-1">M2 back</button></div>
     <div class="btn-group"><button id="beltStep">Step up one screen</button><button id="beltBack">Back one screen</button></div>
     <button id="readLight">Read the light sensor</button>
+    <label class="check"><input type="checkbox" id="liveLight"> Live light reading (4× a second)</label>
+    <div id="lightMeter" class="meter" hidden>
+      <div class="bar"><i id="lightBar"></i></div>
+      <div id="lightNow" class="status">–</div>
+      <div class="btn-group"><button id="markPaper">This is paper</button><button id="markMark">This is a mark</button></div>
+      <div id="lightVerdict" class="hint"></div>
+    </div>
   </div>
 
   <div class="section">
