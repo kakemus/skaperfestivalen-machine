@@ -1,6 +1,9 @@
-// The long printed strip that runs as a belt behind the backlit window.
+// The long printed strip that scrolls behind the backlit window — a scroll,
+// not a loop: it starts wound on the bottom spool and is pulled up onto the
+// top spool screen by screen (rewinding pulls it back down).
 //
-// Top to bottom: a leader (blank paper to wind onto the spool), screen 0
+// Top to bottom: a leader (blank paper glued to the top spool's core and
+// wound a few turns before anything shows in the window), screen 0
 // (START), screens 1..levels, then a tail leader. The belt moves UP, so the
 // next screen is the one printed BELOW the current one. Every screen carries a
 // black registration mark at the left edge, level with the screen's middle —
@@ -12,7 +15,7 @@ import { font, fitSize } from "../tickets/draw.js";
 export const DEFAULT_STRIP = {
   levels: 10,          // correct answers needed to win (screens 1..levels)
   screenMm: 100,       // height of one screen = how far the belt moves per step
-  leaderMm: 80,        // blank paper before the first and after the last screen
+  leaderMm: 200,       // blank paper at each end: glued to a spool core + a few turns + spool→window
   markMm: 8,           // registration mark height (home mark is 3x)
   markWidthMm: 10,
   titles: "START\nNIVÅ 1\nNIVÅ 2\nNIVÅ 3\nNIVÅ 4\nNIVÅ 5\nNIVÅ 6\nNIVÅ 7\nNIVÅ 8\nNIVÅ 9\nDU VANT!",
@@ -87,10 +90,22 @@ export function drawStrip(cfg) {
     }
   }
 
-  // leaders: a thin centre line + "↑" so whoever mounts it knows which way is up
+  // leaders: a "glue here" zone at the very ends, then arrows so whoever mounts
+  // it knows which end is up and which spool it goes on
+  const glue = Math.min(mmToDots(40), L.leader / 3);
+  for (const [y0, spool] of [[0, "ØVERSTE SPOLE"], [L.height - glue, "NEDERSTE SPOLE"]]) {
+    ctx.save();
+    ctx.setLineDash([10, 8]);
+    ctx.lineWidth = 3;
+    ctx.strokeRect(14, y0 + 8, PRINT_WIDTH - 28, glue - 16);
+    ctx.restore();
+    ctx.font = font(30, { weight: "900" });
+    ctx.fillText("LIM HER", PRINT_WIDTH / 2, y0 + glue / 2 - 16);
+    ctx.font = font(20);
+    ctx.fillText(`→ ${spool}`, PRINT_WIDTH / 2, y0 + glue / 2 + 18);
+  }
   ctx.font = font(28);
-  ctx.fillText("↑ OPP ↑", cx, L.leader / 2);
-  ctx.fillText("↑ OPP ↑", cx, L.height - L.leader / 2);
+  for (const y of [(glue + L.leader) / 2, L.height - (glue + L.leader) / 2]) ctx.fillText("↑ OPP ↑", cx, y);
   return c;
 }
 

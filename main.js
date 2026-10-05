@@ -369,10 +369,10 @@ showQuestionCount();
 function rebuildStrip() {
   const cfg = stripCfg();
   belt.setStrip(drawStrip(cfg), cfg);
-  $("stripInfo").textContent = `${cfg.levels + 1} screens · strip ≈ ${stripLengthCm(cfg).toFixed(0)} cm long · marks at the left edge, START has the long one`;
+  $("stripInfo").textContent = `${cfg.levels + 1} screens · strip ≈ ${stripLengthCm(cfg).toFixed(0)} cm long · ${(cfg.leaderMm / 10).toFixed(0)} cm blank at each end to glue on · marks at the left edge, START has the long one`;
   $("beltLabel").textContent = `Belt window · screen ${belt.position} of ${belt.last}`;
 }
-for (const [id, key, unit] of [["stripLevels", "levels", ""], ["stripScreenMm", "screenMm", " mm"]]) {
+for (const [id, key, unit] of [["stripLevels", "levels", ""], ["stripScreenMm", "screenMm", " mm"], ["stripLeaderMm", "leaderMm", " mm"]]) {
   const el = $(id), out = $(id + "Val");
   el.value = stripCfg()[key];
   out.textContent = el.value + unit;
@@ -380,8 +380,8 @@ for (const [id, key, unit] of [["stripLevels", "levels", ""], ["stripScreenMm", 
 }
 $("stripTitles").value = stripCfg().titles;
 $("stripTitles").oninput = () => { settings.strip = { ...settings.strip, titles: $("stripTitles").value }; saveSettings(); rebuildStrip(); };
-$("printStrip").onclick = () => printer.print({ label: "Belt strip", build: () => drawStrip(stripCfg()), slow: false });
-$("previewStrip").onclick = () => showCanvas(drawStrip(stripCfg()), `Belt strip · ${stripLengthCm(stripCfg()).toFixed(0)} cm`);
+$("printStrip").onclick = () => printer.print({ label: "Paper strip", build: () => drawStrip(stripCfg()), slow: false });
+$("previewStrip").onclick = () => showCanvas(drawStrip(stripCfg()), `Paper strip · ${stripLengthCm(stripCfg()).toFixed(0)} cm`);
 rebuildStrip();
 
 buildFields();
