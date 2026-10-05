@@ -15,6 +15,9 @@
 #                         MARKLEVEL:n      readings below n count as a mark (sent by the page after
 #                                          calibrating paper vs. mark; 0 = use MARK_FRACTION)
 #                         STOPMODE:MARK|TIME  stop on marks (light sensor) or use timed steps
+#                         SPEEDS:pull:feed:rewind  motor speeds 0-100 (set from the page's sliders)
+#                         SNUG:speed:ms    after each move, the feeding spool turns back this hard
+#                                          for this long to take up slack (0 = off)
 #                         PING             answers PONG — "is the board there?"
 # Lines it sends:         BELT:DONE / BELT:ERROR:why,  ANSWER:YES / ANSWER:NO,  COIN:1,
 #                         LIGHT:n, PONG
@@ -48,6 +51,8 @@ STEP_RUN_MS = 1500     # timed mode: how long one screen-step runs the motors
 PULL_SPEED = 60        # 0-100, top spool while stepping up
 FEED_SPEED = 45        # 0-100, bottom spool letting paper out (a bit slower keeps it tight)
 REWIND_SPEED = 80
+SNUG_SPEED = 30        # 0-100, the "snug tug" after a move (0 = off)
+SNUG_MS = 120          # how long the snug tug lasts
 STEP_TIMEOUT_MS = 8000 # per screen — give up if no mark turns up
 MARK_FRACTION = 0.6    # a mark = light reading below 60 % of the bright paper level
 BELL_MS = 250          # how long the relay holds the bell on per ding
@@ -147,6 +152,15 @@ def run_for(top, bottom, ms):
     return True
 
 
+def snug(m, direction):
+    """The snug tug: after a move, turn the spool that was feeding paper out back
+    a little, so the screen in the window is flat and tight."""
+    if SNUG_SPEED and SNUG_MS:
+        motor(m, direction * SNUG_SPEED)
+        sleep(SNUG_MS)
+        motor(m, 0)
+
+
 def step(top, bottom, ms):
     return run_until_mark(top, bottom) if USE_LDR else run_for(top, bottom, ms)
 
@@ -156,14 +170,20 @@ def belt_error():
 
 
 def handle(line):
+    global PULL_SPEED, FEED_SPEED, REWIND_SPEED, SNUG_SPEED, SNUG_MS
     if line == "BELT:STEP":
         display.show(Image.ARROW_N)
-        say("BELT:DONE" if step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS) else belt_error())
+        ok = step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS)
+        if ok:
+            snug(2, -1)   # going up the bottom spool fed paper out: wind it back a touch
+        say("BELT:DONE" if ok else belt_error())
     elif line.startswith("BELT:BACK:"):
         display.show(Image.ARROW_S)
         n = int(line.split(":")[2])
         back_ms = STEP_RUN_MS * PULL_SPEED // REWIND_SPEED
         ok = all(step(-FEED_SPEED * REWIND_SPEED // PULL_SPEED, -REWIND_SPEED, back_ms) for _ in range(n))
+        if ok:
+            snug(1, 1)    # rewinding the top spool fed paper out: wind it back a touch
         say("BELT:DONE" if ok else belt_error())
     elif line.startswith("MOTOR:"):
         _, m, speed, ms = line.split(":")
@@ -176,6 +196,14 @@ def handle(line):
             say("MOTOR:ERROR:Wukong is off")
     elif line == "LIGHT?":
         say("LIGHT:%d" % light())
+    elif line.startswith("SPEEDS:"):
+        _, p, f, r = line.split(":")
+        PULL_SPEED, FEED_SPEED, REWIND_SPEED = int(p), int(f), int(r)
+        say("SPEEDS:OK:%d:%d:%d" % (PULL_SPEED, FEED_SPEED, REWIND_SPEED))
+    elif line.startswith("SNUG:"):
+        _, sp, ms = line.split(":")
+        SNUG_SPEED, SNUG_MS = int(sp), min(int(ms), 1000)
+        say("SNUG:OK:%d:%d" % (SNUG_SPEED, SNUG_MS))
     elif line.startswith("MARKLEVEL:"):
         global mark_level
         mark_level = int(line.split(":")[1])

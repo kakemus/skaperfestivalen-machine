@@ -127,6 +127,12 @@
       <div class="btn-group"><button id="markPaper">This is paper</button><button id="markMark">This is a mark</button></div>
       <div id="lightVerdict" class="hint"></div>
     </div>
+    <label>Pull speed <input type="range" id="pullSpeed" min="20" max="100" step="5"><span id="pullSpeedVal"></span></label>
+    <label>Feed speed <input type="range" id="feedSpeed" min="0" max="100" step="5"><span id="feedSpeedVal"></span></label>
+    <label>Rewind speed <input type="range" id="rewindSpeed" min="20" max="100" step="5"><span id="rewindSpeedVal"></span></label>
+    <label>Snug tug strength <input type="range" id="snugSpeed" min="0" max="80" step="5"><span id="snugSpeedVal"></span></label>
+    <label>Snug tug time <input type="range" id="snugMs" min="0" max="600" step="20"><span id="snugMsVal"></span></label>
+    <p class="hint">Pull = the spool winding paper in, feed = the one letting it out (lower feed = tighter paper). The snug tug winds the feeding spool back a touch after every move. Changes go to the board when you let go of a slider.</p>
     <label class="check"><input type="checkbox" id="stopOnMarks"> Stop on marks (light sensor) — off = timed steps</label>
     <div id="markLevelInfo" class="hint"></div>
   </div>

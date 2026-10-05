@@ -30,6 +30,7 @@ const settings = load("machineSettings", {
   design: "prize", values: {}, slowMode: false, slowSpeed: 6, feedMm: 15, scene: "auto", sceneSeconds: 15,
   questions: null, answerSeconds: 30, rewardPrints: true, scanIsCoin: true, coinPrompt: true, strip: {},
   jogSpeed: 50, jogMs: 1000, markLevel: 0, stopOnMarks: false,
+  pullSpeed: 60, feedSpeed: 45, rewindSpeed: 80, snugSpeed: 30, snugMs: 120,
 });
 const saveSettings = () => save("machineSettings", settings);
 
@@ -355,10 +356,21 @@ $("stopOnMarks").onchange = () => {
   saveSettings();
   toBoard(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
 };
-// a freshly started board knows nothing: send the calibration + stop mode whenever it connects
+// motor speeds + snug tug: sent when a slider is let go, and on every connect
+const sendSpeeds = () => controller.send(`SPEEDS:${settings.pullSpeed}:${settings.feedSpeed}:${settings.rewindSpeed}`);
+const sendSnug = () => controller.send(`SNUG:${settings.snugSpeed}:${settings.snugMs}`);
+for (const [id, fmt, send] of [["pullSpeed", v => `${v}`, sendSpeeds], ["feedSpeed", v => `${v}`, sendSpeeds],
+  ["rewindSpeed", v => `${v}`, sendSpeeds], ["snugSpeed", v => v ? `${v}` : "off", sendSnug], ["snugMs", v => `${v} ms`, sendSnug]]) {
+  bindRange(id, id, fmt);
+  $(id).onchange = () => { if (!send()) log("Saved — sent to the board once a micro:bit is connected."); };
+}
+
+// a freshly started board knows nothing: send calibration, stop mode, speeds, snug whenever it connects
 on("controller:connected", () => after(1500, () => {
   if (settings.markLevel) controller.send(`MARKLEVEL:${settings.markLevel}`);
   controller.send(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
+  sendSpeeds();
+  sendSnug();
 }));
 showMarkLevel();
 $("liveLight").onchange = () => {
@@ -379,7 +391,7 @@ on("controller:raw", ({ line }) => {
 
 on("controller:raw", ({ line }) => {
   if (light.polling && line.startsWith("LIGHT:")) return; // the meter shows these; don't flood the log
-  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:|MARKLEVEL:|STOPMODE:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
+  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:|MARKLEVEL:|STOPMODE:|SPEEDS:|SNUG:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
 });
 
 // keyboard + barcode scanner. A scanner "types" its code very fast (a few ms
