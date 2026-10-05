@@ -12,6 +12,9 @@
 #                         BELL:DING:n      ring n times
 #                         MOTOR:m:speed:ms run motor m (1/2) at speed (-100..100) for ms — testing
 #                         LIGHT?           report the light sensor reading — for tuning the LDR
+#                         MARKLEVEL:n      readings below n count as a mark (sent by the page after
+#                                          calibrating paper vs. mark; 0 = use MARK_FRACTION)
+#                         STOPMODE:MARK|TIME  stop on marks (light sensor) or use timed steps
 #                         PING             answers PONG — "is the board there?"
 # Lines it sends:         BELT:DONE / BELT:ERROR:why,  ANSWER:YES / ANSWER:NO,  COIN:1,
 #                         LIGHT:n, PONG
@@ -110,7 +113,12 @@ def light():
 bright = max(light(), 1)
 
 
+mark_level = 0   # set by the page (MARKLEVEL:n) from its paper/mark calibration
+
+
 def on_mark():
+    if mark_level:
+        return light() < mark_level
     return light() < bright * MARK_FRACTION
 
 
@@ -168,6 +176,14 @@ def handle(line):
             say("MOTOR:ERROR:Wukong is off")
     elif line == "LIGHT?":
         say("LIGHT:%d" % light())
+    elif line.startswith("MARKLEVEL:"):
+        global mark_level
+        mark_level = int(line.split(":")[1])
+        say("MARKLEVEL:OK:%d" % mark_level)
+    elif line.startswith("STOPMODE:"):
+        global USE_LDR
+        USE_LDR = line.endswith("MARK")
+        say("STOPMODE:OK:" + ("MARK" if USE_LDR else "TIME"))
     elif line == "PING":
         say("PONG")
     elif line.startswith("BELL:DING"):

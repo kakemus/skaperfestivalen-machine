@@ -135,6 +135,13 @@ reads printed 1D codes only (no QR, no screens), and a **working doorbell gong**
 The on-screen game was built and played through in the browser 2026-10-04.
 **2026-10-05: motors confirmed working.** Receiver (R) and machine board (M) flashed from this repo's
 hex files; M1 ran forward/back on command, both straight over USB and from the page's Belt test.
+LDR (2026-10-05): bare LDR from V(3.3 V) to P1 with the micro:bit's **internal pull-down**
+(no resistor; the maker's MakeCode test did the same). Raw single reads jumped (~930 on the first
+read after switching), so `light()` drops the first sample and returns the median of 7 — steady to
+±3. First paper/mark test: 349 vs 284. Instead of a fixed 60 % rule the page now calibrates:
+"This is paper"/"This is a mark" → midpoint sent as `MARKLEVEL:n`, and a "Stop on marks" switch
+sends `STOPMODE:MARK|TIME` (both re-sent whenever the micro:bit connects, since the board forgets
+them on restart). An open MakeCode tab competes for the micro:bit over USB — close it.
 Gotchas found on the way: a micro:bit seated **the wrong way round in the Wukong** shows up as
 `i2c.scan()` → `[]` / `OSError ENODEV` (the Wukong answers at 0x10 when seated right — check
 that first); motor wire order only sets direction.

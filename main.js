@@ -29,7 +29,7 @@ function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value
 const settings = load("machineSettings", {
   design: "prize", values: {}, slowMode: false, slowSpeed: 6, feedMm: 15, scene: "auto", sceneSeconds: 15,
   questions: null, answerSeconds: 30, rewardPrints: true, scanIsCoin: true, coinPrompt: true, strip: {},
-  jogSpeed: 50, jogMs: 1000,
+  jogSpeed: 50, jogMs: 1000, markLevel: 0, stopOnMarks: false,
 });
 const saveSettings = () => save("machineSettings", settings);
 
@@ -311,39 +311,75 @@ $("readLight").onclick = () => toBoard("LIGHT?");
 $("beltStep").onclick = () => toBoard("BELT:STEP");
 $("beltBack").onclick = () => toBoard("BELT:BACK:1");
 // live light meter: polls LIGHT? and helps pick paper vs. mark
-const light = { now: null, paper: null, mark: null, polling: null };
+const light = { now: null, paper: null, mark: null, polling: null, recent: [] };
+// How much readings wobble on their own — the spread of the last few readings
+// at the moment each button is pressed (holding still), so the paper/mark gap
+// is judged against real noise, not a fixed percentage.
+const spreadNow = () => {
+  const last = light.recent.slice(-6);
+  return last.length < 3 ? 5 : Math.max(...last) - Math.min(...last);
+};
+const noise = () => Math.max(3, light.paperNoise ?? 5, light.markNoise ?? 5);
 function showVerdict() {
   const { paper, mark } = light;
   if (paper == null || mark == null) {
     $("lightVerdict").textContent = `Paper: ${paper ?? "–"} · mark: ${mark ?? "–"}. Hold each in front of the sensor and press its button.`;
     return;
   }
-  // the firmware calls it a mark below 60 % of the paper reading (MARK_FRACTION)
-  const ratio = mark / paper;
-  $("lightVerdict").textContent = ratio < 0.45
-    ? `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): clear difference — the belt can stop on marks reliably.`
-    : ratio < 0.6
-      ? `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): works, but only just. More backlight or a closer sensor would help.`
-      : `Paper ${paper}, mark ${mark} (${Math.round(ratio * 100)} %): too close to tell apart. Move the sensor nearer the paper, shade it from room light, or brighten the backlight.`;
+  const gap = paper - mark, n = noise();
+  if (gap <= 0) {
+    $("lightVerdict").textContent = `Paper ${paper}, mark ${mark}: the mark isn't darker than the paper — check you pressed the right buttons, and that the sensor sees the mark.`;
+    return;
+  }
+  sendMarkLevel(Math.round((paper + mark) / 2));
+  $("lightVerdict").textContent = gap >= 8 * n && gap >= 40
+    ? `Paper ${paper}, mark ${mark}: gap ${gap}, readings wobble ±${n} — clear enough to stop on marks. Threshold set to ${settings.markLevel}.`
+    : gap >= 4 * n && gap >= 20
+      ? `Paper ${paper}, mark ${mark}: gap ${gap}, wobble ±${n} — workable in a closed, dark box, but tight. Threshold set to ${settings.markLevel}. A closer or shaded sensor would make it safer.`
+      : `Paper ${paper}, mark ${mark}: gap ${gap}, wobble ±${n} — too close to tell apart reliably. Put the sensor right behind the paper opposite the backlight, shade it, or use bigger/blacker marks.`;
 }
+function sendMarkLevel(level) {
+  settings.markLevel = level;
+  saveSettings();
+  controller.send(`MARKLEVEL:${level}`);
+  showMarkLevel();
+}
+function showMarkLevel() {
+  $("markLevelInfo").textContent = settings.markLevel
+    ? `Mark threshold: below ${settings.markLevel} = mark (from your paper/mark calibration).`
+    : "No calibration yet — measure paper and a mark with the live reading above.";
+}
+$("stopOnMarks").checked = settings.stopOnMarks;
+$("stopOnMarks").onchange = () => {
+  settings.stopOnMarks = $("stopOnMarks").checked;
+  saveSettings();
+  toBoard(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
+};
+// a freshly started board knows nothing: send the calibration + stop mode whenever it connects
+on("controller:connected", () => after(1500, () => {
+  if (settings.markLevel) controller.send(`MARKLEVEL:${settings.markLevel}`);
+  controller.send(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
+}));
+showMarkLevel();
 $("liveLight").onchange = () => {
   const on = $("liveLight").checked;
   $("lightMeter").hidden = !on;
   if (on) { light.polling = every(150, () => controller.send("LIGHT?")); showVerdict(); }
   else if (light.polling) { cancelTimer(light.polling); light.polling = null; }
 };
-$("markPaper").onclick = () => { light.paper = light.now; showVerdict(); };
-$("markMark").onclick = () => { light.mark = light.now; showVerdict(); };
+$("markPaper").onclick = () => { light.paper = light.now; light.paperNoise = spreadNow(); showVerdict(); };
+$("markMark").onclick = () => { light.mark = light.now; light.markNoise = spreadNow(); showVerdict(); };
 on("controller:raw", ({ line }) => {
   if (!line.startsWith("LIGHT:")) return;
   light.now = Number(line.slice(6));
+  light.recent = [...light.recent.slice(-19), light.now];
   $("lightNow").textContent = `Light: ${light.now} (0 = dark, 1023 = bright)`;
   $("lightBar").style.width = `${Math.min(100, light.now / 10.23)}%`;
 });
 
 on("controller:raw", ({ line }) => {
   if (light.polling && line.startsWith("LIGHT:")) return; // the meter shows these; don't flood the log
-  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
+  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:|MARKLEVEL:|STOPMODE:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
 });
 
 // keyboard + barcode scanner. A scanner "types" its code very fast (a few ms
