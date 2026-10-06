@@ -73,6 +73,15 @@ headers and always serves its own folder).
   2026-10-05) — keep SHAFT_D 5.5 / SHAFT_FLATS 3.8. `two_spools.3mf` / `fit_test.3mf` (from
   `make_3mf.py`) open in Bambu Studio as geometry only (its "invalid config" notice is expected);
   the P2S prints from a USB stick (export the sliced `.gcode.3mf`).
+- `lasercut/` — the scroll cassette (2026-10-06): `make_cassette.py` writes
+  `cassette_plywood_4mm.svg` (one 600 × 400 sheet, red cut / blue engrave) and
+  `cassette_diffuser_3mm.svg`; `README.md` = parts list + assembly. Finger-jointed open-back box,
+  outer 128 × 218 × 96; motors inside on the left wall (rear shaft through an 8 mm hole + cable ties),
+  M3 axles in the right wall, 6 mm dowels keep the paper flat 3 mm behind the front, window 64 × 90
+  narrower than the paper so the marks + LDR (hole beside the window) stay hidden, diffuser slots,
+  removable back plate for the 8×8 NeoPixel matrix, front doubler for the heavy scanner housing
+  (prism box with two ~10 cm glass windows; mounted with long slots since its bracket wasn't
+  measured). Not cut yet; TT motor dims are typical values.
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 
