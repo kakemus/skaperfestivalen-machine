@@ -19,6 +19,7 @@
 #   STOP                                  stop everything now
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
 #   STREAM:ON|OFF                         send LIGHT:n ~7 times a second
+#   LED:ON | LED:OFF | LED:RGB:r:g:b | LED:TEST   the backlight (8×8 NeoPixel matrix)
 #   LIGHT?  PING  STATUS?  BELL:DING:n
 #   (older: SPEEDS:p:f:r  SNUG:s:ms  MARKLEVEL:n  STOPMODE:MARK|TIME — still understood)
 # Replies: BELT:DONE / BELT:ERROR:why, MOTOR:DONE, TENSION:DONE, STOPPED, BUSY,
@@ -30,12 +31,19 @@
 #   Wukong M2 = bottom spool (+ = lets paper out; − = winds it back in)
 #   LDR: V (3.3 V) ── LDR ── P1, internal pull-down (or 10 kΩ P1 ── GND). Paper = high, mark = low.
 #   Bell: P2 → relay.   YES: P8 to GND.   NO: P12 to GND.   Coin: P13 to GND.   A/B = YES/NO.
+#   Backlight: 8×8 NeoPixel (WS2812) DIN → P15 (S), GND → G, 5V → V — or better a separate
+#   5 V supply with its GND joined to the Wukong's. 64 LEDs at full white draw ~4 A, so the
+#   brightness is capped at LED_MAX; the default is dim enough to run from the Wukong for tests.
 from microbit import *
 import radio
+from neopixel import NeoPixel
 
 GROUP = 42
 WUKONG = 0x10
 BELL_MS = 250
+LED_PIN = pin15
+LED_COUNT = 64
+LED_MAX = 120          # never brighter than this per colour channel (current!)
 
 S = {                  # settings — the page sets these, the board keeps them in settings.txt
     "pull": 60,        # top spool speed going up (0-100)
@@ -51,6 +59,7 @@ S = {                  # settings — the page sets these, the board keeps them 
     "after": 0,        # keep going this many ms after a mark is found (centre the screen)
     "mingap": 300,     # ignore marks during the first ms of a screen (still leaving the old one)
     "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
+    "backlight": 25,   # backlight white level 0-120 (keep it steady: the light sensor reads it)
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -107,6 +116,21 @@ def motor(m, speed):
 def stop():
     motor(1, 0)
     motor(2, 0)
+
+
+leds = NeoPixel(LED_PIN, LED_COUNT)
+
+
+def leds_fill(r, g, b):
+    c = (min(LED_MAX, max(0, r)), min(LED_MAX, max(0, g)), min(LED_MAX, max(0, b)))
+    for i in range(LED_COUNT):
+        leds[i] = c
+    leds.show()
+
+
+def backlight_on():
+    v = S["backlight"]
+    leds_fill(v, v, v)
 
 
 def light():
@@ -196,6 +220,18 @@ def tick(now):
     if not task:
         return
     kind = task["kind"]
+    if kind == "ledtest":
+        if now >= task["end"]:
+            colours = ((60, 0, 0), (0, 60, 0), (0, 0, 60), (60, 60, 60))
+            if task["i"] < len(colours):
+                leds_fill(*colours[task["i"]])
+                task["i"] += 1
+                task["end"] = now + 600
+            else:
+                backlight_on()
+                say("LED:DONE")
+                task = None
+        return
     if kind in ("tension", "jog"):
         if now >= task["end"]:
             stop()
@@ -245,6 +281,8 @@ def set_value(key, value, now):
         return
     S[key] = int(value)
     save_due = now + 2000          # write to flash once things settle
+    if key == "backlight":
+        backlight_on()
     say("SET:OK:%s:%d" % (key, S[key]))
 
 
@@ -290,6 +328,21 @@ def handle(line, now):
             show(parts[1])
         else:
             say("MOTOR:ERROR:Wukong is off")
+    elif cmd == "LED":
+        if parts[1] == "ON":
+            backlight_on()
+            say("LED:OK:ON")
+        elif parts[1] == "OFF":
+            leds_fill(0, 0, 0)
+            say("LED:OK:OFF")
+        elif parts[1] == "RGB":
+            leds_fill(int(parts[2]), int(parts[3]), int(parts[4]))
+            say("LED:OK:RGB")
+        elif parts[1] == "TEST":
+            if task:
+                say("BUSY")
+            else:
+                task = {"kind": "ledtest", "i": 0, "end": now}
     elif cmd == "BELL":
         for _ in range(int(parts[2]) if len(parts) > 2 else 1):
             pin2.write_digital(1)
@@ -325,6 +378,10 @@ next_hb = 0
 next_stream = 0
 stop()
 show("M")
+try:
+    backlight_on()
+except Exception as e:
+    say("ERR:backlight:%s" % e)
 
 while True:
     now = running_time()

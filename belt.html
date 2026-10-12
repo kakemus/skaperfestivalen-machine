@@ -112,6 +112,16 @@
   </section>
 
   <section>
+    <h2>Backlight (LED matrix)</h2>
+    <div class="grid">
+      <label>Brightness (0–120)</label><input type="number" id="backlight" min="0" max="120">
+      <small>Start low (about 25) when powered from the Wukong. Keep it steady — the light sensor reads it, so recalibrate after changing it.</small>
+    </div>
+    <div class="row" style="margin-top:8px"><button id="ledOn">On</button><button id="ledOff">Off</button><button id="ledTest">Test colours</button></div>
+    <p class="hint">Wiring: matrix DIN → P15 (S), GND → G, 5V → V (or a separate 5 V supply with its GND joined to the Wukong's).</p>
+  </section>
+
+  <section>
     <h2>Repeat test</h2>
     <div class="grid">
       <label>Steps up per round</label><input type="number" id="tUp" min="1" max="15">

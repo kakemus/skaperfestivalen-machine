@@ -15,10 +15,10 @@ const $ = id => document.getElementById(id);
 // ---------- settings ----------
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
-  "steptime", "timeout", "after", "mingap", "idletension"];
+  "steptime", "timeout", "after", "mingap", "idletension", "backlight"];
 const DEFAULTS = {
   pull: 60, feed: 45, rewind: 80, tension: 35, tensionms: 200, mode: 0, level: 0, hyst: 8,
-  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0,
+  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25,
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,
 };
 let saved = null;
@@ -199,7 +199,7 @@ on("controller:raw", ({ line }) => {
 // ---------- moves ----------
 let pending = null;   // { resolve, timer, label }
 function setBusy(b) {
-  for (const id of ["up", "down", "rewind", "tighten", "tStart"]) $(id).disabled = b;
+  for (const id of ["up", "down", "rewind", "tighten", "tStart", "ledTest"]) $(id).disabled = b;
   document.querySelectorAll("[data-jog]").forEach(el => (el.disabled = b));
 }
 function move(line, label, screens = 1) {
@@ -222,7 +222,7 @@ function finish(result) {
 }
 function settleMove(line) {
   if (!pending) return;
-  if (line === "BELT:DONE" || line === "TENSION:DONE" || line === "MOTOR:DONE") finish("ok");
+  if (line === "BELT:DONE" || line === "TENSION:DONE" || line === "MOTOR:DONE" || line === "LED:DONE") finish("ok");
   else if (line.startsWith("BELT:ERROR") || line.startsWith("MOTOR:ERROR") || line === "BUSY" || line === "STOPPED" || line.startsWith("ERR:")) finish(line);
 }
 function showPos() { $("pos").textContent = st.pos === 0 ? "Screen 0 (START)" : `Screen ${st.pos}`; persist(); }
@@ -242,6 +242,9 @@ $("up").onclick = stepUp;
 $("down").onclick = stepDown;
 $("rewind").onclick = rewindToStart;
 $("tighten").onclick = () => move("TENSION", "Tighten");
+$("ledOn").onclick = () => toBoard("LED:ON");
+$("ledOff").onclick = () => toBoard("LED:OFF");
+$("ledTest").onclick = () => move("LED:TEST", "LED test");
 $("here0").onclick = () => { st.pos = 0; showPos(); log("Position set to START."); };
 document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
   const [m, dir] = btn.dataset.jog.split(":").map(Number);
