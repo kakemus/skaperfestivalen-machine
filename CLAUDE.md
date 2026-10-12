@@ -74,9 +74,10 @@ headers and always serves its own folder).
   `make_3mf.py`) open in Bambu Studio as geometry only (its "invalid config" notice is expected);
   the P2S prints from a USB stick (export the sliced `.gcode.3mf`).
 - `lasercut/` — the scroll cassette (2026-10-06): `make_cassette.py` writes
-  `cassette_plywood_4mm.svg` (one 600 × 400 sheet, red cut / blue engrave) and
+  `cassette_mdf_3mm.svg` (3 mm MDF, one 570 × 400 bed — the cutter's real usable area; the
+  maker's MDF is 2 mm and 3 mm boards of 1190 × 815, cut into 4 × 565 × 395 each) and
   `cassette_diffuser_3mm.svg`; `README.md` = parts list + assembly. Finger-jointed open-back box,
-  outer 128 × 218 × 96; motors inside on the left wall (rear shaft through an 8 mm hole + cable ties),
+  outer 126 × 216 × 95; motors inside on the left wall (rear shaft through an 8 mm hole + cable ties),
   M3 axles in the right wall, 6 mm dowels keep the paper flat 3 mm behind the front, window 64 × 90
   narrower than the paper so the marks + LDR (hole beside the window) stay hidden, diffuser slots,
   removable back plate for the 8×8 NeoPixel matrix, front doubler for the heavy scanner housing

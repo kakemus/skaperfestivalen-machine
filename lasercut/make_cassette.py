@@ -3,7 +3,7 @@ both spools, the light sensor and the backlight, and later slides into the
 arcade cabinet.
 
   python3 lasercut/make_cassette.py
-  → lasercut/cassette_plywood_4mm.svg   (one 600 × 400 mm sheet of 4 mm plywood)
+  → lasercut/cassette_mdf_3mm.svg       (one 570 × 400 mm bed of 3 mm MDF)
   → lasercut/cassette_diffuser_3mm.svg  (the diffuser, 3 mm opal / frosted acrylic)
 
 Red = cut, blue = engrave/score (part names, placement marks). Units are mm.
@@ -31,7 +31,8 @@ import math
 import os
 
 # ---------- numbers ----------
-T = 4.0             # plywood thickness
+T = 3.0             # sheet thickness (3 mm MDF; was 3 mm MDF)
+BED_W, BED_H = 570.0, 400.0   # the laser cutter's usable bed
 T_DIFF = 3.0        # diffuser acrylic thickness
 KERF = 0.0          # laser kerf compensation; cut the joint test first and adjust
 
@@ -291,11 +292,11 @@ row2 = [place(top_bottom("TOP"), G, y2), place(top_bottom("BOTTOM"), G + X + G, 
         place((test_a, 48, 30), bx + back[2] + G + 4, by), place((test_b, 48, 30), bx + back[2] + G + 4, by + 36)]
 width_used = max(G + 2 * (X + G) + 2 * Z + G, bx + back[2] + G + 4 + 48)
 height_used = y2 + max(Z, back[1] + 2 * T)
-assert width_used <= 600 and height_used <= 400, f"doesn't fit the 600 × 400 bed: {width_used} × {height_used}"
+assert width_used <= BED_W and height_used <= BED_H, f"doesn't fit the {BED_W:.0f} × {BED_H:.0f} bed: {width_used} × {height_used}"
 
-with open(os.path.join(HERE, "cassette_plywood_4mm.svg"), "w") as f:
-    f.write(sheet(600, 400, row1 + row2, "4 mm plywood. Red = cut, blue = engrave/score."))
+with open(os.path.join(HERE, "cassette_mdf_3mm.svg"), "w") as f:
+    f.write(sheet(BED_W, BED_H, row1 + row2, f"{T:g} mm MDF. Red = cut, blue = engrave/score."))
 with open(os.path.join(HERE, "cassette_diffuser_3mm.svg"), "w") as f:
     f.write(sheet(200, 140, [place(diffuser(), G + T, G)], "3 mm opal acrylic. Red = cut, blue = engrave."))
-print(f"box outer {X} × {Y} × {Z} mm; parts use {width_used:.0f} × {height_used:.0f} mm of the 600 × 400 sheet")
+print(f"box outer {X} × {Y} × {Z} mm; parts use {width_used:.0f} × {height_used:.0f} mm of the {BED_W:.0f} × {BED_H:.0f} bed")
 print(f"paper left edge {paper_x0:.1f} mm from the left wall; window {window_x[0]:.1f}–{window_x[1]:.1f}; sensor at {ldr_x:.1f}")

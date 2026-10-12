@@ -7,23 +7,47 @@ It later slides into the arcade cabinet as one unit.
 
 | File | Material | What |
 |---|---|---|
-| `cassette_plywood_4mm.svg` | 4 mm birch plywood, one 600 × 400 sheet | front, front doubler, left wall (motors), right wall (axles), top, bottom, back plate, 2 joint-test pieces |
+| `cassette_mdf_3mm.svg` | 3 mm MDF, one 570 × 400 bed | front, front doubler, left wall (motors), right wall (axles), top, bottom, back plate, 2 joint-test pieces |
 | `cassette_diffuser_3mm.svg` | 3 mm opal / frosted acrylic | the diffuser |
 | `make_cassette.py` | — | makes both files; change a number at the top and run `python3 lasercut/make_cassette.py` |
 
 Red lines = cut. Blue = engrave or score (part names, where the motors and the LED matrix go).
-Units are millimetres — check the laser software imports at 1:1 (the sheet outline is 600 × 400).
+Units are millimetres — check the laser software imports at 1:1 (the blue sheet outline is 570 × 400).
 
 **Cut the two TEST pieces first** and push them together. They should slot in firmly by hand.
 Too loose or too tight → set `KERF` in `make_cassette.py` (try 0.1), regenerate, test again.
 
+## Cutting the big MDF boards down to laser size
+
+The boards are 1190 × 815 mm, the laser bed 570 × 400. Each board gives **4 pieces**:
+
+```
+ 1190 ──────────────────────────────────
+ ┌────────────────┬────────────────┬──┐
+ │   565 × 395    │   565 × 395    │  │ 815
+ ├────────────────┼────────────────┤  │
+ │   565 × 395    │   565 × 395    │  │
+ └────────────────┴────────────────┴──┘
+   (≈ 55 mm strip on the right, ≈ 20 mm along the bottom: offcuts)
+```
+
+1. Cut across the 1190 side at **565 mm** (a first cut), then again at 565 from that cut.
+2. Cut each 565 × 815 strip across at **395 mm**.
+
+565 × 395 rather than the full 570 × 400 leaves a few millimetres so a slightly crooked saw cut
+still fits the bed. 2 mm MDF can be scored with a sharp knife against a steel ruler (several
+passes) and snapped; 3 mm too with patience, but a table/track saw at the workshop is quicker.
+
+**What goes on which:** the box is 3 mm (one bed piece). The 2 mm pieces are for later parts —
+spacers, the coin chute, button plates, test pieces — or a lighter front doubler.
+
 ## Box size
 
-Outer 128 × 218 × 96 mm. Window 64 × 90 mm (one screen of the strip shows through it).
+Outer 126 × 216 × 95 mm. Window 64 × 90 mm (one screen of the strip shows through it).
 
 ## Also needed
 
-- 2 × 6 mm wooden dowel, 128 mm long (paper guides, through both side walls)
+- 2 × 6 mm wooden dowel, 126 mm long (paper guides, through both side walls)
 - 2 × M3 screw ~16 mm + nuts/washers (spool axles in the right wall; washers fill the gap so the spool can't slide)
 - 4–8 cable ties, max 2.5 mm wide (hold the motors to the left wall)
 - the 5 mm LDR (goes in the small hole beside the window, sensor face flush with the inside)
