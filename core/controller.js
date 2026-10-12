@@ -99,16 +99,54 @@ export async function disconnect() {
 
 // Send one "KEY:VALUE" line to the micro:bit on USB (the machine board, or the
 // receiver, which passes it on by radio). Returns false when nothing is connected.
+//
+// A write can hang if the board stops reading (the old firmware slept through
+// every motor move), and then every later command queued behind it forever —
+// "motors stop working until I refresh the page" (2026-10-12). So each write
+// gets WRITE_TIMEOUT_MS; if it doesn't finish, the stuck writer is aborted and
+// the connection is reopened by itself.
 const encoder = new TextEncoder();
+const WRITE_TIMEOUT_MS = 1500;
 let writing = Promise.resolve();
+let activeWriter = null;
+let generation = 0;     // bumps on every reconnect: writes queued before it are dropped quietly
 export function send(line) {
   if (!port?.writable) return false;
+  const gen = generation;
   writing = writing.then(async () => {
-    const writer = port.writable.getWriter();
-    try { await writer.write(encoder.encode(line + "\n")); }
-    finally { writer.releaseLock(); }
-  }).catch(e => emit("controller:error", { message: "Couldn't send to the micro:bit: " + e.message }));
+    if (!port?.writable || gen !== generation) return;
+    const writer = activeWriter = port.writable.getWriter();
+    let timer;
+    try {
+      await Promise.race([
+        writer.write(encoder.encode(line + "\n")),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("write timed out")), WRITE_TIMEOUT_MS); }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+      if (activeWriter === writer) activeWriter = null;
+      try { writer.releaseLock(); } catch {}
+    }
+  }).catch(e => {
+    if (gen !== generation) return;
+    emit("controller:error", { message: `Couldn't send "${line}" to the micro:bit (${e?.message || "connection reset"}) — reconnecting.` });
+    reconnect();
+  });
   return true;
+}
+
+/** Drop the connection and open it again (used when a write hangs, or the board goes quiet). */
+export function reconnect() {
+  generation++;
+  if (!port) return connect({ auto: true });
+  reconnectWhenClosed = true;
+  keepReading = false;
+  activeWriter?.abort().catch(() => {});
+  activeWriter = null;
+  // a write still stuck in the stream would stop port.close() — throw it away
+  try { if (port.writable && !port.writable.locked) port.writable.abort().catch(() => {}); } catch {}
+  writing = Promise.resolve();
+  reader?.cancel().catch(() => {});
 }
 
 async function readLoop() {

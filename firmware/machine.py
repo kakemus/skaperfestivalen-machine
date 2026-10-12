@@ -1,68 +1,83 @@
 # The machine micro:bit (V2), sitting on an ElecFreaks Wukong motor board.
-# Flash at https://python.microbit.org. Plug it into the computer by USB.
+# Plug it into the computer by USB (or talk to it by radio through receiver.py).
 #
-# It runs the belt (two TT motors), watches the strip's registration marks
-# with a light-dependent resistor, rings the bell through a relay, and reads
-# the YES / NO buttons and the coin switch. It talks to the page over USB
-# (and also over radio, so it can sit away from the computer with a receiver
-# board plugged in instead).
+# It runs the belt (two TT motors winding a paper scroll between two spools),
+# watches the strip's black marks with a light-dependent resistor, rings the
+# bell through a relay, and reads the YES / NO buttons and the coin switch.
 #
-# Lines it understands:   BELT:STEP        one screen up
-#                         BELT:BACK:n      n screens down (rewind)
-#                         BELL:DING:n      ring n times
-#                         MOTOR:m:speed:ms run motor m (1/2) at speed (-100..100) for ms — testing
-#                         LIGHT?           report the light sensor reading — for tuning the LDR
-#                         MARKLEVEL:n      readings below n count as a mark (sent by the page after
-#                                          calibrating paper vs. mark; 0 = use MARK_FRACTION)
-#                         STOPMODE:MARK|TIME  stop on marks (light sensor) or use timed steps
-#                         SPEEDS:pull:feed:rewind  motor speeds 0-100 (set from the page's sliders)
-#                         SNUG:speed:ms    after each move, the feeding spool turns back this hard
-#                                          for this long to take up slack (0 = off)
-#                         PING             answers PONG — "is the board there?"
-# Lines it sends:         BELT:DONE / BELT:ERROR:why,  ANSWER:YES / ANSWER:NO,  COIN:1,
-#                         LIGHT:n, PONG
+# NEVER BLOCKS (rewritten 2026-10-12): the old version slept through every
+# motor move, so commands sent meanwhile piled up in the tiny serial buffer and
+# got cut off ("M1 forward works but not M2 back"), and the page's writes could
+# stall. Now the main loop keeps reading while motors run; moves are a small
+# state machine ticked every few ms; STOP works at any moment; a bad line
+# answers ERR instead of crashing; a heartbeat goes out every 2 s.
 #
-# WIRING (first guesses — check against the real build, and tune the numbers below):
-#   Wukong M1 = top spool (pulls the strip up),  M2 = bottom spool (feeds it).
-#   Motors run on the Wukong's own battery, never on the micro:bit.
-#   LDR:    3V ── LDR ── P1, plus either a 10 kΩ resistor P1 ── GND or (as built now) just the
-#           micro:bit's internal pull-down, which light() switches on. LDR behind the paper,
-#           facing the backlight, level with the marks. Bright paper = high reading, mark = low.
-#   Bell:   P2 → relay module IN (relay switches the bell's own low-voltage supply).
-#   YES button: P8 to GND.   NO button: P12 to GND.   Coin switch: P13 to GND.
-#   micro:bit's own A / B also work as YES / NO.
+# Commands (one per line):
+#   BELT:STEP | BELT:UP:n | BELT:BACK:n   move 1 / n screens up, n screens down
+#   TENSION                               both spools pull against each other a moment
+#   MOTOR:m:speed:ms                      run motor m (1/2) at -100..100 for ms (≤ 5 s)
+#   STOP                                  stop everything now
+#   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
+#   STREAM:ON|OFF                         send LIGHT:n ~7 times a second
+#   LIGHT?  PING  STATUS?  BELL:DING:n
+#   (older: SPEEDS:p:f:r  SNUG:s:ms  MARKLEVEL:n  STOPMODE:MARK|TIME — still understood)
+# Replies: BELT:DONE / BELT:ERROR:why, MOTOR:DONE, TENSION:DONE, STOPPED, BUSY,
+#   SET:OK:key:value, SETTINGS:k=v,..., LIGHT:n, PONG, HB:state:wukong:light,
+#   WUKONG:ON|OFF, ANSWER:YES|NO, COIN:1, ERR:...
 #
-# NOT TESTED ON HARDWARE YET. The Wukong motor command (I2C address 0x10,
-# [motor, direction, speed, 0]) is the same as ElecFreaks' own MakeCode
-# extension (pxt-wukong, setMotorSpeed) — checked 2026-10-05.
-#
-# Until the LDR is wired, USE_LDR = False: a step is just STEP_RUN_MS of motor
-# time, so the motors can be tried out. Switch it to True once the light
-# sensor sees the marks (use LIGHT? to check the readings).
+# WIRING
+#   Wukong M1 = top spool (+ = winds paper in, strip moves up)
+#   Wukong M2 = bottom spool (+ = lets paper out; − = winds it back in)
+#   LDR: V (3.3 V) ── LDR ── P1, internal pull-down (or 10 kΩ P1 ── GND). Paper = high, mark = low.
+#   Bell: P2 → relay.   YES: P8 to GND.   NO: P12 to GND.   Coin: P13 to GND.   A/B = YES/NO.
 from microbit import *
 import radio
 
 GROUP = 42
 WUKONG = 0x10
+BELL_MS = 250
 
-USE_LDR = False        # False = timed steps (no light sensor yet), True = stop on marks
-STEP_RUN_MS = 1500     # timed mode: how long one screen-step runs the motors
+S = {                  # settings — the page sets these, the board keeps them in settings.txt
+    "pull": 60,        # top spool speed going up (0-100)
+    "feed": 45,        # the spool letting paper out — slower than the pulling one keeps it tight
+    "rewind": 80,      # bottom spool speed going down
+    "tension": 35,     # strength of the tug after every move (0 = off)
+    "tensionms": 200,  # how long the tug lasts
+    "mode": 0,         # 0 = timed steps, 1 = stop on marks
+    "level": 0,        # light below this = a mark (0 = not calibrated → timed steps)
+    "hyst": 8,         # light must rise above level + hyst to count as "off the mark"
+    "steptime": 1500,  # timed mode: ms per screen
+    "timeout": 8000,   # mark mode: give up on a screen after this many ms
+    "after": 0,        # keep going this many ms after a mark is found (centre the screen)
+    "mingap": 300,     # ignore marks during the first ms of a screen (still leaving the old one)
+    "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
+}
+SETTINGS_FILE = "settings.txt"
 
-PULL_SPEED = 60        # 0-100, top spool while stepping up
-FEED_SPEED = 45        # 0-100, bottom spool letting paper out (a bit slower keeps it tight)
-REWIND_SPEED = 80
-SNUG_SPEED = 30        # 0-100, the "snug tug" after a move (0 = off)
-SNUG_MS = 120          # how long the snug tug lasts
-STEP_TIMEOUT_MS = 8000 # per screen — give up if no mark turns up
-MARK_FRACTION = 0.6    # a mark = light reading below 60 % of the bright paper level
-BELL_MS = 250          # how long the relay holds the bell on per ding
 
-radio.config(group=GROUP, length=64)
+def load():
+    try:
+        with open(SETTINGS_FILE) as f:
+            for line in f.read().split("\n"):
+                if "=" in line:
+                    k, v = line.split("=", 1)
+                    if k in S:
+                        S[k] = int(v)
+    except Exception:
+        pass
+
+
+def save():
+    with open(SETTINGS_FILE, "w") as f:
+        f.write("\n".join("%s=%d" % (k, S[k]) for k in S))
+
+
+radio.config(group=GROUP, length=64, queue=10)
 radio.on()
 uart.init(115200)
-
-for pin in (pin8, pin12, pin13):
-    pin.set_pull(pin.PULL_UP)
+for p in (pin8, pin12, pin13):
+    p.set_pull(p.PULL_UP)
+load()
 
 
 def say(line):
@@ -74,14 +89,11 @@ wukong_ok = True
 
 
 def motor(m, speed):
-    """m = 1 or 2, speed -100..100 (negative = backwards). False if the Wukong doesn't answer."""
+    """m = 1 or 2, speed -100..100. False if the Wukong doesn't answer (switched off / not seated)."""
     global wukong_ok
-    direction = 1 if speed >= 0 else 2
     try:
-        i2c.write(WUKONG, bytes([m, direction, min(100, abs(speed)), 0]))
+        i2c.write(WUKONG, bytes([m, 1 if speed >= 0 else 2, min(100, abs(int(speed))), 0]))
     except OSError:
-        # Wukong switched off / micro:bit not seated (ENODEV). Used to crash the
-        # whole program at startup; now report it once and keep going.
         if wukong_ok:
             say("WUKONG:OFF")
         wukong_ok = False
@@ -98,156 +110,267 @@ def stop():
 
 
 def light():
-    # The bare LDR goes from V (3.3 V) to P1, and the micro:bit's own pull-down
-    # resistor makes the other half of the divider (what the maker used in
-    # MakeCode: "set pull pin P1 to down"). Without it P1 read ~930-1023 even
-    # covered. Re-applied before every reading in case an analog read clears
-    # it. A real 10 kΩ from P1 to GND does the same job, more predictably.
+    # Bare LDR + internal pull-down: re-apply the pull before reading, drop the
+    # first sample (it jumps), return the median of 7 (steady to about ±3).
     try:
         pin1.read_digital()
         pin1.set_pull(pin1.PULL_DOWN)
     except Exception:
         pass
-    # Measured on the board (2026-10-05): the first analog read after switching
-    # often jumps to ~930 while the next ones sit steady (~730), so throw it away
-    # and take the median of 7 — single reads made the meter jump up and down.
     pin1.read_analog()
     return sorted(pin1.read_analog() for _ in range(7))[3]
 
 
-bright = max(light(), 1)
+# ---------- the state machine ----------
+task = None        # what's running: a dict, or None when idle
+last_action = 0
+shown = None
 
 
-mark_level = 0   # set by the page (MARKLEVEL:n) from its paper/mark calibration
+def show(img):
+    global shown
+    if img != shown:
+        display.show(img)
+        shown = img
 
 
-def on_mark():
-    if mark_level:
-        return light() < mark_level
-    return light() < bright * MARK_FRACTION
+def start_tension(now, reply):
+    """Top winds in (+), bottom winds in (−): the paper between them goes tight."""
+    global task
+    if S["tension"] <= 0 or S["tensionms"] <= 0:
+        say(reply)
+        task = None
+        return
+    if motor(1, S["tension"]) and motor(2, -S["tension"]):
+        task = {"kind": "tension", "end": now + min(S["tensionms"], 1000), "reply": reply}
+    else:
+        say("BELT:ERROR:Wukong is off")
+        task = None
 
 
-def run_until_mark(top, bottom):
-    """Run the motors, first off the current mark, then until the next one."""
-    global bright
-    if not (motor(1, top) and motor(2, bottom)):
-        return False
-    start = running_time()
-    while on_mark():                       # leave the mark we're sitting on
-        if running_time() - start > STEP_TIMEOUT_MS:
-            stop(); return False
-    while not on_mark():                   # travel to the next one
-        bright = max(bright * 0.98, light())  # follow slow changes in the backlight
-        if running_time() - start > STEP_TIMEOUT_MS:
-            stop(); return False
-    stop()
-    return True
+def screen_phase(now):
+    """How to find the end of the next screen."""
+    marks = S["mode"] == 1 and S["level"] > 0
+    t = S["steptime"] if task["dir"] > 0 else S["steptime"] * S["pull"] // max(1, S["rewind"])
+    task["t0"] = now
+    if marks:
+        task["phase"] = "leave"
+        task["end"] = now + S["timeout"]
+    else:
+        task["phase"] = "timed"
+        task["end"] = now + t
 
 
-def run_for(top, bottom, ms):
-    if not (motor(1, top) and motor(2, bottom)):
-        return False
-    sleep(ms)
-    stop()
-    return True
+def start_move(now, direction, screens):
+    global task
+    if task:
+        say("BUSY")
+        return
+    if direction > 0:
+        m1, m2 = S["pull"], S["feed"]                                   # top pulls, bottom lets out
+    else:
+        m1, m2 = -(S["feed"] * S["rewind"] // max(1, S["pull"])), -S["rewind"]  # bottom pulls, top lets out
+    if not (motor(1, m1) and motor(2, m2)):
+        stop()
+        say("BELT:ERROR:Wukong is off")
+        return
+    if S["mode"] == 1 and S["level"] <= 0:
+        say("BELT:WARN:not calibrated - timed step")
+    task = {"kind": "move", "dir": direction, "left": max(1, screens)}
+    screen_phase(now)
+    show(Image.ARROW_N if direction > 0 else Image.ARROW_S)
 
 
-def snug(m, direction):
-    """The snug tug: after a move, turn the spool that was feeding paper out back
-    a little, so the screen in the window is flat and tight."""
-    if SNUG_SPEED and SNUG_MS:
-        motor(m, direction * SNUG_SPEED)
-        sleep(SNUG_MS)
-        motor(m, 0)
+def screen_done(now):
+    global task
+    task["left"] -= 1
+    if task["left"] > 0:
+        screen_phase(now)          # motors keep running into the next screen
+    else:
+        stop()
+        start_tension(now, "BELT:DONE")
 
 
-def step(top, bottom, ms):
-    return run_until_mark(top, bottom) if USE_LDR else run_for(top, bottom, ms)
-
-
-def belt_error():
-    return "BELT:ERROR:Wukong is off" if not wukong_ok else "BELT:ERROR:no mark"
-
-
-def handle(line):
-    global PULL_SPEED, FEED_SPEED, REWIND_SPEED, SNUG_SPEED, SNUG_MS
-    if line == "BELT:STEP":
-        display.show(Image.ARROW_N)
-        ok = step(PULL_SPEED, FEED_SPEED, STEP_RUN_MS)
-        if ok:
-            snug(2, -1)   # going up the bottom spool fed paper out: wind it back a touch
-        say("BELT:DONE" if ok else belt_error())
-    elif line.startswith("BELT:BACK:"):
-        display.show(Image.ARROW_S)
-        n = int(line.split(":")[2])
-        back_ms = STEP_RUN_MS * PULL_SPEED // REWIND_SPEED
-        ok = all(step(-FEED_SPEED * REWIND_SPEED // PULL_SPEED, -REWIND_SPEED, back_ms) for _ in range(n))
-        if ok:
-            snug(1, 1)    # rewinding the top spool fed paper out: wind it back a touch
-        say("BELT:DONE" if ok else belt_error())
-    elif line.startswith("MOTOR:"):
-        _, m, speed, ms = line.split(":")
-        display.show(m)
-        if motor(int(m), int(speed)):
-            sleep(min(int(ms), 5000))   # never more than 5 s, so a typo can't tear the paper
+def tick(now):
+    global task
+    if not task:
+        return
+    kind = task["kind"]
+    if kind in ("tension", "jog"):
+        if now >= task["end"]:
             stop()
-            say("MOTOR:DONE")
-        else:
-            say("MOTOR:ERROR:Wukong is off")
-    elif line == "LIGHT?":
-        say("LIGHT:%d" % light())
-    elif line.startswith("SPEEDS:"):
-        _, p, f, r = line.split(":")
-        PULL_SPEED, FEED_SPEED, REWIND_SPEED = int(p), int(f), int(r)
-        say("SPEEDS:OK:%d:%d:%d" % (PULL_SPEED, FEED_SPEED, REWIND_SPEED))
-    elif line.startswith("SNUG:"):
-        _, sp, ms = line.split(":")
-        SNUG_SPEED, SNUG_MS = int(sp), min(int(ms), 1000)
-        say("SNUG:OK:%d:%d" % (SNUG_SPEED, SNUG_MS))
-    elif line.startswith("MARKLEVEL:"):
-        global mark_level
-        mark_level = int(line.split(":")[1])
-        say("MARKLEVEL:OK:%d" % mark_level)
-    elif line.startswith("STOPMODE:"):
-        global USE_LDR
-        USE_LDR = line.endswith("MARK")
-        say("STOPMODE:OK:" + ("MARK" if USE_LDR else "TIME"))
+            say(task["reply"])
+            task = None
+        return
+    phase = task["phase"]
+    if phase == "timed" or phase == "after":
+        if now >= task["end"]:
+            screen_done(now)
+        return
+    # mark mode
+    if now >= task["end"]:
+        stop()
+        say("BELT:ERROR:no mark")
+        task = None
+        return
+    lv = light()
+    if phase == "leave":
+        if now - task["t0"] >= S["mingap"] and lv > S["level"] + S["hyst"]:
+            task["phase"] = "seek"
+    elif phase == "seek":
+        if lv < S["level"]:
+            if S["after"] > 0:
+                task["phase"] = "after"
+                task["end"] = now + S["after"]
+            else:
+                screen_done(now)
+
+
+def stop_all():
+    global task
+    task = None
+    stop()
+    say("STOPPED")
+
+
+# ---------- commands ----------
+save_due = 0
+streaming = False
+
+
+def set_value(key, value, now):
+    global save_due
+    if key not in S:
+        say("ERR:unknown setting " + key)
+        return
+    S[key] = int(value)
+    save_due = now + 2000          # write to flash once things settle
+    say("SET:OK:%s:%d" % (key, S[key]))
+
+
+def handle(line, now):
+    global task, streaming, last_action
+    parts = line.split(":")
+    cmd = parts[0]
+    last_action = now
+    if line == "STOP":
+        stop_all()
     elif line == "PING":
         say("PONG")
-    elif line.startswith("BELL:DING"):
-        times = int(line.split(":")[2]) if line.count(":") == 2 else 1
-        for _ in range(times):
-            pin2.write_digital(1); sleep(BELL_MS)
-            pin2.write_digital(0); sleep(300)
-    display.show("M")
+    elif line == "LIGHT?":
+        say("LIGHT:%d" % light())
+    elif line == "STATUS?":
+        say("STATUS:%s:%s" % (task["kind"] if task else "idle", "W1" if wukong_ok else "W0"))
+    elif line == "SETTINGS?":
+        say("SETTINGS:" + ",".join("%s=%d" % (k, S[k]) for k in S))
+    elif line == "SAVE":
+        save()
+        say("SAVED")
+    elif cmd == "SET" and len(parts) == 3:
+        set_value(parts[1], parts[2], now)
+    elif cmd == "STREAM":
+        streaming = parts[1] == "ON"
+        say("STREAM:OK:" + ("ON" if streaming else "OFF"))
+    elif line == "BELT:STEP":
+        start_move(now, 1, 1)
+    elif cmd == "BELT" and parts[1] == "UP":
+        start_move(now, 1, int(parts[2]))
+    elif cmd == "BELT" and parts[1] == "BACK":
+        start_move(now, -1, int(parts[2]))
+    elif line == "TENSION":
+        if task:
+            say("BUSY")
+        else:
+            start_tension(now, "TENSION:DONE")
+    elif cmd == "MOTOR":
+        if task:
+            say("BUSY")
+        elif motor(int(parts[1]), int(parts[2])):
+            task = {"kind": "jog", "end": now + min(int(parts[3]), 5000), "reply": "MOTOR:DONE"}
+            show(parts[1])
+        else:
+            say("MOTOR:ERROR:Wukong is off")
+    elif cmd == "BELL":
+        for _ in range(int(parts[2]) if len(parts) > 2 else 1):
+            pin2.write_digital(1)
+            sleep(BELL_MS)
+            pin2.write_digital(0)
+            sleep(300)
+    # older commands, still understood (the game page sends these)
+    elif cmd == "SPEEDS":
+        for k, v in zip(("pull", "feed", "rewind"), parts[1:4]):
+            set_value(k, v, now)
+    elif cmd == "SNUG":
+        set_value("tension", parts[1], now)
+        set_value("tensionms", parts[2], now)
+    elif cmd == "MARKLEVEL":
+        set_value("level", parts[1], now)
+    elif cmd == "STOPMODE":
+        set_value("mode", 1 if parts[1] == "MARK" else 0, now)
+    else:
+        say("ERR:unknown " + line[:24])
 
 
-last = {"yes": 1, "no": 1, "coin": 1}
+def safe_handle(line, now):
+    try:
+        handle(line, now)
+    except Exception as e:
+        say("ERR:%s:%s" % (line[:20], e))
+
+
+# ---------- main loop ----------
+buttons = {"yes": 1, "no": 1, "coin": 1}
 line_in = ""
-display.show("M")  # M = machine board
+next_hb = 0
+next_stream = 0
 stop()
+show("M")
 
 while True:
-    # commands from the page (USB) ...
-    if uart.any():
-        line_in += (uart.read() or b"").decode("utf-8", "ignore")
-        while "\n" in line_in:
-            cmd, line_in = line_in.split("\n", 1)
-            if cmd.strip():
-                handle(cmd.strip())
-    # ... or by radio
-    msg = radio.receive()
-    if msg:
-        handle(msg)
+    now = running_time()
+    try:
+        if uart.any():
+            line_in += (uart.read() or b"").decode("utf-8", "ignore")
+            if len(line_in) > 200 and "\n" not in line_in:
+                line_in = ""                      # garbage without line ends: drop it
+            while "\n" in line_in:
+                cmd, line_in = line_in.split("\n", 1)
+                cmd = cmd.strip()
+                if cmd:
+                    safe_handle(cmd, now)
+        msg = radio.receive()
+        while msg:
+            safe_handle(msg.strip(), now)
+            msg = radio.receive()
 
-    # buttons: send on press (pin goes low)
-    for key, pin, out in (("yes", pin8, "ANSWER:YES"), ("no", pin12, "ANSWER:NO"), ("coin", pin13, "COIN:1")):
-        v = pin.read_digital()
-        if v == 0 and last[key] == 1:
-            say(out)
-        last[key] = v
-    if button_a.was_pressed():
-        say("ANSWER:YES")
-    if button_b.was_pressed():
-        say("ANSWER:NO")
-    sleep(10)
+        tick(now)
+        if not task:
+            show("M")
+            if S["idletension"] > 0 and now - last_action > S["idletension"] * 1000:
+                last_action = now
+                start_tension(now, "TENSION:AUTO")
+
+        for key, p, out in (("yes", pin8, "ANSWER:YES"), ("no", pin12, "ANSWER:NO"), ("coin", pin13, "COIN:1")):
+            v = p.read_digital()
+            if v == 0 and buttons[key] == 1:
+                say(out)
+            buttons[key] = v
+        if button_a.was_pressed():
+            say("ANSWER:YES")
+        if button_b.was_pressed():
+            say("ANSWER:NO")
+
+        if streaming and now >= next_stream:
+            next_stream = now + 150
+            say("LIGHT:%d" % light())
+        if now >= next_hb:
+            next_hb = now + 2000
+            say("HB:%s:%s" % (task["kind"] if task else "idle", "W1" if wukong_ok else "W0"))
+        if save_due and now >= save_due:
+            save_due = 0
+            save()
+    except Exception as e:
+        task = None
+        stop()
+        say("ERR:loop:%s" % e)
+    sleep(2)

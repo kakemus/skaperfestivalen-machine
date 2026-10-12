@@ -83,6 +83,23 @@ headers and always serves its own folder).
   removable back plate for the 8×8 NeoPixel matrix, front doubler for the heavy scanner housing
   (prism box with two ~10 cm glass windows; mounted with long slots since its bracket wasn't
   measured). Not cut yet; TT motor dims are typical values.
+- `belt.html` + `belt.js` (2026-10-12, open with `start-belt.command`) — a focused page for the
+  scroll mechanism only: connection/board/Wukong/busy pills, a big STOP, step up/down, rewind to
+  start, tighten, position counter, light-sensor calibration with editable numbers (paper, mark,
+  threshold, hysteresis), all motor/tension/timing settings, single-motor jog, a repeat test (N up
+  + rewind, K rounds, stops at the first error) and a copyable log. Settings are kept both in
+  localStorage `beltSettings` and on the board (`settings.txt`); a first visit adopts the board's,
+  later visits push the page's on every connect.
+- **Machine firmware rewritten non-blocking** (2026-10-12): the old one slept through motor moves,
+  so commands sent meanwhile were cut off in the serial buffer ("M2 back sometimes doesn't work")
+  and the page's writes could hang until a refresh. Now moves/tension/jogs are a state machine
+  ticked every ~2 ms, STOP works any time, BUSY instead of overlapping moves, bad lines answer ERR,
+  heartbeat `HB:state:W1|W0` every 2 s, `SET:key:value`/`SETTINGS?`/`SAVE` (debounced flash save),
+  `STREAM:ON|OFF` for light, `TENSION` = both spools pull against each other (top +, bottom −) —
+  also automatic after every move and optionally when idle. Old commands still understood.
+  Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
+  each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
+  writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.
 - `tools/ibmlcd.py` — the IBM display driver in Python (hidapi), for quick tests from a terminal.
   It's the version the protocol was worked out with.
 

@@ -40,4 +40,4 @@ if [ "$STARTED" = no ]; then
   exit 1
 fi
 
-open -a "Google Chrome" "http://localhost:$PORT/" 2>/dev/null || open "http://localhost:$PORT/"
+open -a "Google Chrome" "http://localhost:$PORT/${PAGE:-}" 2>/dev/null || open "http://localhost:$PORT/${PAGE:-}"
