@@ -97,8 +97,10 @@ headers and always serves its own folder).
   heartbeat `HB:state:W1|W0` every 2 s, `SET:key:value`/`SETTINGS?`/`SAVE` (debounced flash save),
   `STREAM:ON|OFF` for light, `TENSION` = both spools pull against each other (top +, bottom −) —
   also automatic after every move and optionally when idle. Old commands still understood.
-  Backlight: 8×8 NeoPixel on **P15** (DIN; GND/V on the Wukong's header, or a separate 5 V
-  supply with shared GND — 64 LEDs at full white ≈ 4 A), `LED:ON|OFF|RGB:r:g:b|TEST`, setting
+  Backlight: 8×8 NeoPixel (WS2812B-64, pins V- / IN / V+) on **P15**; V+ must go to the
+  Wukong's **5V pin in the small middle header** — the red rows beside the signal pins are 3.3 V
+  and the matrix stayed dark on them (confirmed working on 5 V 2026-10-12); for the festival a
+  separate 5 V supply with shared GND (64 LEDs at full white ≈ 4 A). `LED:ON|OFF|RGB:r:g:b|TEST`, setting
   `backlight` (white level, default 25, every channel capped at LED_MAX 120), on at boot.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,

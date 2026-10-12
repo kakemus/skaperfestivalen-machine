@@ -31,8 +31,9 @@
 #   Wukong M2 = bottom spool (+ = lets paper out; − = winds it back in)
 #   LDR: V (3.3 V) ── LDR ── P1, internal pull-down (or 10 kΩ P1 ── GND). Paper = high, mark = low.
 #   Bell: P2 → relay.   YES: P8 to GND.   NO: P12 to GND.   Coin: P13 to GND.   A/B = YES/NO.
-#   Backlight: 8×8 NeoPixel (WS2812) DIN → P15 (S), GND → G, 5V → V — or better a separate
-#   5 V supply with its GND joined to the Wukong's. 64 LEDs at full white draw ~4 A, so the
+#   Backlight: 8×8 NeoPixel (WS2812B) IN → P15 (yellow S pin), V- → G, V+ → the Wukong's 5V pin in
+#   the small middle header (NOT the red pin rows — those are 3.3 V, too low for these LEDs; that
+#   was why it stayed dark at first). Or a separate 5 V supply with its GND joined to the Wukong's. 64 LEDs at full white draw ~4 A, so the
 #   brightness is capped at LED_MAX; the default is dim enough to run from the Wukong for tests.
 from microbit import *
 import radio
