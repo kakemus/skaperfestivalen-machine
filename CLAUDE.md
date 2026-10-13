@@ -106,6 +106,11 @@ headers and always serves its own folder).
   start (moves, tension, jogs) gets full power for that long, then the asked speed — at speed 50 a
   TT motor sometimes couldn't break loose (M1 "let out" did nothing while the board answered
   MOTOR:DONE; a nudge got it going), aggravated by a rubbing spool / low Wukong battery.
+  The tightening tug is never kicked (a full-power kick both ways yanked the paper).
+  **Hold-to-run** (2026-10-13): belt page "Hold: wind up/down" buttons send `HOLD:±1` every 250 ms
+  while pressed and `HOLD:0` on release (also on STOP, window blur, tab hidden); the board runs the
+  belt at its step speeds, stops by itself 600 ms after the last HOLD (lost connection = stops),
+  and tightens after a release.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
   writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.

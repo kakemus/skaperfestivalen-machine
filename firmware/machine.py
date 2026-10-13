@@ -15,6 +15,9 @@
 # Commands (one per line):
 #   BELT:STEP | BELT:UP:n | BELT:BACK:n   move 1 / n screens up, n screens down
 #   TENSION                               both spools pull against each other a moment
+#   HOLD:1 | HOLD:-1 | HOLD:0             run the belt up/down while held: the page repeats it every
+#                                         ~250 ms; without a repeat it stops by itself after 600 ms;
+#                                         HOLD:0 = let go (stop + tighten)
 #   MOTOR:m:speed:ms                      run motor m (1/2) at -100..100 for ms (≤ 5 s)
 #   STOP                                  stop everything now
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
@@ -135,14 +138,14 @@ def backlight_on():
     leds_fill(v, v, v)
 
 
-def drive(m1, m2):
+def drive(m1, m2, kick=True):
     """Start motors with a kick: full power for S["kick"] ms, then the asked speed.
     A TT motor at half power often can't break loose from a standstill — the
     spool just sat there while the board reported MOTOR:DONE (2026-10-13); once
     turning it keeps going. None = leave that motor alone. False if the Wukong
     doesn't answer."""
     ok = True
-    if S["kick"] > 0:
+    if kick and S["kick"] > 0:
         for m, v in ((1, m1), (2, m2)):
             if v:
                 ok = motor(m, 100 if v > 0 else -100) and ok
@@ -185,7 +188,7 @@ def start_tension(now, reply):
         say(reply)
         task = None
         return
-    if drive(S["tension"], -S["tension"]):
+    if drive(S["tension"], -S["tension"], kick=False):   # gentle: a full-power kick here would yank the paper
         task = {"kind": "tension", "end": now + min(S["tensionms"], 1000), "reply": reply}
     else:
         say("BELT:ERROR:Wukong is off")
@@ -205,15 +208,45 @@ def screen_phase(now):
         task["end"] = now + t
 
 
+def belt_speeds(direction):
+    if direction > 0:
+        return S["pull"], S["feed"]                                     # top pulls, bottom lets out
+    return -(S["feed"] * S["rewind"] // max(1, S["pull"])), -S["rewind"]  # bottom pulls, top lets out
+
+
+HOLD_MS = 600          # a hold stops by itself this long after the last HOLD from the page
+
+
+def hold(now, direction):
+    """Run the belt while the page's button is held down."""
+    global task
+    if direction == 0:                                   # let go
+        if task and task["kind"] == "hold":
+            stop()
+            start_tension(now, "HOLD:DONE")
+        return
+    if task and task["kind"] != "hold":
+        say("BUSY")
+        return
+    if task and task["dir"] == direction:
+        task["end"] = now + HOLD_MS                      # still held: keep going
+        return
+    m1, m2 = belt_speeds(direction)
+    if not drive(m1, m2):
+        stop()
+        say("BELT:ERROR:Wukong is off")
+        task = None
+        return
+    task = {"kind": "hold", "dir": direction, "end": now + HOLD_MS, "reply": "HOLD:DONE"}
+    show(Image.ARROW_N if direction > 0 else Image.ARROW_S)
+
+
 def start_move(now, direction, screens):
     global task
     if task:
         say("BUSY")
         return
-    if direction > 0:
-        m1, m2 = S["pull"], S["feed"]                                   # top pulls, bottom lets out
-    else:
-        m1, m2 = -(S["feed"] * S["rewind"] // max(1, S["pull"])), -S["rewind"]  # bottom pulls, top lets out
+    m1, m2 = belt_speeds(direction)
     if not drive(m1, m2):
         stop()
         say("BELT:ERROR:Wukong is off")
@@ -252,7 +285,7 @@ def tick(now):
                 say("LED:DONE")
                 task = None
         return
-    if kind in ("tension", "jog"):
+    if kind in ("tension", "jog", "hold"):
         if now >= task["end"]:
             stop()
             say(task["reply"])
@@ -335,6 +368,8 @@ def handle(line, now):
         start_move(now, 1, int(parts[2]))
     elif cmd == "BELT" and parts[1] == "BACK":
         start_move(now, -1, int(parts[2]))
+    elif cmd == "HOLD":
+        hold(now, int(parts[1]))
     elif line == "TENSION":
         if task:
             say("BUSY")

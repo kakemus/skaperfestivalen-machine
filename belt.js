@@ -199,7 +199,7 @@ on("controller:raw", ({ line }) => {
 // ---------- moves ----------
 let pending = null;   // { resolve, timer, label }
 function setBusy(b) {
-  for (const id of ["up", "down", "rewind", "tighten", "tStart", "ledTest"]) $(id).disabled = b;
+  for (const id of ["up", "down", "rewind", "tighten", "tStart", "ledTest", "holdUp", "holdDown"]) $(id).disabled = b;
   document.querySelectorAll("[data-jog]").forEach(el => (el.disabled = b));
 }
 function move(line, label, screens = 1) {
@@ -245,6 +245,33 @@ $("tighten").onclick = () => move("TENSION", "Tighten");
 $("ledOn").onclick = () => toBoard("LED:ON");
 $("ledOff").onclick = () => toBoard("LED:OFF");
 $("ledTest").onclick = () => move("LED:TEST", "LED test");
+// hold-to-run: HOLD:±1 repeated every 250 ms while pressed (the board stops by itself
+// 600 ms after the last one, so a lost connection can't leave it running), HOLD:0 on release
+let holdTimer = null, holdDir = 0;
+function holdStart(dir, btn) {
+  if (pending) { log("Still moving — wait, or press STOP.", "err"); return; }
+  if (holdDir) return;
+  if (!toBoard(`HOLD:${dir}`)) return;
+  holdDir = dir;
+  btn.classList.add("on");
+  holdTimer = every(250, () => controller.send(`HOLD:${dir}`));
+}
+function holdEnd() {
+  if (!holdDir) return;
+  cancel(holdTimer);
+  holdTimer = null;
+  holdDir = 0;
+  document.querySelectorAll(".hold.on").forEach(b => b.classList.remove("on"));
+  toBoard("HOLD:0");
+}
+for (const [id, dir] of [["holdUp", 1], ["holdDown", -1]]) {
+  const btn = $(id);
+  btn.addEventListener("pointerdown", e => { e.preventDefault(); btn.setPointerCapture?.(e.pointerId); holdStart(dir, btn); });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) btn.addEventListener(ev, holdEnd);
+}
+window.addEventListener("blur", holdEnd);                 // switching away mid-hold stops it
+document.addEventListener("visibilitychange", () => { if (document.hidden) holdEnd(); });
+
 $("here0").onclick = () => { st.pos = 0; showPos(); log("Position set to START."); };
 document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
   const [m, dir] = btn.dataset.jog.split(":").map(Number);
@@ -252,6 +279,7 @@ document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
 });
 $("stop").onclick = () => {
   testRunning = false;
+  holdEnd();
   if (!toBoard("STOP")) return;
   finish("stopped");
 };
