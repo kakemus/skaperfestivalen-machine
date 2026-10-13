@@ -61,6 +61,7 @@ S = {                  # settings — the page sets these, the board keeps them 
     "mingap": 300,     # ignore marks during the first ms of a screen (still leaving the old one)
     "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
     "backlight": 25,   # backlight white level 0-120 (keep it steady: the light sensor reads it)
+    "kick": 80,        # ms of full power every time a motor starts (0 = off) — see drive()
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -134,6 +135,24 @@ def backlight_on():
     leds_fill(v, v, v)
 
 
+def drive(m1, m2):
+    """Start motors with a kick: full power for S["kick"] ms, then the asked speed.
+    A TT motor at half power often can't break loose from a standstill — the
+    spool just sat there while the board reported MOTOR:DONE (2026-10-13); once
+    turning it keeps going. None = leave that motor alone. False if the Wukong
+    doesn't answer."""
+    ok = True
+    if S["kick"] > 0:
+        for m, v in ((1, m1), (2, m2)):
+            if v:
+                ok = motor(m, 100 if v > 0 else -100) and ok
+        sleep(min(S["kick"], 200))
+    for m, v in ((1, m1), (2, m2)):
+        if v is not None:
+            ok = motor(m, v) and ok
+    return ok
+
+
 def light():
     # Bare LDR + internal pull-down: re-apply the pull before reading, drop the
     # first sample (it jumps), return the median of 7 (steady to about ±3).
@@ -166,7 +185,7 @@ def start_tension(now, reply):
         say(reply)
         task = None
         return
-    if motor(1, S["tension"]) and motor(2, -S["tension"]):
+    if drive(S["tension"], -S["tension"]):
         task = {"kind": "tension", "end": now + min(S["tensionms"], 1000), "reply": reply}
     else:
         say("BELT:ERROR:Wukong is off")
@@ -195,7 +214,7 @@ def start_move(now, direction, screens):
         m1, m2 = S["pull"], S["feed"]                                   # top pulls, bottom lets out
     else:
         m1, m2 = -(S["feed"] * S["rewind"] // max(1, S["pull"])), -S["rewind"]  # bottom pulls, top lets out
-    if not (motor(1, m1) and motor(2, m2)):
+    if not drive(m1, m2):
         stop()
         say("BELT:ERROR:Wukong is off")
         return
@@ -324,7 +343,7 @@ def handle(line, now):
     elif cmd == "MOTOR":
         if task:
             say("BUSY")
-        elif motor(int(parts[1]), int(parts[2])):
+        elif drive(int(parts[2]), None) if parts[1] == "1" else drive(None, int(parts[2])):
             task = {"kind": "jog", "end": now + min(int(parts[3]), 5000), "reply": "MOTOR:DONE"}
             show(parts[1])
         else:

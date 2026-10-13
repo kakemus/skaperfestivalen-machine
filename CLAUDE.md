@@ -102,6 +102,10 @@ headers and always serves its own folder).
   and the matrix stayed dark on them (confirmed working on 5 V 2026-10-12); for the festival a
   separate 5 V supply with shared GND (64 LEDs at full white ≈ 4 A). `LED:ON|OFF|RGB:r:g:b|TEST`, setting
   `backlight` (white level, default 25, every channel capped at LED_MAX 120), on at boot.
+  **Kick start** (2026-10-13, setting `kick`, default 80 ms, 0 = off, on the belt page): every motor
+  start (moves, tension, jogs) gets full power for that long, then the asked speed — at speed 50 a
+  TT motor sometimes couldn't break loose (M1 "let out" did nothing while the board answered
+  MOTOR:DONE; a nudge got it going), aggravated by a rubbing spool / low Wukong battery.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
   writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.
