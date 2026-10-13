@@ -61,12 +61,14 @@
 <main>
   <section>
     <h2>Belt</h2>
-    <div id="pos">Screen 0</div>
+    <div id="pos">Position unknown</div>
     <div class="row"><button class="big" id="up">▲ Step up</button><button class="big" id="down">▼ Step down</button></div>
     <div class="row"><button class="big hold" id="holdUp">⇧ Hold: wind up</button><button class="big hold" id="holdDown">⇩ Hold: wind down</button></div>
-    <div class="row"><button id="rewind">⏮ Rewind to start</button><button id="tighten">↕ Tighten paper</button></div>
+    <div class="row"><button id="rewind">⏮ Find START</button><button id="tighten">↕ Tighten paper</button></div>
     <div class="row"><button id="here0">It's on START now</button></div>
     <p class="hint">Hold buttons run the belt only while pressed (mouse or finger) and stop when you let go, then tighten. "Tighten" makes both spools pull against each other for a moment — it also happens by itself after every move.</p>
+    <p class="hint"><b>Find START</b>: the board runs down until it sees START's long mark — from anywhere, even right after switching on. It learns how long an ordinary mark is from steps down, so after a fresh flash: put the paper on START, press "It's on START now", step up twice and down once.</p>
+    <p class="hint"><b>Service mode</b> (lid on, no laptop): hold YES + NO for 5 s (or A + B). The micro:bit shows S. Hold YES = wind up, hold NO = wind down, coin = find START. Hold YES + NO 5 s again to leave.</p>
   </section>
 
   <section>
@@ -130,7 +132,7 @@
       <label>Brightness (0–120)</label><input type="number" id="backlight" min="0" max="120">
       <small>Start low (about 25) when powered from the Wukong. Keep it steady — the light sensor reads it, so recalibrate after changing it.</small>
     </div>
-    <div class="row" style="margin-top:8px"><button id="ledOn">On</button><button id="ledOff">Off</button><button id="ledTest">Test colours</button></div>
+    <div class="row" style="margin-top:8px"><button id="ledOn">On</button><button id="ledOff">Off</button></div>
     <p class="hint">Wiring: matrix IN → P15 (yellow S pin), V- → G, V+ → the Wukong's <b>5V</b> pin in the middle header (the red pin rows are only 3.3 V). For the festival: a separate 5 V supply, GND joined to the Wukong's.</p>
   </section>
 
@@ -143,7 +145,7 @@
     </div>
     <div class="row" style="margin-top:8px"><button id="tStart">▶ Start test</button><button id="tStop">■ Stop test</button></div>
     <div class="stats"><div><b id="sOk">0</b>moves ok</div><div><b id="sErr">0</b>errors</div><div><b id="sRound">0</b>round</div></div>
-    <p class="hint">Runs up N screens, rewinds to start, again and again. Stops at the first error so you can see what happened.</p>
+    <p class="hint">Runs up N screens, finds START, again and again. Stops at the first error so you can see what happened.</p>
   </section>
 
   <section style="grid-column: 1 / -1">

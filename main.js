@@ -29,8 +29,6 @@ function save(key, value) { try { localStorage.setItem(key, JSON.stringify(value
 const settings = load("machineSettings", {
   design: "prize", values: {}, slowMode: false, slowSpeed: 6, feedMm: 15, scene: "auto", sceneSeconds: 15,
   questions: null, answerSeconds: 30, rewardPrints: true, scanIsCoin: true, coinPrompt: true, strip: {},
-  jogSpeed: 50, jogMs: 1000, markLevel: 0, stopOnMarks: false,
-  pullSpeed: 60, feedSpeed: 45, rewindSpeed: 80, snugSpeed: 30, snugMs: 120,
 });
 const saveSettings = () => save("machineSettings", settings);
 
@@ -263,7 +261,7 @@ game = createGame({
   belt,
   text(str, opts) { holdUntil = Infinity; startScene("game", textScene(str, opts)); },
   idle() { holdUntil = 0; startScene(settings.scene === "auto" ? (lastIdle || sceneNames[0]) : settings.scene); },
-  bell(times) { ding(times); controller.send(`BELL:DING:${times}`); },
+  bell(times) { ding(times); controller.send(`BELL:${times}`); },
   printReward(level) {
     if (settings.rewardPrints) printTicket("reward", { level }).catch(e => log(e.message, "err"));
   },
@@ -296,102 +294,15 @@ on("controller:raw", ({ line }) => {
   else if (line.startsWith("COIN")) game.coin();
 });
 
-// belt test buttons — straight commands to the machine board (firmware/machine.py)
+// belt — the board does all the moving (firmware/machine.py); tuning lives on belt.html
 function toBoard(line) {
   if (controller.send(line)) log(`→ ${line}`);
   else log("No micro:bit connected — click Connect next to micro:bit first.", "err");
 }
-bindRange("jogSpeed", "jogSpeed", v => `${v}`);
-bindRange("jogMs", "jogMs", v => `${(v / 1000).toFixed(1)} s`);
-document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
-  const [m, dir] = btn.dataset.jog.split(":").map(Number);
-  toBoard(`MOTOR:${m}:${dir * settings.jogSpeed}:${settings.jogMs}`);
-});
-$("ping").onclick = () => toBoard("PING");
-$("readLight").onclick = () => toBoard("LIGHT?");
 $("beltStep").onclick = () => toBoard("BELT:STEP");
-$("beltBack").onclick = () => toBoard("BELT:BACK:1");
-// live light meter: polls LIGHT? and helps pick paper vs. mark
-const light = { now: null, paper: null, mark: null, polling: null, recent: [] };
-// How much readings wobble on their own — the spread of the last few readings
-// at the moment each button is pressed (holding still), so the paper/mark gap
-// is judged against real noise, not a fixed percentage.
-const spreadNow = () => {
-  const last = light.recent.slice(-6);
-  return last.length < 3 ? 5 : Math.max(...last) - Math.min(...last);
-};
-const noise = () => Math.max(3, light.paperNoise ?? 5, light.markNoise ?? 5);
-function showVerdict() {
-  const { paper, mark } = light;
-  if (paper == null || mark == null) {
-    $("lightVerdict").textContent = `Paper: ${paper ?? "–"} · mark: ${mark ?? "–"}. Hold each in front of the sensor and press its button.`;
-    return;
-  }
-  const gap = paper - mark, n = noise();
-  if (gap <= 0) {
-    $("lightVerdict").textContent = `Paper ${paper}, mark ${mark}: the mark isn't darker than the paper — check you pressed the right buttons, and that the sensor sees the mark.`;
-    return;
-  }
-  sendMarkLevel(Math.round((paper + mark) / 2));
-  $("lightVerdict").textContent = gap >= 8 * n && gap >= 40
-    ? `Paper ${paper}, mark ${mark}: gap ${gap}, readings wobble ±${n} — clear enough to stop on marks. Threshold set to ${settings.markLevel}.`
-    : gap >= 4 * n && gap >= 20
-      ? `Paper ${paper}, mark ${mark}: gap ${gap}, wobble ±${n} — workable in a closed, dark box, but tight. Threshold set to ${settings.markLevel}. A closer or shaded sensor would make it safer.`
-      : `Paper ${paper}, mark ${mark}: gap ${gap}, wobble ±${n} — too close to tell apart reliably. Put the sensor right behind the paper opposite the backlight, shade it, or use bigger/blacker marks.`;
-}
-function sendMarkLevel(level) {
-  settings.markLevel = level;
-  saveSettings();
-  controller.send(`MARKLEVEL:${level}`);
-  showMarkLevel();
-}
-function showMarkLevel() {
-  $("markLevelInfo").textContent = settings.markLevel
-    ? `Mark threshold: below ${settings.markLevel} = mark (from your paper/mark calibration).`
-    : "No calibration yet — measure paper and a mark with the live reading above.";
-}
-$("stopOnMarks").checked = settings.stopOnMarks;
-$("stopOnMarks").onchange = () => {
-  settings.stopOnMarks = $("stopOnMarks").checked;
-  saveSettings();
-  toBoard(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
-};
-// motor speeds + snug tug: sent when a slider is let go, and on every connect
-const sendSpeeds = () => controller.send(`SPEEDS:${settings.pullSpeed}:${settings.feedSpeed}:${settings.rewindSpeed}`);
-const sendSnug = () => controller.send(`SNUG:${settings.snugSpeed}:${settings.snugMs}`);
-for (const [id, fmt, send] of [["pullSpeed", v => `${v}`, sendSpeeds], ["feedSpeed", v => `${v}`, sendSpeeds],
-  ["rewindSpeed", v => `${v}`, sendSpeeds], ["snugSpeed", v => v ? `${v}` : "off", sendSnug], ["snugMs", v => `${v} ms`, sendSnug]]) {
-  bindRange(id, id, fmt);
-  $(id).onchange = () => { if (!send()) log("Saved — sent to the board once a micro:bit is connected."); };
-}
-
-// a freshly started board knows nothing: send calibration, stop mode, speeds, snug whenever it connects
-on("controller:connected", () => after(1500, () => {
-  if (settings.markLevel) controller.send(`MARKLEVEL:${settings.markLevel}`);
-  controller.send(`STOPMODE:${settings.stopOnMarks ? "MARK" : "TIME"}`);
-  sendSpeeds();
-  sendSnug();
-}));
-showMarkLevel();
-$("liveLight").onchange = () => {
-  const on = $("liveLight").checked;
-  $("lightMeter").hidden = !on;
-  if (on) { light.polling = every(150, () => controller.send("LIGHT?")); showVerdict(); }
-  else if (light.polling) { cancelTimer(light.polling); light.polling = null; }
-};
-$("markPaper").onclick = () => { light.paper = light.now; light.paperNoise = spreadNow(); showVerdict(); };
-$("markMark").onclick = () => { light.mark = light.now; light.markNoise = spreadNow(); showVerdict(); };
+$("beltHome").onclick = () => toBoard("BELT:HOME");
 on("controller:raw", ({ line }) => {
-  if (!line.startsWith("LIGHT:")) return;
-  light.now = Number(line.slice(6));
-  light.recent = [...light.recent.slice(-19), light.now];
-  $("lightNow").textContent = `Light: ${light.now} (0 = dark, 1023 = bright)`;
-  $("lightBar").style.width = `${Math.min(100, light.now / 10.23)}%`;
-});
-
-on("controller:raw", ({ line }) => {
-  if (light.polling && line.startsWith("LIGHT:")) return; // the meter shows these; don't flood the log
-  if (/^(PONG|LIGHT:|MOTOR:|BELT:|WUKONG:|MARKLEVEL:|STOPMODE:|SPEEDS:|SNUG:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
+  if (/^(PONG|MOTOR:|BELT:|WUKONG:|SERVICE:)/.test(line)) log(`← ${line}`, /ERROR|OFF/.test(line) ? "err" : "ok");
 });
 
 // keyboard + barcode scanner. A scanner "types" its code very fast (a few ms

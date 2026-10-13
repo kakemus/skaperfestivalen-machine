@@ -48,14 +48,15 @@ headers and always serves its own folder).
   JA"; the sidebar edits it, saved in localStorage), `sound.js` (synthesized bell for the laptop).
 - `belt/` — `strip.js` draws the whole printed strip (leader, START, levels, win screen, black
   registration mark at the left edge mid-screen, START's mark 3× long); `belt.js` is the belt:
-  backlit on-screen window + sends `BELT:STEP` / `BELT:BACK:n` and waits for `BELT:DONE` (15 s
-  timeout, so the game never hangs without hardware).
+  backlit on-screen window + sends `BELT:STEP` / `BELT:HOME` and waits for `BELT:DONE:n` (15 s /
+  60 s timeout, so the game never hangs without hardware).
 - `display/lcdText.js` — game text for the IBM display: upper-case, word-wrapped, paged, with
   Æ Ø Å as custom characters 5–7 (the ROM very likely lacks them).
 - `firmware/` — MicroPython: `machine.py` is the main board (micro:bit on the ElecFreaks Wukong
   motor board, plugged into the computer by USB): two TT motors (M1 top spool pulls, M2 bottom
   feeds), LDR on P1 for the marks, bell relay on P2, YES/NO/coin switches on P8/P12/P13, A/B =
-  YES/NO; untested on hardware, speeds/threshold are first guesses at the top of the file. Also  (flash at python.microbit.org): `controller.py`
+  YES/NO. **The board owns the belt** (see "Board owns the belt" below); no radio on it. Also
+  (from the occult-printer days, not used by the belt): `controller.py`
   (handheld: buttons, logo, shake, tilt, mic → radio + USB) and `receiver.py` (on USB, forwards
   radio lines). Radio group 42 in both. Same line format as the occult printer's controller, so
   boards flashed for that machine also work here.
@@ -132,8 +133,39 @@ headers and always serves its own folder).
   that (checked identical in the simulator). The mark-stopping that "stopped late" on 2026-10-13
   was really "Stop on marks" switched off (timed steps); with it on it works well.
   **End goal (maker, 2026-10-13):** the belt must run entirely on the micro:bit in the finished
-  machine. It largely does already (all timing, marks, tension, settings live on the board; the
-  page only sends BELT:STEP / BACK); keep new belt logic on the board, not in JS.
+  machine. Keep new belt logic on the board, not in JS.
+  **Board owns the belt** (2026-10-13, first round of that redesign): the computer stays for the
+  IBM display + printer (a micro:bit can't host USB) and the questions; the game page only sends
+  `BELT:STEP`, `BELT:HOME`, `BELL:n` and hears `ANSWER:YES|NO`, `COIN:1`, `BELT:DONE:pos`. It no
+  longer has belt settings — it used to push its own speeds/tension/threshold/"timed" on every
+  connect, silently undoing the belt page's tuning. Board side:
+  - **Position** `pos` (−1 = unknown after power-up / a hold / a jog; `POS:n` sets it; in HB and
+    every DONE). The belt page shows the board's, no counting in JS.
+  - **Find START** (`BELT:HOME`): down until START's long mark. Down moves pass *through* each
+    mark (phase "through") and settle back up onto its top edge, so up- and down-stops land on
+    the same edge. A mark is START if longer than 2× `markms` (learned, saved: ordinary mark dark
+    time going down); unlearned, if dark ≥ 1/6 of the paper before it — only trusted when the
+    move began on a mark (`sure`), since from an unknown spot the first gap is partial.
+    `screenms` (learned) limits a downward search to 1.5 screens; nothing found = the paper is in
+    the blank end above START → search up, the first mark is START. Starting inside a mark with
+    unknown position: back out of it up first ("unstick"). The light is read *before* the
+    start-up kick (the kick alone carried the sensor into START, which was then skipped). A
+    plain step down that meets START stops there. After a fresh flash (settings.txt wiped) the
+    learning comes back after one step down from a known position.
+  - **Bell** rings from the main loop (`bell_tick`), so the belt keeps moving while it rings (it
+    used to sleep 550 ms per ding).
+  - **Buttons** polled every 20 ms (debounce). **Service mode**: hold YES+NO (or A+B) 5 s → `S`
+    on the display, `SERVICE:ON`; hold YES/NO = wind up/down (`hold()`), coin = Find START;
+    presses aren't sent as answers; 5 s again to leave. On the arcade buttons because the
+    micro:bit's own A/B will be inside the closed box.
+  - **Cut**: radio (stray micro:bits at a maker festival could move the belt; re-adding = feed
+    `radio.receive()` into `safe_handle()` with a secret prefix), `SPEEDS/SNUG/MARKLEVEL/
+    STOPMODE`, `LED:TEST`. `mode` now defaults to marks (timed = fallback).
+  - `belt/strip.js`: START's long mark now starts at the ordinary marks' top edge and grows
+    downwards (the printed strip from before has it centred → START sits ~8 mm off; fine).
+  Simulator (scratch `sim2.py`): strip with marks, both motors, coasting lag, buttons; Find START
+  from 143 start spots (all OK once learned), steps/back/home on new and old strips, service mode,
+  bell during a move; packed (strip.py) and source firmware give identical output.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
   writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.

@@ -183,10 +183,12 @@ every(1000, () => {
 on("controller:raw", ({ line }) => {
   lastHeard = performance.now();
   if (line.startsWith("HB:")) {
-    const [, state, w] = line.split(":");
+    const [, state, w, p] = line.split(":");
     boardState = state;
+    if (p !== undefined) boardPos(Number(p));
     pill("pWukong", w === "W1" ? "Wukong: on" : "Wukong: OFF", w === "W1" ? "ok" : "bad");
-    pill("pState", state === "idle" ? "idle" : `busy: ${state}`, state === "idle" ? "" : "busy");
+    pill("pState", state === "idle" ? "idle" : state === "service" ? "SERVICE MODE (YES+NO 5 s to leave)" : `busy: ${state}`,
+      state === "idle" ? "" : "busy");
     log(`← ${line}`, "hb");
     return;
   }
@@ -207,6 +209,8 @@ on("controller:raw", ({ line }) => {
     }
     return;
   }
+  if (line.startsWith("BELT:DONE:")) boardPos(Number(line.slice(10)));
+  if (line.startsWith("POS:OK:")) boardPos(Number(line.slice(7)));
   if (line.startsWith("WUKONG:")) pill("pWukong", line.endsWith("ON") ? "Wukong: on" : "Wukong: OFF", line.endsWith("ON") ? "ok" : "bad");
   const bad = /ERROR|ERR:|BUSY|OFF/.test(line);
   log(`← ${line}`, bad ? "err" : "ok");
@@ -216,7 +220,7 @@ on("controller:raw", ({ line }) => {
 // ---------- moves ----------
 let pending = null;   // { resolve, timer, label }
 function setBusy(b) {
-  for (const id of ["up", "down", "rewind", "tighten", "tStart", "ledTest", "holdUp", "holdDown"]) $(id).disabled = b;
+  for (const id of ["up", "down", "rewind", "tighten", "tStart", "holdUp", "holdDown"]) $(id).disabled = b;
   document.querySelectorAll("[data-jog]").forEach(el => (el.disabled = b));
 }
 function move(line, label, screens = 1) {
@@ -224,7 +228,7 @@ function move(line, label, screens = 1) {
   if (!toBoard(line)) return Promise.resolve("no board");
   if (line.startsWith("BELT") && !st.mode) log("(timed step — \"Stop on marks\" is off, so the marks are ignored)", "dim");
   setBusy(true);
-  const limit = screens * (st.mode ? st.timeout : st.steptime * 2) + st.tensionms + st.settle * 3 + 4000;
+  const limit = (line === "BELT:HOME" ? 15 : screens) * (st.mode ? st.timeout : st.steptime * 2) + st.tensionms + st.settle * 3 + 4000;
   return new Promise(resolve => {
     pending = { resolve, label, timer: after(limit, () => finish("no answer from the board")) };
   });
@@ -240,29 +244,27 @@ function finish(result) {
 }
 function settleMove(line) {
   if (!pending) return;
-  if (line === "BELT:DONE" || line === "TENSION:DONE" || line === "MOTOR:DONE" || line === "LED:DONE") finish("ok");
+  if (line.startsWith("BELT:DONE") || line === "TENSION:DONE" || line === "MOTOR:DONE") finish("ok");
   else if (line.startsWith("BELT:ERROR") || line.startsWith("MOTOR:ERROR") || line === "BUSY" || line === "STOPPED" || line.startsWith("ERR:")) finish(line);
 }
-function showPos() { $("pos").textContent = st.pos === 0 ? "Screen 0 (START)" : `Screen ${st.pos}`; persist(); }
-showPos();
+// The board knows where the belt is (BELT:DONE:n, heartbeats); -1 = it doesn't.
+let pos = -1;
+function boardPos(p) {
+  if (!Number.isFinite(p) || p === pos) return;
+  pos = p;
+  $("pos").textContent = p < 0 ? "Position unknown" : p === 0 ? "Screen 0 (START)" : `Screen ${p}`;
+}
+$("pos").textContent = "Position unknown";
 
-async function stepUp() { const r = await move("BELT:STEP", "Step up"); if (r === "ok") { st.pos++; showPos(); } return r; }
-async function stepDown() {
-  if (st.pos <= 0) log("Already at START as far as this page knows — stepping down anyway.", "err");
-  const r = await move("BELT:BACK:1", "Step down"); if (r === "ok") { st.pos = Math.max(0, st.pos - 1); showPos(); } return r;
-}
-async function rewindToStart() {
-  if (st.pos <= 0) { log("Already at START."); return "ok"; }
-  const n = st.pos;
-  const r = await move(`BELT:BACK:${n}`, `Rewind ${n}`, n); if (r === "ok") { st.pos = 0; showPos(); } return r;
-}
+const stepUp = () => move("BELT:STEP", "Step up");
+const stepDown = () => move("BELT:BACK:1", "Step down");
+const rewindToStart = () => move("BELT:HOME", "Find START");
 $("up").onclick = stepUp;
 $("down").onclick = stepDown;
 $("rewind").onclick = rewindToStart;
 $("tighten").onclick = () => move("TENSION", "Tighten");
 $("ledOn").onclick = () => toBoard("LED:ON");
 $("ledOff").onclick = () => toBoard("LED:OFF");
-$("ledTest").onclick = () => move("LED:TEST", "LED test");
 // hold-to-run: HOLD:±1 repeated every 250 ms while pressed (the board stops by itself
 // 600 ms after the last one, so a lost connection can't leave it running), HOLD:0 on release
 let holdTimer = null, holdDir = 0;
@@ -290,7 +292,7 @@ for (const [id, dir] of [["holdUp", 1], ["holdDown", -1]]) {
 window.addEventListener("blur", holdEnd);                 // switching away mid-hold stops it
 document.addEventListener("visibilitychange", () => { if (document.hidden) holdEnd(); });
 
-$("here0").onclick = () => { st.pos = 0; showPos(); log("Position set to START."); };
+$("here0").onclick = () => toBoard("POS:0");
 document.querySelectorAll("[data-jog]").forEach(btn => btn.onclick = () => {
   const [m, dir] = btn.dataset.jog.split(":").map(Number);
   move(`MOTOR:${m}:${dir * st.jogSpeed}:${st.jogMs}`, `M${m}`);

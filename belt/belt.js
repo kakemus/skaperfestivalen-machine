@@ -1,16 +1,18 @@
 // The belt: where it is, moving it, and a backlit on-screen view of the window.
 //
 // Every move is shown on screen AND sent to the belt micro:bit (firmware/
-// machine.py) as "BELT:STEP" (one screen up) or "BELT:BACK:n" (n screens down).
-// The board answers "BELT:DONE" when its light sensor has found the mark. With
-// no board connected — or one that never answers — the on-screen belt alone
-// sets the pace, so the game always carries on.
+// machine.py) as "BELT:STEP" (one screen up) or "BELT:HOME" (down until the
+// long START mark — the board finds it itself, so nothing here counts
+// screens). The board answers "BELT:DONE:n" when it has settled on the mark.
+// With no board connected — or one that never answers — the on-screen belt
+// alone sets the pace, so the game always carries on.
 import { after } from "../core/clock.js";
 import { stripLayout } from "./strip.js";
 
 const STEP_MS = 1600;           // on-screen time for one screen up
 const REWIND_MS_PER_SCREEN = 450;
 const HARDWARE_TIMEOUT_MS = 15000;
+const HOME_TIMEOUT_MS = 60000;  // finding START from the top can take a while
 
 export function createBelt({ canvas, send }) {
   const ctx = canvas.getContext("2d");
@@ -40,7 +42,7 @@ export function createBelt({ canvas, send }) {
     if (k < 1) requestAnimationFrame(view);
   }
 
-  function move(to, ms, command) {
+  function move(to, ms, command, timeout = HARDWARE_TIMEOUT_MS) {
     const from = position;
     position = to;
     anim = { from, to, start: performance.now(), ms };
@@ -50,7 +52,7 @@ export function createBelt({ canvas, send }) {
     // Wait for the board too, but never forever.
     const boardDone = new Promise(resolve => {
       waitingForBoard = resolve;
-      after(HARDWARE_TIMEOUT_MS, () => { if (waitingForBoard === resolve) { waitingForBoard = null; resolve("timeout"); } });
+      after(timeout, () => { if (waitingForBoard === resolve) { waitingForBoard = null; resolve("timeout"); } });
     });
     return Promise.all([screenDone, boardDone]);
   }
@@ -67,8 +69,8 @@ export function createBelt({ canvas, send }) {
     },
     step() { return move(Math.min(position + 1, layout.count - 1), STEP_MS, "BELT:STEP"); },
     rewind() {
-      if (position === 0) return Promise.resolve();
-      return move(0, Math.max(800, position * REWIND_MS_PER_SCREEN), `BELT:BACK:${position}`);
+      // always ask the board, even at 0 on screen: it may have been moved by hand
+      return move(0, Math.max(800, position * REWIND_MS_PER_SCREEN), "BELT:HOME", HOME_TIMEOUT_MS);
     },
     /** call with every line from the micro:bit */
     handleLine(line) {

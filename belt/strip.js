@@ -7,8 +7,8 @@
 // (START), screens 1..levels, then a tail leader. The belt moves UP, so the
 // next screen is the one printed BELOW the current one. Every screen carries a
 // black registration mark at the left edge, level with the screen's middle —
-// the light sensor sits there and the belt stops when it sees a mark. Screen 0
-// gets a longer "home" mark so the belt can tell the start from the rest.
+// the light sensor sits there and the belt stops on its top edge. Screen 0
+// gets a 3× longer "home" mark (same top edge) so the board can find START.
 import { PRINT_WIDTH, DOTS_PER_MM, mmToDots } from "../core/raster.js";
 import { font, fitSize } from "../tickets/draw.js";
 
@@ -60,9 +60,11 @@ export function drawStrip(cfg) {
       : last ? titles[titles.length - 1] || "DU VANT!"
       : i < titles.length - 1 ? titles[i] : `NIVÅ ${i}`;
 
-    // registration mark (home mark = 3x as tall)
+    // registration mark (home mark = 3x as tall). The board stops on a mark's
+    // TOP edge, so START's long mark starts where every other mark starts and
+    // grows downwards — centred, START used to sit a few mm off the others.
     const h = i === 0 ? markH * 3 : markH;
-    ctx.fillRect(0, mid - h / 2, markW, h);
+    ctx.fillRect(0, mid - markH / 2, markW, h);
 
     // frame
     ctx.lineWidth = 4;
