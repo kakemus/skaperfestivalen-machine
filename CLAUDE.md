@@ -115,6 +115,16 @@ headers and always serves its own folder).
   round. Board settings `inv1`/`inv2` (1 = flipped) negate the speed inside `motor()`, so every
   move, tension, kick and jog flips together; checkboxes on the belt page, default ticked. Code
   still speaks in "positive M1 = wind in"; rewiring a motor later = untick its box.
+  **Mark stops + tightening** (2026-10-13, "stops a while after the mark", "Tighten does nothing"):
+  a mark stop now `brake()`s (reverse burst, `brake` ms) instead of coasting, then tightens, then
+  *settles*: creeps back (`creep` speed, ≤ `settle` ms) until the sensor reads the mark again,
+  and if not found searches the other way for 2× as long (the tug can shift the paper either way).
+  Board logs `MARK:seen:n`, `MARK:back:Nms` (how far it overshot), `BELT:WARN:mark not found again`.
+  Tightening ramps from 0 to `tension` over 2/3 of `tensionms` (defaults 55 / 400; the page
+  migrates the old 35 / 200 once) — a full kick yanked the paper, steady 35 never broke loose.
+  **End goal (maker, 2026-10-13):** the belt must run entirely on the micro:bit in the finished
+  machine. It largely does already (all timing, marks, tension, settings live on the board; the
+  page only sends BELT:STEP / BACK); keep new belt logic on the board, not in JS.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
   writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.

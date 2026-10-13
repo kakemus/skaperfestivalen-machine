@@ -53,8 +53,8 @@ S = {                  # settings — the page sets these, the board keeps them 
     "pull": 60,        # top spool speed going up (0-100)
     "feed": 45,        # the spool letting paper out — slower than the pulling one keeps it tight
     "rewind": 80,      # bottom spool speed going down
-    "tension": 35,     # strength of the tug after every move (0 = off)
-    "tensionms": 200,  # how long the tug lasts
+    "tension": 55,     # strength of the tug after every move (0 = off) — reached by a soft ramp
+    "tensionms": 400,  # how long the tug lasts (first 2/3 ramping up, then holding)
     "mode": 0,         # 0 = timed steps, 1 = stop on marks
     "level": 0,        # light below this = a mark (0 = not calibrated → timed steps)
     "hyst": 8,         # light must rise above level + hyst to count as "off the mark"
@@ -67,6 +67,9 @@ S = {                  # settings — the page sets these, the board keeps them 
     "kick": 80,        # ms of full power every time a motor starts (0 = off) — see drive()
     "inv1": 0,         # 1 = motor M1 is wired the other way round: flip its direction everywhere
     "inv2": 0,         # 1 = same for M2 (the maker's build has both flipped — set from the belt page)
+    "brake": 30,       # ms of reverse power when a mark is found, so the spools don't coast past it
+    "creep": 40,       # slow speed used to back up onto the mark again (settle)
+    "settle": 1500,    # after a mark stop: back up at most this long until the sensor is on the mark (0 = off)
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -104,9 +107,13 @@ def say(line):
 wukong_ok = True
 
 
+speeds = [0, 0, 0]  # last speed asked of each motor (before any wiring flip), for brake()
+
+
 def motor(m, speed):
     """m = 1 or 2, speed -100..100. False if the Wukong doesn't answer (switched off / not seated)."""
     global wukong_ok
+    speeds[m] = speed
     if S["inv%d" % m]:
         speed = -speed            # this motor's wires are the other way round
     try:
@@ -127,6 +134,17 @@ def stop():
     motor(2, 0)
 
 
+def brake():
+    """Stop hard: a short burst the other way, then off. Coasting carried the
+    paper well past the mark (2026-10-13)."""
+    if S["brake"] > 0:
+        a, b = speeds[1], speeds[2]
+        motor(1, -a)
+        motor(2, -b)
+        sleep(min(S["brake"], 100))
+    stop()
+
+
 leds = NeoPixel(LED_PIN, LED_COUNT)
 
 
@@ -142,18 +160,19 @@ def backlight_on():
     leds_fill(v, v, v)
 
 
-def drive(m1, m2, kick=True):
+def drive(m1, m2, kick=True, kick_ms=None):
     """Start motors with a kick: full power for S["kick"] ms, then the asked speed.
     A TT motor at half power often can't break loose from a standstill — the
     spool just sat there while the board reported MOTOR:DONE (2026-10-13); once
     turning it keeps going. None = leave that motor alone. False if the Wukong
     doesn't answer."""
     ok = True
-    if kick and S["kick"] > 0:
+    k = S["kick"] if kick_ms is None else kick_ms
+    if kick and k > 0:
         for m, v in ((1, m1), (2, m2)):
             if v:
                 ok = motor(m, 100 if v > 0 else -100) and ok
-        sleep(min(S["kick"], 200))
+        sleep(min(k, 200))
     for m, v in ((1, m1), (2, m2)):
         if v is not None:
             ok = motor(m, v) and ok
@@ -185,18 +204,47 @@ def show(img):
         shown = img
 
 
-def start_tension(now, reply):
-    """Top winds in (+), bottom winds in (−): the paper between them goes tight."""
+def start_tension(now, reply, settle_dir=0):
+    """Top winds in (+), bottom winds in (−): the paper between them goes tight.
+    The power ramps up from nothing (tick) — a full-power kick yanked the paper,
+    and a steady low power couldn't get the motors turning at all.
+    settle_dir: after tightening, back up that way onto the mark (see start_settle)."""
     global task
     if S["tension"] <= 0 or S["tensionms"] <= 0:
-        say(reply)
         task = None
+        finish_after_tension(now, reply, settle_dir)
         return
-    if drive(S["tension"], -S["tension"], kick=False):   # gentle: a full-power kick here would yank the paper
-        task = {"kind": "tension", "end": now + min(S["tensionms"], 1000), "reply": reply}
+    ms = min(S["tensionms"], 1500)
+    task = {"kind": "tension", "t0": now, "ramp": max(1, ms * 2 // 3), "end": now + ms,
+            "reply": reply, "settle": settle_dir, "p": -1}
+
+
+def finish_after_tension(now, reply, settle_dir):
+    if settle_dir:
+        start_settle(now, settle_dir, reply)
     else:
+        say(reply)
+
+
+def start_settle(now, direction, reply, tries=2):
+    """The paper may have gone past the mark (coasting, the tug). Creep back
+    until the sensor sees the mark again, so every screen stops in the same place.
+    Not found within S["settle"] ms: the tug moved it the other way — search
+    that way for twice as long (back over the ground already covered)."""
+    global task
+    task = None
+    lv = light()
+    if lv < S["level"]:
+        say("MARK:on:%d" % lv)
+        say(reply)
+        return
+    m1, m2 = belt_speeds(direction)
+    f = S["creep"] / max(1, max(abs(m1), abs(m2)))
+    if not drive(int(m1 * f), int(m2 * f), kick_ms=min(S["kick"], 40)):
         say("BELT:ERROR:Wukong is off")
-        task = None
+        return
+    task = {"kind": "settle", "t0": now, "end": now + S["settle"] * (3 - tries), "reply": reply,
+            "dir": direction, "tries": tries}
 
 
 def screen_phase(now):
@@ -268,8 +316,10 @@ def screen_done(now):
     if task["left"] > 0:
         screen_phase(now)          # motors keep running into the next screen
     else:
-        stop()
-        start_tension(now, "BELT:DONE")
+        marks = task["phase"] != "timed" and task["phase"] != "after"
+        back = -task["dir"] if marks and S["settle"] > 0 else 0
+        brake() if marks else stop()
+        start_tension(now, "BELT:DONE", back)
 
 
 def tick(now):
@@ -289,7 +339,39 @@ def tick(now):
                 say("LED:DONE")
                 task = None
         return
-    if kind in ("tension", "jog", "hold"):
+    if kind == "tension":
+        if now >= task["end"]:
+            stop()
+            t = task
+            task = None
+            finish_after_tension(now, t["reply"], t["settle"])
+            return
+        p = S["tension"] * min(now - task["t0"], task["ramp"]) // task["ramp"]
+        if abs(p - task["p"]) >= 3:
+            task["p"] = p
+            if not (motor(1, p) and motor(2, -p)):
+                stop()
+                say("BELT:ERROR:Wukong is off")
+                task = None
+        return
+    if kind == "settle":
+        lv = light()
+        if lv < S["level"]:
+            brake()
+            say("MARK:back:%dms" % (now - task["t0"]))
+            say(task["reply"])
+            task = None
+        elif now >= task["end"]:
+            stop()
+            if task["tries"] > 1:
+                t = task
+                start_settle(now, -t["dir"], t["reply"], 1)
+                return
+            say("BELT:WARN:mark not found again")
+            say(task["reply"])
+            task = None
+        return
+    if kind in ("jog", "hold"):
         if now >= task["end"]:
             stop()
             say(task["reply"])
@@ -312,6 +394,7 @@ def tick(now):
             task["phase"] = "seek"
     elif phase == "seek":
         if lv < S["level"]:
+            say("MARK:seen:%d" % lv)
             if S["after"] > 0:
                 task["phase"] = "after"
                 task["end"] = now + S["after"]

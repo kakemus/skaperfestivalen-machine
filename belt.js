@@ -15,17 +15,24 @@ const $ = id => document.getElementById(id);
 // ---------- settings ----------
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
-  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "kick", "inv1", "inv2"];
+  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "kick", "inv1", "inv2",
+  "brake", "creep", "settle"];
 const DEFAULTS = {
-  pull: 60, feed: 45, rewind: 80, tension: 35, tensionms: 200, mode: 0, level: 0, hyst: 8,
+  pull: 60, feed: 45, rewind: 80, tension: 55, tensionms: 400, mode: 0, level: 0, hyst: 8,
   steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, kick: 80,
   inv1: 1, inv2: 1,   // this build has both motors wired the other way round (2026-10-13)
+  brake: 30, creep: 40, settle: 1500,
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,
 };
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem("beltSettings")); } catch {}
 const st = { ...DEFAULTS, ...(saved || {}) };
 const hadSaved = !!saved;
+// 2026-10-13: tightening became a soft ramp — the old 35 / 200 ms never got the motors turning
+if (saved && !saved.tensionRamp) {
+  if (st.tension === 35 && st.tensionms === 200) { st.tension = 55; st.tensionms = 400; }
+  st.tensionRamp = 1;
+}
 const persist = () => { try { localStorage.setItem("beltSettings", JSON.stringify(st)); } catch {} };
 const inputId = k => (k === "rewind" ? "rewind_" : k);
 
@@ -212,7 +219,7 @@ function move(line, label, screens = 1) {
   if (pending) { log("Still moving — wait, or press STOP.", "err"); return Promise.resolve("busy"); }
   if (!toBoard(line)) return Promise.resolve("no board");
   setBusy(true);
-  const limit = screens * (st.mode ? st.timeout : st.steptime * 2) + st.tensionms + 4000;
+  const limit = screens * (st.mode ? st.timeout : st.steptime * 2) + st.tensionms + st.settle * 3 + 4000;
   return new Promise(resolve => {
     pending = { resolve, label, timer: after(limit, () => finish("no answer from the board")) };
   });
