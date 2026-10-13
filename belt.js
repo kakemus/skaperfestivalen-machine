@@ -64,9 +64,11 @@ function sendSetting(key) {
   clearTimeout(pendingSet[key]);
   pendingSet[key] = setTimeout(() => toBoard(`SET:${key}:${st[key]}`), 250);
 }
+// One at a time, a little apart: sent in one burst the board's small serial
+// buffer overflowed and a line came out garbled ("ERR:unknown ttle:1500", 2026-10-13).
 function pushAllSettings() {
-  for (const k of BOARD_KEYS) controller.send(`SET:${k}:${st[k]}`);
-  log("Sent all settings to the micro:bit.", "ok");
+  BOARD_KEYS.forEach((k, i) => after(i * 40, () => controller.send(`SET:${k}:${st[k]}`)));
+  after(BOARD_KEYS.length * 40, () => log("Sent all settings to the micro:bit.", "ok"));
 }
 
 // ---------- inputs ----------
@@ -218,6 +220,7 @@ function setBusy(b) {
 function move(line, label, screens = 1) {
   if (pending) { log("Still moving — wait, or press STOP.", "err"); return Promise.resolve("busy"); }
   if (!toBoard(line)) return Promise.resolve("no board");
+  if (line.startsWith("BELT") && !st.mode) log("(timed step — \"Stop on marks\" is off, so the marks are ignored)", "dim");
   setBusy(true);
   const limit = screens * (st.mode ? st.timeout : st.steptime * 2) + st.tensionms + st.settle * 3 + 4000;
   return new Promise(resolve => {
