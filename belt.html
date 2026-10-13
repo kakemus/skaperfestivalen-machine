@@ -108,8 +108,8 @@
       <label>Give up after (ms)</label><input type="number" id="timeout" min="1000" max="30000">
       <label>Brake at a mark (ms)</label><input type="number" id="brake" min="0" max="100">
       <small>A short burst backwards when the mark is seen, so the spools don't coast past it. 0 = coast.</small>
-      <label>Settle onto the mark (ms, 0 = off)</label><input type="number" id="settle" min="0" max="5000">
-      <small>After stopping and tightening, creep back until the sensor is on the mark again — every screen ends in the same place.</small>
+      <label>Settle onto the mark (ms each way, 0 = off)</label><input type="number" id="settle" min="0" max="5000">
+      <small>After stopping and tightening, creep until the sensor is on the mark again — every screen ends in the same place. The board remembers which way worked and tries that first.</small>
       <label>Creep speed (settling)</label><input type="number" id="creep" min="10" max="100">
       <label>Run on after a mark (ms)</label><input type="number" id="after" min="0" max="2000">
       <label>Ignore marks at start (ms)</label><input type="number" id="mingap" min="0" max="3000">

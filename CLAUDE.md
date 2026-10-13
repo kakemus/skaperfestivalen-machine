@@ -122,6 +122,15 @@ headers and always serves its own folder).
   Board logs `MARK:seen:n`, `MARK:back:Nms` (how far it overshot), `BELT:WARN:mark not found again`.
   Tightening ramps from 0 to `tension` over 2/3 of `tensionms` (defaults 55 / 400; the page
   migrates the old 35 / 200 once) — a full kick yanked the paper, steady 35 never broke loose.
+  Settling then looked like "a rewind back and forth" (wrong first guess, 1.5 s each way), so:
+  `settle` is per direction, default 600 ms; at the mark's edge counts (`on_mark`: level +
+  min(hyst/3, 15)); `settle_first` remembers per travel direction which way found the mark and
+  tries that first (RAM only: one possible wrong guess per direction after power-on). Logs
+  `MARK:back|fwd:Nms`, `MARK:other way`, `MARK:on:n`.
+  **Building the hex:** machine.py is over uflash's 20 KB limit with its comments — pack a
+  stripped copy: `python3 firmware/strip.py firmware/machine.py <dir>/machine.py`, then uflash
+  that (checked identical in the simulator). The mark-stopping that "stopped late" on 2026-10-13
+  was really "Stop on marks" switched off (timed steps); with it on it works well.
   **End goal (maker, 2026-10-13):** the belt must run entirely on the micro:bit in the finished
   machine. It largely does already (all timing, marks, tension, settings live on the board; the
   page only sends BELT:STEP / BACK); keep new belt logic on the board, not in JS.

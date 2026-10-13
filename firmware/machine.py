@@ -69,7 +69,7 @@ S = {                  # settings — the page sets these, the board keeps them 
     "inv2": 0,         # 1 = same for M2 (the maker's build has both flipped — set from the belt page)
     "brake": 30,       # ms of reverse power when a mark is found, so the spools don't coast past it
     "creep": 40,       # slow speed used to back up onto the mark again (settle)
-    "settle": 1500,    # after a mark stop: back up at most this long until the sensor is on the mark (0 = off)
+    "settle": 600,     # after a mark stop: creep at most this long each way until the sensor is on the mark (0 = off)
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -204,37 +204,48 @@ def show(img):
         shown = img
 
 
-def start_tension(now, reply, settle_dir=0):
+def start_tension(now, reply, move=0):
     """Top winds in (+), bottom winds in (−): the paper between them goes tight.
     The power ramps up from nothing (tick) — a full-power kick yanked the paper,
     and a steady low power couldn't get the motors turning at all.
-    settle_dir: after tightening, back up that way onto the mark (see start_settle)."""
+    move: the direction just travelled; after tightening, settle onto the mark (start_settle)."""
     global task
     if S["tension"] <= 0 or S["tensionms"] <= 0:
         task = None
-        finish_after_tension(now, reply, settle_dir)
+        finish_after_tension(now, reply, move)
         return
     ms = min(S["tensionms"], 1500)
     task = {"kind": "tension", "t0": now, "ramp": max(1, ms * 2 // 3), "end": now + ms,
-            "reply": reply, "settle": settle_dir, "p": -1}
+            "reply": reply, "settle": move, "p": -1}
 
 
-def finish_after_tension(now, reply, settle_dir):
-    if settle_dir:
-        start_settle(now, settle_dir, reply)
+def finish_after_tension(now, reply, move):
+    if move:
+        start_settle(now, settle_first[move], reply, 2, move)
     else:
         say(reply)
 
 
-def start_settle(now, direction, reply, tries=2):
-    """The paper may have gone past the mark (coasting, the tug). Creep back
-    until the sensor sees the mark again, so every screen stops in the same place.
-    Not found within S["settle"] ms: the tug moved it the other way — search
-    that way for twice as long (back over the ground already covered)."""
+# Which way to creep first after a move up (1) / down (-1). Starts as "back"
+# (the paper coasted past the mark) and then follows whatever worked last time
+# — a wrong first guess made the belt visibly go back and forth (2026-10-13).
+settle_first = {1: -1, -1: 1}
+
+
+def on_mark(lv):
+    """Dark enough: on the mark, or at its edge (a little into the hysteresis)."""
+    return lv < S["level"] + min(S["hyst"] // 3, 15)
+
+
+def start_settle(now, direction, reply, tries=2, move=0):
+    """The paper may have gone past the mark (coasting, the tug). Creep until
+    the sensor sees the mark again, so every screen stops in the same place.
+    Not found within S["settle"] ms: search the other way for twice as long
+    (back over the ground already covered)."""
     global task
     task = None
     lv = light()
-    if lv < S["level"]:
+    if on_mark(lv):
         say("MARK:on:%d" % lv)
         say(reply)
         return
@@ -244,7 +255,7 @@ def start_settle(now, direction, reply, tries=2):
         say("BELT:ERROR:Wukong is off")
         return
     task = {"kind": "settle", "t0": now, "end": now + S["settle"] * (3 - tries), "reply": reply,
-            "dir": direction, "tries": tries}
+            "dir": direction, "tries": tries, "move": move}
 
 
 def screen_phase(now):
@@ -317,9 +328,9 @@ def screen_done(now):
         screen_phase(now)          # motors keep running into the next screen
     else:
         marks = task["phase"] != "timed" and task["phase"] != "after"
-        back = -task["dir"] if marks and S["settle"] > 0 else 0
+        move = task["dir"] if marks and S["settle"] > 0 else 0
         brake() if marks else stop()
-        start_tension(now, "BELT:DONE", back)
+        start_tension(now, "BELT:DONE", move)
 
 
 def tick(now):
@@ -358,14 +369,17 @@ def tick(now):
         lv = light()
         if lv < S["level"]:
             brake()
-            say("MARK:back:%dms" % (now - task["t0"]))
+            if task["move"]:
+                settle_first[task["move"]] = task["dir"]      # try this way first next time
+            say("MARK:%s:%dms" % ("back" if task["dir"] == -task["move"] else "fwd", now - task["t0"]))
             say(task["reply"])
             task = None
         elif now >= task["end"]:
             stop()
             if task["tries"] > 1:
                 t = task
-                start_settle(now, -t["dir"], t["reply"], 1)
+                say("MARK:other way")
+                start_settle(now, -t["dir"], t["reply"], 1, t["move"])
                 return
             say("BELT:WARN:mark not found again")
             say(task["reply"])
