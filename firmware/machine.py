@@ -65,6 +65,8 @@ S = {                  # settings — the page sets these, the board keeps them 
     "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
     "backlight": 25,   # backlight white level 0-120 (keep it steady: the light sensor reads it)
     "kick": 80,        # ms of full power every time a motor starts (0 = off) — see drive()
+    "inv1": 0,         # 1 = motor M1 is wired the other way round: flip its direction everywhere
+    "inv2": 0,         # 1 = same for M2 (the maker's build has both flipped — set from the belt page)
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -105,6 +107,8 @@ wukong_ok = True
 def motor(m, speed):
     """m = 1 or 2, speed -100..100. False if the Wukong doesn't answer (switched off / not seated)."""
     global wukong_ok
+    if S["inv%d" % m]:
+        speed = -speed            # this motor's wires are the other way round
     try:
         i2c.write(WUKONG, bytes([m, 1 if speed >= 0 else 2, min(100, abs(int(speed))), 0]))
     except OSError:

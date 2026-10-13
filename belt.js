@@ -15,10 +15,11 @@ const $ = id => document.getElementById(id);
 // ---------- settings ----------
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
-  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "kick"];
+  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "kick", "inv1", "inv2"];
 const DEFAULTS = {
   pull: 60, feed: 45, rewind: 80, tension: 35, tensionms: 200, mode: 0, level: 0, hyst: 8,
   steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, kick: 80,
+  inv1: 1, inv2: 1,   // this build has both motors wired the other way round (2026-10-13)
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,
 };
 let saved = null;
@@ -62,7 +63,7 @@ function pushAllSettings() {
 }
 
 // ---------- inputs ----------
-const numberInputs = [...BOARD_KEYS.filter(k => k !== "mode"), "paper", "mark", "jogSpeed", "jogMs", "tUp", "tRounds", "tPause"];
+const numberInputs = [...BOARD_KEYS.filter(k => !["mode", "inv1", "inv2"].includes(k)), "paper", "mark", "jogSpeed", "jogMs", "tUp", "tRounds", "tPause"];
 for (const k of numberInputs) {
   const el = $(inputId(k));
   el.value = st[k];
@@ -78,6 +79,10 @@ for (const k of numberInputs) {
   };
 }
 $("mode").checked = !!st.mode;
+for (const k of ["inv1", "inv2"]) {
+  $(k).checked = !!st[k];
+  $(k).onchange = () => { st[k] = $(k).checked ? 1 : 0; persist(); sendSetting(k); };
+}
 $("mode").onchange = () => { st.mode = $("mode").checked ? 1 : 0; persist(); sendSetting("mode"); verdict(); };
 
 function autoLevel() {
@@ -184,8 +189,9 @@ on("controller:raw", ({ line }) => {
     const board = Object.fromEntries(line.slice(9).split(",").map(kv => kv.split("=")).map(([k, v]) => [k, Number(v)]));
     log(`← board settings: ${line.slice(9)}`, "ok");
     if (!hadSaved) {              // first time on this page: take over what the board already knows
-      for (const k of BOARD_KEYS) if (k in board) { st[k] = board[k]; const el = $(inputId(k)); if (el && k !== "mode") el.value = st[k]; }
+      for (const k of BOARD_KEYS) if (k in board) { st[k] = board[k]; const el = $(inputId(k)); if (el && !["mode", "inv1", "inv2"].includes(k)) el.value = st[k]; }
       $("mode").checked = !!st.mode;
+      for (const k of ["inv1", "inv2"]) $(k).checked = !!st[k];
       persist(); drawMeter(); verdict();
     }
     return;

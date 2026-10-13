@@ -111,6 +111,10 @@ headers and always serves its own folder).
   while pressed and `HOLD:0` on release (also on STOP, window blur, tab hidden); the board runs the
   belt at its step speeds, stops by itself 600 ms after the last HOLD (lost connection = stops),
   and tightens after a release.
+  **Motor direction flip** (2026-10-13): the maker's build has both motors wired the other way
+  round. Board settings `inv1`/`inv2` (1 = flipped) negate the speed inside `motor()`, so every
+  move, tension, kick and jog flips together; checkboxes on the belt page, default ticked. Code
+  still speaks in "positive M1 = wind in"; rewiring a motor later = untick its box.
   Tested in a CPython simulator of the micro:bit (scratch, not in repo). `core/controller.js`:
   each write has a 1.5 s timeout; a stuck write aborts and reconnects by itself (`reconnect()`,
   writes queued before it dropped quietly); belt.js also reconnects when heartbeats stop.

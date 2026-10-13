@@ -96,6 +96,9 @@
       <label>Feed speed (spool letting out)</label><input type="number" id="feed" min="0" max="100">
       <small>Lower than the pulling speed keeps the paper tight.</small>
       <label>Rewind speed (going down)</label><input type="number" id="rewind_" min="0" max="100">
+      <label>M1 (top) wired the other way</label><input type="checkbox" id="inv1">
+      <label>M2 (bottom) wired the other way</label><input type="checkbox" id="inv2">
+      <small>Tick if "wind in" lets paper out instead. Flips that motor everywhere — no rewiring needed.</small>
       <label>Kick start (ms of full power)</label><input type="number" id="kick" min="0" max="200">
       <small>Every start gets a short burst of full power so the motor breaks loose. 0 = off.</small>
       <label>Tension strength</label><input type="number" id="tension" min="0" max="100">
