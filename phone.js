@@ -14,7 +14,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14 d";
+const VERSION = "phone 2026-10-14 e";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------

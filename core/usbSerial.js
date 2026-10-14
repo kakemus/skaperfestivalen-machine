@@ -107,10 +107,15 @@ export const usbSerial = {
   },
 };
 
-/** navigator.serial where it exists, this WebUSB version where only WebUSB does, else null. */
+/** navigator.serial on computers; on Android this WebUSB version; else null.
+ *  Android goes WebUSB even when navigator.serial exists: on the Redmi's
+ *  Chrome 87 it appeared one day but its chooser found nothing ("No
+ *  compatible devices found", 2026-10-14) — wired Web Serial on Android is
+ *  new and patchy, while this route was tested there. */
 export function serialApi() {
   if (typeof navigator === "undefined") return null;
+  const android = /Android/i.test(navigator.userAgent);
+  if ("usb" in navigator && (android || !("serial" in navigator))) return usbSerial;
   if ("serial" in navigator) return navigator.serial;
-  if ("usb" in navigator) return usbSerial;
   return null;
 }
