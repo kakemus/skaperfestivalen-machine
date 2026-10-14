@@ -22,4 +22,10 @@ for tok in tokenize.generate_tokens(io.StringIO(src).readline):
         prev = tok.type
 text = tokenize.untokenize(out)
 lines = [l.rstrip() for l in text.split("\n")]
-open(sys.argv[2], "w").write("\n".join(l for l in lines if l.strip()) + "\n")
+# Indentation: 4 spaces per level → 1 (about 2 KB). Statement lines are
+# always multiples of 4, so the block structure is unchanged; continuation
+# lines sit inside brackets, where indentation doesn't matter.
+def shrink(l):
+    n = len(l) - len(l.lstrip(" "))
+    return " " * (n // 4) + " " * (n % 4) + l.lstrip(" ")
+open(sys.argv[2], "w").write("\n".join(shrink(l) for l in lines if l.strip()) + "\n")

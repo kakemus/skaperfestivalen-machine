@@ -319,3 +319,15 @@ posts the log to phone_server.py (/tmp/phonecheck-results.txt).
 buttons (not found yet) → 3 bell (soon: square doorbell rings on 9 V DC; the round one is a 1966
 Swedish telephone ringer KLA 22124, probably needs AC) → 4 coin maybe skipped → 5 the maker wants
 the QUESTIONS PRINTED by the printer instead of a screen → 6 box. One step at a time; don't build ahead.
+**Belt safety + LED colour (2026-10-14, "Find START and coin often rewind so far the paper falls
+off the spool"):** a move without a mark used to run up to `timeout` (8 s) — when START wasn't
+recognised (threshold off after a light change, nothing learned after a flash) that unwound the
+paper. Now `blank_limit()`: at most 1.5 screens of paper without a mark (learned `screenms` down /
+`upms` up, else the timed-step estimate; capped by `timeout`), both directions. Find START from a
+known `pos` counts the marks back (still stops early on a long mark); from an unknown spot it never
+passes more than `screens` (11, belt page field) marks; already on START = no move. Simulated:
+wrong threshold → stops ~120 mm in; START unrecognised → ~150 mm into the blank end then back up
+onto START (the blank above START is ~250 mm). **Colour**: picked colours are screen colours;
+`led_level()` applies gamma 2.6 (LEDs are linear — picked orange came out yellow) and green × 0.8.
+**Packing**: `strip.py` also cuts indentation to 1 space/level (18.8 → 15.8 KB of uflash's 20 KB);
+packed and source checked identical in the simulator.

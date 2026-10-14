@@ -108,7 +108,9 @@
       <label>Tension time (ms)</label><input type="number" id="tensionms" min="0" max="1000">
       <label>Re-tighten when idle (s, 0 = off)</label><input type="number" id="idletension" min="0" max="600">
       <label>Timed step (ms)</label><input type="number" id="steptime" min="100" max="10000">
-      <label>Give up after (ms)</label><input type="number" id="timeout" min="1000" max="30000">
+      <label>Screens on the strip (START + levels)</label><input type="number" id="screens" min="2" max="30">
+      <small>Find START never passes more marks than this. Moves also stop after about 1.5 screens of paper without a mark, so a missed mark can't unwind the paper off a spool.</small>
+      <label>Give up after (ms, at most)</label><input type="number" id="timeout" min="1000" max="30000">
       <label>Brake at a mark (ms)</label><input type="number" id="brake" min="0" max="100">
       <small>A short burst backwards when the mark is seen, so the spools don't coast past it. 0 = coast.</small>
       <label>Settle onto the mark (ms each way, 0 = off)</label><input type="number" id="settle" min="0" max="5000">

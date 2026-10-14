@@ -82,9 +82,9 @@ S = {                  # settings — the belt page sets these, the board keeps 
     "mingap": 300,     # ignore marks during the first ms of a screen (still leaving the old one)
     "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
     "backlight": 25,   # backlight level 0-120 (keep it steady: the light sensor reads it)
-    "cr": 255,         # backlight colour, red / green / blue 0-255, picked by eye on the belt page
-    "cg": 120,         # (a "warmth" number looked green: these LEDs' green is far brighter than
-    "cb": 10,          #  their red, so colour is chosen by looking at the box, 2026-10-14)
+    "cr": 255,         # backlight colour as picked on the belt page, red / green / blue 0-255;
+    "cg": 200,         # backlight_on() corrects it for the LEDs (picked orange came out yellow)
+    "cb": 40,
     "kick": 80,        # ms of full power every time a motor starts (0 = off) — see drive()
     "inv1": 0,         # 1 = motor M1 is wired the other way round: flip its direction everywhere
     "inv2": 0,         # 1 = same for M2
@@ -92,7 +92,9 @@ S = {                  # settings — the belt page sets these, the board keeps 
     "creep": 40,       # slow speed used to settle onto a mark
     "settle": 600,     # after a mark stop: creep at most this long each way onto the mark (0 = off)
     "markms": 0,       # how long an ordinary mark stays dark going down — learned, tells START apart
-    "screenms": 0,     # how long one screen takes going down — learned, limits a search for START
+    "screenms": 0,     # how long one screen takes going down — learned
+    "upms": 0,         # ... and going up — learned. Both limit how much blank paper a move may run
+    "screens": 11,     # screens on the strip (START + levels): Find START never passes more marks
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -199,10 +201,20 @@ def leds_fill(r, g, b):
     leds.show()
 
 
+GREEN = 80            # % — these LEDs' green is much brighter than their red
+
+
+def led_level(c, v):
+    # A picked colour is what a screen shows; LEDs are "linear" — half the
+    # number looks nearly as bright as full — so orange (255, 165, 0) came out
+    # yellow (2026-10-14). The usual gamma curve (^2.6) turns a screen value
+    # into an LED level; then scaled to the brightness.
+    return int(v * (max(0, min(255, c)) / 255) ** 2.6)
+
+
 def backlight_on():
-    # the colour scaled to the brightness: brightness = the strongest channel
     v = S["backlight"]
-    leds_fill(v * S["cr"] // 255, v * S["cg"] // 255, v * S["cb"] // 255)
+    leds_fill(led_level(S["cr"], v), led_level(S["cg"], v) * GREEN // 100, led_level(S["cb"], v))
 
 
 def light():
@@ -314,10 +326,20 @@ def screen_phase(now):
     task["t0"] = now
     if S["mode"] == 1 and S["level"] > 0:
         task["phase"] = "leave"
-        task["end"] = now + S["timeout"]
+        task["end"] = now + blank_limit(task["dir"])
     else:
         task["phase"] = "timed"
         task["end"] = now + (S["steptime"] if task["dir"] > 0 else S["steptime"] * S["pull"] // max(1, S["rewind"]))
+
+
+def blank_limit(direction):
+    """How long a move may run without meeting a mark. It used to be the 8 s
+    "timeout" — enough, when START wasn't recognised, to rewind the paper
+    right off the spool (2026-10-14). Now 1.5 screens: learned screen times
+    when known, else the timed-step estimate; never more than "timeout"."""
+    learned = S["upms"] if direction > 0 else S["screenms"]
+    guess = S["steptime"] if direction > 0 else S["steptime"] * S["pull"] // max(1, S["rewind"])
+    return min(S["timeout"], (learned or guess) * 3 // 2)
 
 
 def start_move(now, direction, screens, home=False):
@@ -333,12 +355,20 @@ def start_move(now, direction, screens, home=False):
     # Read the light BEFORE starting: the kick alone can carry the sensor into
     # the next mark, and it would then be taken for the mark the move began on.
     on = dark(light())
+    if home and pos == 0 and on:
+        finish("BELT:DONE")                              # already on START: nothing to do
+        return
     unstick = direction < 0 and pos < 0 and on
     if not drive(*belt_speeds(1 if unstick else direction)):
         fail("Wukong is off")
         return
-    task = {"kind": "move", "dir": direction, "left": 99 if home else max(1, screens), "home": home,
-            "sure": pos >= 0}
+    # Find START from a known screen just counts the marks back to it (it still
+    # stops early on a long mark); from an unknown spot it looks for the long
+    # mark but never passes more marks than the strip has.
+    count = home and pos > 0
+    left = pos if count else S["screens"] + 1 if home else max(1, screens)
+    task = {"kind": "move", "dir": direction, "left": left, "home": home and not count,
+            "sure": pos >= 0, "passed": 0}
     screen_phase(now)
     if unstick:
         task["phase"] = "unstick"
@@ -352,8 +382,6 @@ def go_seek(now):
     task["phase"] = "seek"
     task["gap0"] = now
     task["first"] = True
-    if task["home"] and S["screenms"]:
-        task["end"] = now + S["screenms"] * 3 // 2   # no mark in 1.5 screens: blank paper, see tick
 
 
 def screen_done(now, marks):
@@ -395,6 +423,10 @@ def mark_passed(now, length, gap):
     task["sure"] = True                    # from here on every gap is a whole screen
     if not task["home"]:
         screen_done(now, True)
+        return
+    task["passed"] += 1
+    if task["passed"] > S["screens"]:
+        fail("START not found after %d marks - check the light sensor calibration" % task["passed"])
         return
     if pos >= 0:
         pos -= 1
@@ -489,7 +521,7 @@ def tick(now):
                 return
             task["dir"] = 1
             task["phase"] = "seek"
-            task["end"] = now + S["timeout"]
+            task["end"] = now + blank_limit(1) * 2       # back over the blank it just ran, then START
             task["upstart"] = True
             return
         fail("no mark")
@@ -516,6 +548,9 @@ def tick(now):
     elif phase == "seek":
         if dark(lv):
             say("MARK:seen:%d" % lv)
+            if task["dir"] > 0 and task["sure"] and not task.get("upstart"):
+                u = S["upms"]                            # learn how long a screen takes going up
+                S["upms"] = now - task["t0"] if not u else (u * 3 + now - task["t0"]) // 4
             if task["dir"] < 0:                          # down: go through it (see THE STRIP)
                 task["phase"] = "through"
                 # dark at the very first look: it began somewhere during the kick
