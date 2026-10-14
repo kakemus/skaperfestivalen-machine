@@ -272,7 +272,7 @@ the belt/bell boards, a belt-strip designer that prints the screens with marks, 
 - Default to a reasonable creative call over asking about subjective things (wording, look,
   timing); ask before anything hard to undo.
 
-## Phone as the brain? (2026-10-14, being tested)
+## Phone as the brain (2026-10-14: tested, it works)
 The maker has an old iPhone XR and a Redmi Note 7 (Android) and asked whether one could replace
 the computer. iPhone: no browser there can reach USB at all → at most a Wi-Fi remote. Redmi:
 Chrome Android has WebUSB (printer); Web Serial arrived on Android in 2026 (unclear whether wired
@@ -284,3 +284,13 @@ WebUSB/WebHID probes, wake lock, "Copy results". Served to the phone by `phonech
 (0.0.0.0:8131, hands out only that page; devserver.py stays localhost-only) via
 `start-phonecheck.command`, which prints the Mac's IP and the chrome://flags step
 (#unsafely-treat-insecure-origin-as-secure) Chrome needs before it allows USB on a LAN http page.
+**Result on the Redmi Note 7** (Android 10 = its last; Chrome 87, can't be updated): WebUSB
+yes, Web Serial no, WebHID no. The printer printed the test ticket (text + raster + cut) over
+WebUSB. The micro:bit works over WebUSB too: its USB plug has a CDC-ACM serial port (interface
+classes 8, 2, 0a, 3, ff, ff), which Chrome lets WebUSB claim — SET_LINE_CODING 115200 + DTR/RTS,
+then bulk in/out (`openUsbSerial` in phonecheck.html). PING/PONG, heartbeats, BELL and a full
+BELT:STEP all worked from the phone. So the phone can run printer + belt; the questions would go
+on the phone's own screen (no WebHID for the IBM display). Getting there: page served from the
+Mac over the maker's iPhone hotspot (school Wi-Fi isolates devices), Chrome flag
+#unsafely-treat-insecure-origin-as-secure for the LAN address; the page posts its report to
+/tmp/phonecheck-results.txt on the Mac (no easy way to get text off the old phone).
