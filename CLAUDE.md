@@ -271,3 +271,16 @@ the belt/bell boards, a belt-strip designer that prints the screens with marks, 
   never push unless asked. Commit messages with `*` or `#` break under zsh `-m` — use `-F file`.
 - Default to a reasonable creative call over asking about subjective things (wording, look,
   timing); ask before anything hard to undo.
+
+## Phone as the brain? (2026-10-14, being tested)
+The maker has an old iPhone XR and a Redmi Note 7 (Android) and asked whether one could replace
+the computer. iPhone: no browser there can reach USB at all → at most a Wi-Fi remote. Redmi:
+Chrome Android has WebUSB (printer); Web Serial arrived on Android in 2026 (unclear whether wired
+USB is covered); WebHID (IBM display) is not on Android yet → the phone's own screen would show
+the questions. Fallback if the phone fails: a Raspberry Pi runs these pages unchanged.
+`phonecheck.html` (self-contained) checks it on the phone: capabilities, connect + print a test
+ticket (text + GS v 0 picture + cut), micro:bit over Web Serial (PING/LIGHT?/BELL/BELT:STEP),
+WebUSB/WebHID probes, wake lock, "Copy results". Served to the phone by `phonecheck_server.py`
+(0.0.0.0:8131, hands out only that page; devserver.py stays localhost-only) via
+`start-phonecheck.command`, which prints the Mac's IP and the chrome://flags step
+(#unsafely-treat-insecure-origin-as-secure) Chrome needs before it allows USB on a LAN http page.

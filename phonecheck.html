@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phone check</title>
+<!--
+  Can an old phone run the machine instead of a computer? (2026-10-14)
+  Open this in Chrome on the phone (start-phonecheck.command on the Mac
+  explains how), with the printer and the micro:bit plugged into the phone
+  through a USB-C hub. It checks what Chrome there can reach — WebUSB
+  (printer), Web Serial (micro:bit), WebHID (IBM display) — and really tries
+  the printer and the micro:bit. "Copy results" gives a report to paste to
+  Claude. Self-contained on purpose (no imports), so it can be served alone.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f0f11; color: #e0e0e0; font: 16px/1.45 -apple-system, Roboto, "Segoe UI", sans-serif; padding: 16px; max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  h2 { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  section { background: #18181c; border: 1px solid #2a2a30; border-radius: 10px; padding: 14px; margin-top: 14px; }
+  button { width: 100%; background: #2a2a35; color: #fff; border: 1px solid #444; border-radius: 8px; padding: 14px; font-size: 16px; font-weight: 600; margin-top: 8px; }
+  button:active { background: #3a3a48; }
+  button:disabled { opacity: .4; }
+  .row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid #222; }
+  .row:last-child { border-bottom: 0; }
+  .ok { color: #7dffa0; } .bad { color: #ff8a8a; } .maybe { color: #ffd26a; }
+  .hint { color: #888; font-size: 13px; margin-top: 8px; }
+  .warn { background: #5a1d1d; border: 1px solid #ff6b6b; border-radius: 10px; padding: 12px; margin-top: 14px; }
+  .warn[hidden] { display: none; }
+  pre { background: #0b0b0d; border: 1px solid #2a2a30; border-radius: 6px; padding: 8px; font: 12px/1.5 Menlo, monospace; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow-y: auto; margin-top: 8px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .two button { margin-top: 0; }
+</style>
+</head>
+<body>
+<h1>Phone check</h1>
+<p class="hint" style="margin-top:0">Can this phone run the Skaperfestivalen machine? Go through the sections top to bottom, then press Copy results.</p>
+
+<div class="warn" id="insecure" hidden>
+  <b>Chrome is blocking USB on this page</b> because it isn't loaded from a secure address. Fix: in Chrome open
+  <b>chrome://flags/#unsafely-treat-insecure-origin-as-secure</b>, set it to Enabled, type in <b id="origin"></b>,
+  press Relaunch, and open this page again.
+</div>
+
+<section>
+  <h2>1 · What Chrome on this phone can do</h2>
+  <div id="caps"></div>
+</section>
+
+<section>
+  <h2>2 · Thermal printer (WebUSB)</h2>
+  <button id="pConnect">Connect printer</button>
+  <button id="pPrint" disabled>Print a test ticket</button>
+  <p class="hint">Prints a line of text and a small picture, then cuts — the same two kinds of data the tickets use.</p>
+  <div id="pStatus" class="hint"></div>
+</section>
+
+<section>
+  <h2>3 · micro:bit (Web Serial)</h2>
+  <button id="mConnect">Connect micro:bit</button>
+  <div class="two" style="margin-top:8px">
+    <button id="mPing" disabled>Ping</button>
+    <button id="mLight" disabled>Read light</button>
+    <button id="mBell" disabled>Ring bell</button>
+    <button id="mStep" disabled>Step belt up</button>
+  </div>
+  <p class="hint">Ping should answer PONG. The board's own messages (heartbeats, button presses) show below.</p>
+  <pre id="mLog">–</pre>
+</section>
+
+<section>
+  <h2>4 · Other ways in (only if 3 fails)</h2>
+  <button id="uMicrobit">Can WebUSB see the micro:bit?</button>
+  <button id="hDisplay">Can WebHID see the IBM display?</button>
+  <div id="otherStatus" class="hint"></div>
+</section>
+
+<section>
+  <h2>5 · Keep the screen on</h2>
+  <button id="wake">Keep screen awake</button>
+  <div id="wakeStatus" class="hint"></div>
+</section>
+
+<section>
+  <h2>Results</h2>
+  <button id="copy">Copy results</button>
+  <pre id="report"></pre>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const results = {};           // name -> text, for the report
+function note(name, text, cls) {
+  results[name] = text;
+  const line = `${name}: ${text}`;
+  $("report").textContent = Object.entries(results).map(([k, v]) => `${k}: ${v}`).join("\n");
+  return { line, cls };
+}
+
+// ---------- 1 · capabilities ----------
+const chrome = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || "not Chrome";
+const android = (navigator.userAgent.match(/Android ([\d.]+)/) || [])[1] || "–";
+const caps = [
+  ["Browser", `Chrome ${chrome}`, chrome !== "not Chrome"],
+  ["Android", android, android !== "–"],
+  ["Secure page", window.isSecureContext ? "yes" : "NO — see the red box", window.isSecureContext],
+  ["WebUSB (printer)", "usb" in navigator ? "yes" : "no", "usb" in navigator],
+  ["Web Serial (micro:bit)", "serial" in navigator ? "yes" : "no", "serial" in navigator],
+  ["WebHID (IBM display)", "hid" in navigator ? "yes" : "no (expected on Android)", "hid" in navigator ? true : null],
+  ["Keep screen awake", "wakeLock" in navigator ? "yes" : "no", "wakeLock" in navigator ? true : null],
+];
+$("caps").innerHTML = caps.map(([k, v, good]) =>
+  `<div class="row"><span>${k}</span><b class="${good === true ? "ok" : good === false ? "bad" : "maybe"}">${v}</b></div>`).join("");
+for (const [k, v] of caps) note(k, v);
+note("Screen", `${screen.width}×${screen.height} @${devicePixelRatio}x`);
+if (!window.isSecureContext) { $("insecure").hidden = false; $("origin").textContent = location.origin; }
+
+function fail(statusId, name, e) {
+  const msg = `${e.name || "Error"}: ${e.message}`;
+  $(statusId).innerHTML = `<span class="bad">${msg}</span>`;
+  note(name, "FAILED — " + msg);
+}
+
+// ---------- 2 · printer ----------
+let printer = null, outEndpoint = null;
+$("pConnect").onclick = async () => {
+  try {
+    if (!navigator.usb) throw new Error("WebUSB isn't available here.");
+    const d = await navigator.usb.requestDevice({ filters: [{ classCode: 7 }] });
+    await d.open();
+    if (!d.configuration) await d.selectConfiguration(1);
+    const iface = d.configuration.interfaces.find(i => i.alternates.some(a => a.interfaceClass === 7)) || d.configuration.interfaces[0];
+    const alt = iface.alternates.find(a => a.endpoints.some(e => e.direction === "out")) || iface.alternates[0];
+    await d.claimInterface(iface.interfaceNumber);
+    if (iface.alternates.length > 1) await d.selectAlternateInterface(iface.interfaceNumber, alt.alternateSetting);
+    outEndpoint = alt.endpoints.find(e => e.direction === "out");
+    if (!outEndpoint) throw new Error("The printer has no output endpoint.");
+    printer = d;
+    $("pStatus").innerHTML = `<span class="ok">Connected: ${d.productName || "USB printer"}</span>`;
+    $("pPrint").disabled = false;
+    note("Printer connect", `OK (${d.productName || "unnamed"}, ${d.vendorId.toString(16)}:${d.productId.toString(16)})`);
+  } catch (e) { fail("pStatus", "Printer connect", e); }
+};
+
+async function send(bytes) {
+  for (let i = 0; i < bytes.length; i += 4096) {
+    const r = await printer.transferOut(outEndpoint.endpointNumber, bytes.slice(i, i + 4096));
+    if (r.status !== "ok") throw new Error("transfer " + r.status);
+  }
+}
+function pictureBytes() {
+  // 576 dots wide (80 mm at 8 dots/mm), drawn on a canvas and sent as GS v 0
+  const w = 576, h = 140, c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  g.fillStyle = "#fff"; g.fillRect(0, 0, w, h);
+  g.fillStyle = "#000"; g.fillRect(0, 0, w, 10); g.fillRect(0, h - 10, w, 10);
+  g.font = "900 72px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.fillText("PHONE OK", w / 2, h / 2);
+  const px = g.getImageData(0, 0, w, h).data, row = w / 8;
+  const out = [29, 118, 48, 0, row & 255, row >> 8, h & 255, h >> 8];
+  for (let y = 0; y < h; y++) for (let bx = 0; bx < row; bx++) {
+    let b = 0;
+    for (let k = 0; k < 8; k++) if (px[(y * w + bx * 8 + k) * 4] < 128) b |= 128 >> k;
+    out.push(b);
+  }
+  return out;
+}
+$("pPrint").onclick = async () => {
+  try {
+    const text = s => [...new TextEncoder().encode(s)];
+    const t0 = performance.now();
+    await send(new Uint8Array([
+      27, 64,                                                    // reset
+      ...text("Skaperfestivalen - phone check\n"),
+      ...text(`Chrome ${chrome}, Android ${android}\n`),
+      ...text(new Date().toLocaleString() + "\n\n"),
+      ...pictureBytes(),
+      ...text("\n\n\n\n"), 29, 86, 1,                            // feed, cut
+    ]));
+    const ms = Math.round(performance.now() - t0);
+    $("pStatus").innerHTML = `<span class="ok">Sent in ${ms} ms — did a ticket with "PHONE OK" come out?</span>`;
+    note("Printer print", `sent OK in ${ms} ms (check the paper)`);
+  } catch (e) { fail("pStatus", "Printer print", e); }
+};
+
+// ---------- 3 · micro:bit ----------
+let port = null, writer = null;
+const mLines = [];
+function mLog(line) {
+  mLines.push(line);
+  if (mLines.length > 60) mLines.shift();
+  $("mLog").textContent = mLines.join("\n");
+  $("mLog").scrollTop = 1e9;
+}
+async function mSend(line) {
+  await writer.write(new TextEncoder().encode(line + "\n"));
+  mLog("→ " + line);
+}
+$("mConnect").onclick = async () => {
+  try {
+    if (!navigator.serial) throw new Error("Web Serial isn't available in this Chrome.");
+    port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x0d28 }] });
+    await port.open({ baudRate: 115200 });
+    writer = port.writable.getWriter();
+    for (const id of ["mPing", "mLight", "mBell", "mStep"]) $(id).disabled = false;
+    mLog("connected");
+    note("micro:bit connect", "OK (Web Serial)");
+    readLoop();
+    mSend("PING");
+  } catch (e) { mLog(`${e.name}: ${e.message}`); note("micro:bit connect", `FAILED — ${e.name}: ${e.message}`); }
+};
+async function readLoop() {
+  const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += value;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line) continue;
+        mLog("← " + line);
+        if (line === "PONG") note("micro:bit ping", "PONG received");
+        if (line.startsWith("LIGHT:")) note("micro:bit light", line.slice(6));
+        if (line.startsWith("BELT:DONE")) note("micro:bit belt step", "done (" + line + ")");
+        if (line.startsWith("BELT:ERROR")) note("micro:bit belt step", line);
+        if (line.startsWith("HB:")) note("micro:bit heartbeat", "arriving");
+      }
+    }
+  } catch (e) { mLog(`read stopped: ${e.message}`); note("micro:bit read", "stopped — " + e.message); }
+}
+$("mPing").onclick = () => mSend("PING");
+$("mLight").onclick = () => mSend("LIGHT?");
+$("mBell").onclick = () => mSend("BELL:1");
+$("mStep").onclick = () => mSend("BELT:STEP");
+
+// ---------- 4 · other ways in ----------
+$("uMicrobit").onclick = async () => {
+  try {
+    if (!navigator.usb) throw new Error("WebUSB isn't available here.");
+    const d = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0d28 }] });
+    const ifaces = d.configurations.flatMap(c => c.interfaces.map(i => i.alternates[0].interfaceClass.toString(16)));
+    $("otherStatus").innerHTML = `<span class="ok">WebUSB sees ${d.productName || "the micro:bit"} (interface classes ${ifaces.join(", ")})</span>`;
+    note("micro:bit via WebUSB", `visible: ${d.productName || "?"}, classes ${ifaces.join(",")}`);
+  } catch (e) { fail("otherStatus", "micro:bit via WebUSB", e); }
+};
+$("hDisplay").onclick = async () => {
+  try {
+    if (!navigator.hid) throw new Error("WebHID isn't in this Chrome (expected on Android for now).");
+    const [d] = await navigator.hid.requestDevice({ filters: [] });
+    if (!d) throw new Error("nothing picked");
+    $("otherStatus").innerHTML = `<span class="ok">WebHID sees ${d.productName}</span>`;
+    note("IBM display via WebHID", `visible: ${d.productName}`);
+  } catch (e) { fail("otherStatus", "IBM display via WebHID", e); }
+};
+
+// ---------- 5 · screen ----------
+$("wake").onclick = async () => {
+  try {
+    await navigator.wakeLock.request("screen");
+    $("wakeStatus").innerHTML = `<span class="ok">The screen stays on while this page is open.</span>`;
+    note("Keep screen awake", "OK");
+  } catch (e) { fail("wakeStatus", "Keep screen awake", e); }
+};
+
+// ---------- report ----------
+$("copy").onclick = async () => {
+  const text = "Phone check\n" + $("report").textContent + (mLines.length ? "\n\nmicro:bit log:\n" + mLines.slice(-15).join("\n") : "");
+  try { await navigator.clipboard.writeText(text); $("copy").textContent = "Copied — paste it to Claude"; }
+  catch { $("copy").textContent = "Couldn't copy — select the text below by hand"; }
+};
+</script>
+</body>
+</html>
