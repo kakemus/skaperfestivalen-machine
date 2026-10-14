@@ -14,7 +14,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14 b";
+const VERSION = "phone 2026-10-14 c";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -155,10 +155,8 @@ $("tapToStart").addEventListener("click", async () => {
   after(300, showAgain);
 });
 
-// ---------- operator panel: long press in the top-left corner ----------
-let pressTimer = null;
-$("corner").addEventListener("pointerdown", () => { pressTimer = setTimeout(() => { $("panel").hidden = false; }, 2000); });
-for (const ev of ["pointerup", "pointerleave", "pointercancel"]) $("corner").addEventListener(ev, () => clearTimeout(pressTimer));
+// ---------- operator panel: the small ⚙ button top-left ----------
+$("gear").onclick = () => { $("panel").hidden = false; };
 $("close").onclick = () => { $("panel").hidden = true; after(100, showAgain); };
 
 $("connectPrinter").onclick = () => printer.connect();
@@ -195,6 +193,7 @@ window.addEventListener("keydown", e => {
 
 // ---------- offline copy (sw.js) ----------
 $("version").textContent = VERSION;
+$("startVersion").textContent = VERSION;
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(
     () => log("Offline copy: on"),

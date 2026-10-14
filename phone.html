@@ -14,7 +14,8 @@
   its USB port. Works on the Redmi's Chrome 87 — the micro:bit goes through
   core/usbSerial.js there. sw.js keeps a copy of everything on the phone, so
   after one visit with the Mac around it opens with no Mac and no Wi-Fi.
-  The operator panel opens with a long press (2 s) in the top-left corner.
+  The operator panel opens from the small ⚙ button top-left (a long press
+  there didn't work on the phone: Android Chrome cancels a held finger).
 -->
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,7 +32,7 @@
   #levels { display: flex; gap: 6px; justify-content: center; margin-top: 14px; min-height: 22px; }
   #levels b { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #555; }
   #levels b.on { background: #ffcf3d; border-color: #ffcf3d; }
-  #corner { position: fixed; left: 0; top: 0; width: 70px; height: 70px; z-index: 5; }
+  #gear { position: fixed; left: 6px; top: 6px; width: 44px; height: 44px; z-index: 9; background: none; border: 1px solid #333; border-radius: 8px; color: #666; font-size: 22px; line-height: 1; }
   #status { position: fixed; right: 10px; top: 8px; font: 12px Arial, sans-serif; color: #555; z-index: 4; }
   #status .bad { color: #ff6b6b; }
   #tapToStart { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 8; font: 900 26px Arial, sans-serif; text-align: center; padding: 24px; }
@@ -58,12 +59,13 @@
   <div id="timer"><i></i></div>
   <div id="levels"></div>
 </div>
-<div id="corner"></div>
+<button id="gear" aria-label="Operator panel">⚙</button>
 <div id="status"></div>
 
 <div id="tapToStart">
   TRYKK FOR Å STARTE
   <small>Full screen, screen stays on, sound on. (Chrome only allows these after a tap.)</small>
+  <small id="startVersion"></small>
 </div>
 
 <div id="otherTab" hidden>The machine is already open in another tab — close that one.</div>
