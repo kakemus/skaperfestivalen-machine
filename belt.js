@@ -15,11 +15,11 @@ const $ = id => document.getElementById(id);
 // ---------- settings ----------
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
-  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "kick", "inv1", "inv2",
+  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "warm", "kick", "inv1", "inv2",
   "brake", "creep", "settle"];
 const DEFAULTS = {
   pull: 60, feed: 45, rewind: 80, tension: 55, tensionms: 400, mode: 0, level: 0, hyst: 8,
-  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, kick: 80,
+  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, warm: 70, kick: 80,
   inv1: 1, inv2: 1,   // this build has both motors wired the other way round (2026-10-13)
   brake: 30, creep: 40, settle: 600,
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,

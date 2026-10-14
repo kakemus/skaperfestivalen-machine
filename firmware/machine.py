@@ -79,7 +79,8 @@ S = {                  # settings — the belt page sets these, the board keeps 
     "after": 0,        # keep going this many ms after a mark is found (centre the screen)
     "mingap": 300,     # ignore marks during the first ms of a screen (still leaving the old one)
     "idletension": 0,  # re-tighten after this many s of standing still (0 = off)
-    "backlight": 25,   # backlight white level 0-120 (keep it steady: the light sensor reads it)
+    "backlight": 25,   # backlight level 0-120 (keep it steady: the light sensor reads it)
+    "warm": 70,        # backlight colour: 0 = white, 100 = yellow (the maker wanted it more yellow, 2026-10-14)
     "kick": 80,        # ms of full power every time a motor starts (0 = off) — see drive()
     "inv1": 0,         # 1 = motor M1 is wired the other way round: flip its direction everywhere
     "inv2": 0,         # 1 = same for M2
@@ -195,8 +196,11 @@ def leds_fill(r, g, b):
 
 
 def backlight_on():
-    v = S["backlight"]
-    leds_fill(v, v, v)
+    # warmth takes blue out and a little green: 0 = white (v, v, v),
+    # 100 = yellow (v, 3/4 v, 0) — these LEDs' green is strong, so full
+    # green with red reads lime rather than yellow
+    v, w = S["backlight"], max(0, min(100, S["warm"]))
+    leds_fill(v, v * (400 - w) // 400, v * (100 - w) // 100)
 
 
 def light():
@@ -570,7 +574,7 @@ def set_value(key, value, now):
         return
     S[key] = int(value)
     save_due = now + 2000          # write to flash once things settle
-    if key == "backlight":
+    if key == "backlight" or key == "warm":
         backlight_on()
     say("SET:OK:%s:%d" % (key, S[key]))
 

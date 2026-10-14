@@ -132,6 +132,8 @@
     <div class="grid">
       <label>Brightness (0–120)</label><input type="number" id="backlight" min="0" max="120">
       <small>Start low (about 25) when powered from the Wukong. Keep it steady — the light sensor reads it, so recalibrate after changing it.</small>
+      <label>Colour: 0 = white, 100 = yellow</label><input type="number" id="warm" min="0" max="100" step="10">
+      <small>Changes the light straight away. Also check paper/mark on the light sensor afterwards.</small>
     </div>
     <div class="row" style="margin-top:8px"><button id="ledOn">On</button><button id="ledOff">Off</button></div>
     <p class="hint">Wiring: matrix IN → P15 (yellow S pin), V- → G, V+ → the Wukong's <b>5V</b> pin in the middle header (the red pin rows are only 3.3 V). For the festival: a separate 5 V supply, GND joined to the Wukong's.</p>
