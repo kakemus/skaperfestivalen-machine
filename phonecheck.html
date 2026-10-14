@@ -89,6 +89,16 @@
 </section>
 
 <script>
+// If anything below fails on an old Chrome, say so on the page instead of
+// leaving it silently empty (the first version died on a phone that way).
+window.onerror = (msg, src, line) => {
+  const el = document.getElementById("caps");
+  el.innerHTML += `<div class="row bad">Page error: ${msg} (line ${line})</div>`;
+};
+</script>
+<script>
+// "chrome" is a built-in name in Chrome — a variable of that name stopped the
+// whole script on the Redmi's old Chrome (2026-10-14). Hence chromeVersion.
 const $ = id => document.getElementById(id);
 const results = {};           // name -> text, for the report
 function note(name, text, cls) {
@@ -99,10 +109,10 @@ function note(name, text, cls) {
 }
 
 // ---------- 1 · capabilities ----------
-const chrome = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || "not Chrome";
+const chromeVersion = (navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || "not Chrome";
 const android = (navigator.userAgent.match(/Android ([\d.]+)/) || [])[1] || "–";
 const caps = [
-  ["Browser", `Chrome ${chrome}`, chrome !== "not Chrome"],
+  ["Browser", `Chrome ${chromeVersion}`, chromeVersion !== "not Chrome"],
   ["Android", android, android !== "–"],
   ["Secure page", window.isSecureContext ? "yes" : "NO — see the red box", window.isSecureContext],
   ["WebUSB (printer)", "usb" in navigator ? "yes" : "no", "usb" in navigator],
@@ -174,7 +184,7 @@ $("pPrint").onclick = async () => {
     await send(new Uint8Array([
       27, 64,                                                    // reset
       ...text("Skaperfestivalen - phone check\n"),
-      ...text(`Chrome ${chrome}, Android ${android}\n`),
+      ...text(`Chrome ${chromeVersion}, Android ${android}\n`),
       ...text(new Date().toLocaleString() + "\n\n"),
       ...pictureBytes(),
       ...text("\n\n\n\n"), 29, 86, 1,                            // feed, cut
