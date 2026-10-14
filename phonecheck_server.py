@@ -12,6 +12,9 @@ import sys
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8131
 PAGE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "phonecheck.html")
+# The page posts its report here on every change, so nothing has to be copied
+# off the phone by hand (getting text off the old phone was its own problem).
+RESULTS = "/tmp/phonecheck-results.txt"
 
 
 class OnePage(http.server.BaseHTTPRequestHandler):
@@ -26,6 +29,20 @@ class OnePage(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+
+    def do_POST(self):
+        if self.path != "/results":
+            self.send_error(404)
+            return
+        n = min(int(self.headers.get("Content-Length") or 0), 100_000)
+        with open(RESULTS, "wb") as f:
+            f.write(self.rfile.read(n))
+        self.send_response(204)
+        self.end_headers()
+
+    def log_message(self, *args):
+        pass
 
 
 class Server(socketserver.ThreadingMixIn, socketserver.TCPServer):

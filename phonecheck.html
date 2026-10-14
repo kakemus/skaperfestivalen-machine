@@ -85,6 +85,7 @@
 
 <section>
   <h2>Results</h2>
+  <div id="sent" class="hint" style="margin-top:0">Results are sent to the Mac by themselves.</div>
   <button id="copy">Copy results</button>
   <pre id="report"></pre>
 </section>
@@ -106,7 +107,19 @@ function note(name, text, cls) {
   results[name] = text;
   const line = `${name}: ${text}`;
   $("report").textContent = Object.entries(results).map(([k, v]) => `${k}: ${v}`).join("\n");
+  sendSoon();
   return { line, cls };
+}
+// Send the report to the Mac (phonecheck_server.py) a moment after each change.
+let sendTimer = null;
+function sendSoon() {
+  clearTimeout(sendTimer);
+  sendTimer = setTimeout(() => {
+    const text = new Date().toLocaleTimeString() + "\n" + $("report").textContent +
+      (typeof mLines !== "undefined" && mLines.length ? "\n\nmicro:bit log:\n" + mLines.slice(-20).join("\n") : "");
+    fetch("/results", { method: "POST", body: text }).then(() => { $("sent").textContent = "Sent to the Mac ✓"; })
+      .catch(() => { $("sent").textContent = "Couldn't reach the Mac"; });
+  }, 400);
 }
 
 // ---------- 1 · capabilities ----------
@@ -202,6 +215,7 @@ const mLines = [];
 function mLog(line) {
   mLines.push(line);
   if (mLines.length > 60) mLines.shift();
+  sendSoon();
   $("mLog").textContent = mLines.join("\n");
   $("mLog").scrollTop = 1e9;
 }
