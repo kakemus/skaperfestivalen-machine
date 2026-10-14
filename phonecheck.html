@@ -72,6 +72,7 @@
 <section>
   <h2>4 · Other ways in (only if 3 fails)</h2>
   <button id="uMicrobit">Can WebUSB see the micro:bit?</button>
+  <button id="uAll">Show every USB device Chrome can see</button>
   <button id="hDisplay">Can WebHID see the IBM display?</button>
   <div id="otherStatus" class="hint"></div>
 </section>
@@ -258,6 +259,17 @@ $("uMicrobit").onclick = async () => {
     $("otherStatus").innerHTML = `<span class="ok">WebUSB sees ${d.productName || "the micro:bit"} (interface classes ${ifaces.join(", ")})</span>`;
     note("micro:bit via WebUSB", `visible: ${d.productName || "?"}, classes ${ifaces.join(",")}`);
   } catch (e) { fail("otherStatus", "micro:bit via WebUSB", e); }
+};
+// No filter: lists everything the phone hands to Chrome — tells "the phone
+// doesn't see it at all" apart from "Chrome hides it".
+$("uAll").onclick = async () => {
+  try {
+    if (!navigator.usb) throw new Error("WebUSB isn't available here.");
+    const d = await navigator.usb.requestDevice({ filters: [] });
+    const desc = `${d.productName || "?"} by ${d.manufacturerName || "?"} (${d.vendorId.toString(16)}:${d.productId.toString(16)})`;
+    $("otherStatus").innerHTML = `<span class="ok">Picked: ${desc}</span>`;
+    note("Any USB device", "picked " + desc);
+  } catch (e) { fail("otherStatus", "Any USB device", e); }
 };
 $("hDisplay").onclick = async () => {
   try {
