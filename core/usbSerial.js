@@ -25,8 +25,20 @@ class UsbSerialPort {
 
   async open({ baudRate = 115200 } = {}) {
     const d = this.device;
-    await d.open();
-    if (!d.configuration) await d.selectConfiguration(1);
+    try {
+      if (!d.opened) await d.open();
+      if (!d.configuration) await d.selectConfiguration(1);
+      await this.claim(baudRate);
+    } catch (e) {
+      try { await d.close(); } catch {}
+      if (/claim|busy|in use|access/i.test(e.message))
+        throw new Error("something else is holding the micro:bit — close other Chrome tabs with this machine or the phone check open, unplug it and plug it back in (" + e.message + ")");
+      throw e;
+    }
+  }
+
+  async claim(baudRate) {
+    const d = this.device;
     const ifaces = d.configuration.interfaces;
     const comm = ifaces.find(i => i.alternates[0].interfaceClass === 2);
     const data = ifaces.find(i => i.alternates[0].interfaceClass === 0x0a);

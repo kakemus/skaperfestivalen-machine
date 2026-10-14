@@ -57,7 +57,10 @@ export async function connect({ auto = false } = {}) {
     const known = await serial.getPorts();
     const knownMicrobit = pickPort(known);
     if (auto && !knownMicrobit) return false;
-    const chosen = knownMicrobit || await serial.requestPort({ filters: [{ usbVendorId: MICROBIT_VENDOR_ID }] });
+    // A click always shows the chooser: reusing the known board silently, when
+    // opening it then failed (another tab holding it), left "Connect" looking
+    // dead on the phone (2026-10-14). Only the automatic path reuses it.
+    const chosen = auto ? knownMicrobit : await serial.requestPort({ filters: [{ usbVendorId: MICROBIT_VENDOR_ID }] });
     await chosen.open({ baudRate: BAUD_RATE });
     port = chosen;
     keepReading = true;
