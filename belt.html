@@ -131,7 +131,7 @@
     <h2>Backlight (LED matrix)</h2>
     <div class="grid">
       <label>Brightness (0–120)</label><input type="number" id="backlight" min="0" max="120">
-      <small>Start low (about 25) when powered from the Wukong. Keep it steady — the light sensor reads it, so recalibrate after changing it.</small>
+      <small>Start low (about 25) when powered from the Wukong — above about 40 the LEDs pull so much current that the micro:bit can stumble and drop the connection (it did at 120, 2026-10-14). Keep it steady — the light sensor reads it, so recalibrate after changing it.</small>
       <label>Colour</label><input type="color" id="colour" style="width:100%;height:40px;border:0;background:none">
       <small>Pick by looking at the box — the LEDs' green is much stronger than on a screen. Changes live. Check paper/mark on the light sensor afterwards.</small>
     </div>

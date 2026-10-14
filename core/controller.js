@@ -22,6 +22,7 @@ let reader = null;
 let keepReading = false;
 let connecting = false;
 let reconnectWhenClosed = false;
+let retryReconnect = 0;        // tries left after the read broke by itself
 const buttonState = { a: false, b: false };
 const buttonChangedAt = { a: 0, b: 0 };
 const BUTTON_REPRESS_MS = 250;
@@ -176,7 +177,11 @@ async function readLoop() {
       }
     }
   } catch (e) {
-    emit("controller:error", { message: "Controller read error: " + e.message });
+    emit("controller:error", { message: "Controller read error: " + e.message + " — reconnecting." });
+    // Not asked for: the board stumbled (a power dip, a USB hiccup — "read
+    // stall" on the phone, 2026-10-14) but is usually still plugged in, so no
+    // USB connect event will come. Try to pick it up again by itself.
+    if (keepReading) retryReconnect = 5;
   } finally {
     resetButtonState();
     reader?.releaseLock();
@@ -188,6 +193,12 @@ async function readLoop() {
     if (reconnectWhenClosed) {
       reconnectWhenClosed = false;
       setTimeout(() => connect({ auto: true }), 250);
+    } else if (retryReconnect > 0) {
+      const again = async () => {
+        if (port || retryReconnect-- <= 0) return;
+        if (!(await connect({ auto: true }))) setTimeout(again, 1500);   // it may still be restarting
+      };
+      setTimeout(again, 500);
     }
   }
 }

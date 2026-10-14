@@ -55,12 +55,18 @@ class UsbSerialPort {
       await d.controlTransferOut(setup(0x20), new Uint8Array([b & 255, (b >> 8) & 255, (b >> 16) & 255, b >>> 24, 0, 0, 8])); // SET_LINE_CODING 8N1
       await d.controlTransferOut(setup(0x22, 0x03));                                                                              // DTR + RTS on
     }
+    let stalls = 0;
     this.readable = new ReadableStream({
       async pull(controller) {
         try {
           for (;;) {
             const r = await d.transferIn(inEp.endpointNumber, inEp.packetSize || 64);
+            // A stalled endpoint can be cleared and read again; only give up
+            // when it keeps stalling ("read stall" dropped the phone's
+            // connection, 2026-10-14).
+            if (r.status === "stall" && stalls++ < 5) { await d.clearHalt("in", inEp.endpointNumber); continue; }
             if (r.status !== "ok") throw new Error("read " + r.status);
+            stalls = 0;
             if (r.data.byteLength) {
               controller.enqueue(new Uint8Array(r.data.buffer.slice(r.data.byteOffset, r.data.byteOffset + r.data.byteLength)));
               return;
