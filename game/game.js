@@ -48,6 +48,7 @@ export function createGame(io) {
     setState("lost");
     io.text(`${message} TILBAKE TIL START...`);
     io.log(`Feil — ${message}`);
+    io.flash?.(false);           // red blinks; the board starts the rewind once they're over
     await Promise.all([io.belt.rewind(), wait(4000)]);
     if (!still(id)) return;
     level = 0;
@@ -102,6 +103,7 @@ export function createGame(io) {
       setState("climbing");
       io.text("RIKTIG!", { blink: true });
       io.log(`Riktig! Nivå ${level}`);
+      io.flash?.(true);          // green blinks; the board starts the step once they're over
       io.bell(1);
       if (level < io.belt.last) io.printReward(level);
       await Promise.all([io.belt.step(), wait(1800)]);

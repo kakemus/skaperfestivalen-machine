@@ -23,6 +23,8 @@
 #   MOTOR:m:speed:ms                      run motor m (1/2) at -100..100 for ms (≤ 5 s)
 #   BELL:n                                ring n times (also BELL:DING:n); never holds up the belt
 #   LED:ON | LED:OFF | LED:RGB:r:g:b      the backlight (8×8 NeoPixel matrix)
+#   LED:FLASH:G | LED:FLASH:R             blink green (right answer) / red (wrong); a BELT
+#                                         command sent meanwhile waits until it's over
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
 #   STREAM:ON|OFF  LIGHT?  PING  STATUS?  STOP
 # Replies: BELT:DONE:pos / BELT:ERROR:why / BELT:WARN:..., MARK:... (what the
@@ -562,6 +564,46 @@ def bell_tick(now):
         bell["next"] = now + BELL_MS
 
 
+# ---------- right / wrong flash ----------
+# Green or red blinks before the belt moves (2026-10-14). The light sensor
+# reads the backlight, so a move must never run in a flash colour: BELT
+# commands that arrive while it blinks are kept and run once the normal
+# light is back.
+FLASH_COLOURS = {"G": (0, 1, 0), "R": (1, 0, 0)}
+FLASH_ON, FLASH_OFF, FLASH_TIMES = 180, 120, 3
+flash = {"left": 0, "on": False, "next": 0, "rgb": (0, 0, 0), "then": []}
+
+
+def start_flash(now, colour):
+    v = min(LED_MAX, max(40, S["backlight"] * 2))       # brighter than the backlight, so it reads
+    c = FLASH_COLOURS.get(colour, (1, 1, 1))
+    flash["rgb"] = (v * c[0], v * c[1], v * c[2])
+    flash["left"], flash["on"], flash["next"] = FLASH_TIMES, False, now
+
+
+def flash_tick(now):
+    if not (flash["left"] or flash["on"]) or now < flash["next"]:
+        return
+    if flash["on"]:
+        leds_fill(0, 0, 0)
+        flash["on"] = False
+        flash["next"] = now + FLASH_OFF
+        if flash["left"] == 0:                           # last blink done: normal light, then the waiting moves
+            backlight_on()
+            waiting, flash["then"] = flash["then"], []
+            for line in waiting:
+                safe_handle(line, now)
+    else:
+        flash["left"] -= 1
+        leds_fill(*flash["rgb"])
+        flash["on"] = True
+        flash["next"] = now + FLASH_ON
+
+
+def flashing():
+    return flash["left"] > 0 or flash["on"]
+
+
 # ---------- commands ----------
 save_due = 0
 streaming = False
@@ -585,6 +627,9 @@ def handle(line, now):
     cmd = parts[0]
     last_action = now
     if line == "STOP":
+        if flashing():
+            flash["left"], flash["on"], flash["then"] = 0, False, []
+            backlight_on()
         stop_all()
     elif line == "PING":
         say("PONG")
@@ -602,6 +647,8 @@ def handle(line, now):
     elif cmd == "STREAM":
         streaming = parts[1] == "ON"
         say("STREAM:OK:" + ("ON" if streaming else "OFF"))
+    elif cmd == "BELT" and flashing():
+        flash["then"].append(line)                       # runs when the flash is over
     elif cmd == "BELT":
         if parts[1] == "STEP":
             start_move(now, 1, 1)
@@ -639,6 +686,8 @@ def handle(line, now):
             leds_fill(0, 0, 0)
         elif parts[1] == "RGB":
             leds_fill(int(parts[2]), int(parts[3]), int(parts[4]))
+        elif parts[1] == "FLASH":
+            start_flash(now, parts[2] if len(parts) > 2 else "G")
         say("LED:OK:" + parts[1])
     elif cmd == "BELL":
         ring(int(parts[-1]) if len(parts) > 1 and parts[-1].isdigit() else 1)
@@ -724,6 +773,7 @@ while True:
 
         tick(now)
         bell_tick(now)
+        flash_tick(now)
         if now >= next_buttons:                   # every 20 ms: a bouncing switch can't double-press
             next_buttons = now + 20
             buttons(now)

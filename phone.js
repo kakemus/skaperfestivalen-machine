@@ -14,7 +14,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14 e";
+const VERSION = "phone 2026-10-14 f";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -97,6 +97,7 @@ const game = createGame({
   text(str, opts = {}) { attract(false); shown = [str, opts]; show(str, opts); },
   idle() { runTimer(0); showLevels(0); attract(true); },
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
+  flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
   printReward(level) { if (settings.rewardPrints) printTicket("reward", { level }); },
   printWin() { printTicket("prize", { reels: "★ ★ ★", result: "DU VANT!", message: `Du klarte alle ${belt.last} nivåene!` }); },
   log,

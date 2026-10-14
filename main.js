@@ -262,6 +262,7 @@ game = createGame({
   text(str, opts) { holdUntil = Infinity; startScene("game", textScene(str, opts)); },
   idle() { holdUntil = 0; startScene(settings.scene === "auto" ? (lastIdle || sceneNames[0]) : settings.scene); },
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
+  flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
   printReward(level) {
     if (settings.rewardPrints) printTicket("reward", { level }).catch(e => log(e.message, "err"));
   },

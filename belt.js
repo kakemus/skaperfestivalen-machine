@@ -285,6 +285,8 @@ $("rewind").onclick = rewindToStart;
 $("tighten").onclick = () => move("TENSION", "Tighten");
 $("ledOn").onclick = () => toBoard("LED:ON");
 $("ledOff").onclick = () => toBoard("LED:OFF");
+$("flashG").onclick = () => toBoard("LED:FLASH:G");     // what a right answer shows
+$("flashR").onclick = () => toBoard("LED:FLASH:R");     // ... and a wrong one
 // hold-to-run: HOLD:±1 repeated every 250 ms while pressed (the board stops by itself
 // 600 ms after the last one, so a lost connection can't leave it running), HOLD:0 on release
 let holdTimer = null, holdDir = 0;
