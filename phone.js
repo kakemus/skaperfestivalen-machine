@@ -9,20 +9,26 @@ import { whenInCharge } from "./core/singleTab.js";
 import { after, every, cancel } from "./core/clock.js";
 import { createGame } from "./game/game.js";
 import { DEFAULT_QUESTIONS, parseQuestions } from "./game/questions.js";
+import { TEXT, DEFAULT_QUESTIONS_EN } from "./game/lang.js";
 import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14 h";
+const VERSION = "phone 2026-10-14 i";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
 const settings = (() => {
-  const d = { answerSeconds: 30, levels: DEFAULT_STRIP.levels, rewardPrints: true, questions: null };
+  // questions: the Norwegian list (null = the default); questionsEn: the English one
+  const d = { answerSeconds: 30, levels: DEFAULT_STRIP.levels, rewardPrints: true, questions: null, questionsEn: null, lang: "no" };
   try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
+const words = () => TEXT[settings.lang] || TEXT.no;
+const qKey = () => (settings.lang === "en" ? "questionsEn" : "questions");
+const qDefault = () => (settings.lang === "en" ? DEFAULT_QUESTIONS_EN : DEFAULT_QUESTIONS);
+const questionText = () => settings[qKey()] ?? qDefault();
 
 // ---------- log ----------
 const lines = [];
@@ -67,12 +73,15 @@ function runTimer(seconds) {
 }
 
 // attract mode: a few lines taking turns until a coin comes
-const ATTRACT = [["SETT INN MYNT", { blink: true }], ["SVAR JA ELLER NEI"], ["KLATRE HELT TIL TOPPEN"], ["VINN EN PREMIE!"]];
 let attractTimer = null, attractI = 0;
 function attract(on) {
   if (attractTimer) { cancel(attractTimer); attractTimer = null; }
   if (!on) return;
-  const next = () => { const [t, o = {}] = ATTRACT[attractI++ % ATTRACT.length]; shown = [t, o]; show(t, o); };
+  const next = () => {
+    const lines = words().attract, i = attractI++ % lines.length;
+    shown = [lines[i], { blink: i === 0 }];             // the first line ("insert coin") blinks
+    show(...shown);
+  };
   next();
   attractTimer = every(3500, next);
 }
@@ -91,15 +100,17 @@ const printTicket = (key, extra) =>
     .catch(e => log("Print failed: " + e.message));
 
 const game = createGame({
-  questions: () => parseQuestions(settings.questions ?? DEFAULT_QUESTIONS),
+  questions: () => parseQuestions(questionText()),
+  lang: () => settings.lang,
   answerSeconds: () => settings.answerSeconds,
   belt,
   text(str, opts = {}) { attract(false); shown = [str, opts]; show(str, opts); },
   idle() { runTimer(0); showLevels(0); attract(true); },
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
   flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
-  printReward(level) { if (settings.rewardPrints) printTicket("reward", { level }); },
-  printWin() { printTicket("prize", { reels: "★ ★ ★", result: "DU VANT!", message: `Du klarte alle ${belt.last} nivåene!` }); },
+  printReward(level) { if (settings.rewardPrints) printTicket("reward", { ...words().reward, level }); },
+  printWin() { printTicket("prize", { reels: "★ ★ ★", ...words().prize(belt.last) }); },
+  celebrate() { controller.send("LED:WIN"); },
   log,
   onState({ state, level }) {
     showLevels(level);
@@ -167,7 +178,11 @@ $("tYes").onclick = () => game.answer(true);
 $("tNo").onclick = () => game.answer(false);
 $("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
 $("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit connected");
-$("tPrint").onclick = () => printTicket("reward", { level: 1 });
+$("tPrint").onclick = () => printTicket("reward", { ...words().reward, level: 1 });
+$("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
+// the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
+$("sendLog").onclick = () => fetch("results", { method: "POST", body: "GAME LOG\n" + lines.join("\n") })
+  .then(r => log(r.ok ? "Log sent to the Mac." : "The Mac didn't take it."), () => log("Couldn't reach the Mac."));
 $("tCut").onclick = () => printer.cut().catch(e => log(e.message));
 $("tReset").onclick = () => { $("panel").hidden = true; game.reset(); };
 // same tab, so this page lets go of the micro:bit and the belt page takes it; "← Game" comes back
@@ -179,10 +194,21 @@ $("levels_").value = settings.levels;
 $("levels_").onchange = () => { settings.levels = Math.min(15, Math.max(3, Number($("levels_").value) || 10)); save(); setStrip(); showLevels(game.level); };
 $("rewardPrints").checked = settings.rewardPrints;
 $("rewardPrints").onchange = () => { settings.rewardPrints = $("rewardPrints").checked; save(); };
-const countQuestions = () => { $("qCount").textContent = `${parseQuestions(settings.questions ?? DEFAULT_QUESTIONS).length} questions`; };
-$("questions").value = settings.questions ?? DEFAULT_QUESTIONS;
-$("questions").oninput = () => { settings.questions = $("questions").value; save(); countQuestions(); };
-$("qReset").onclick = () => { settings.questions = null; $("questions").value = DEFAULT_QUESTIONS; save(); countQuestions(); };
+const countQuestions = () => { $("qCount").textContent = `${parseQuestions(questionText()).length} questions`; };
+$("questions").value = questionText();
+$("questions").oninput = () => { settings[qKey()] = $("questions").value; save(); countQuestions(); };
+$("qReset").onclick = () => { settings[qKey()] = null; $("questions").value = qDefault(); save(); countQuestions(); };
+// language: the game's words, attract lines, tickets and the question list switch together
+function showLang() {
+  for (const l of ["no", "en"]) $("lang_" + l).classList.toggle("on", settings.lang === l);
+  $("questions").value = questionText();
+  countQuestions();
+}
+for (const l of ["no", "en"]) $("lang_" + l).onclick = () => {
+  settings.lang = l; save(); showLang();
+  if (game.state === "attract") { attractI = 0; attract(true); }
+};
+showLang();
 countQuestions();
 
 // keyboard, for testing on a computer: C = coin, J = ja, N = nei

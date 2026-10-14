@@ -8,6 +8,7 @@
 // in through `io` (display text, belt, bell, prints), so the same game runs
 // on screen alone or with the real machine attached.
 import { after, cancel } from "../core/clock.js";
+import { TEXT } from "./lang.js";
 
 export function createGame(io) {
   let state = "attract";
@@ -19,6 +20,7 @@ export function createGame(io) {
   const stopTimer = () => { if (answerTimer) cancel(answerTimer); answerTimer = null; };
 
   const wait = ms => new Promise(resolve => after(ms, resolve));
+  const T = () => TEXT[io.lang?.()] || TEXT.no;     // the words, in the language chosen right now
   const setState = s => { state = s; io.onState?.({ state, level, question }); };
   // Run `fn` only if no reset happened since `id` was taken.
   const still = id => id === run;
@@ -37,16 +39,16 @@ export function createGame(io) {
     if (!still(id)) return;
     question = pickQuestion();
     setState("asking");
-    io.text(`${question.text} JA ELLER NEI?`);
+    io.text(`${question.text} ${T().yesOrNo}`);
     stopTimer();
     const asked = question;
-    answerTimer = after(io.answerSeconds() * 1000, () => { if (still(id) && state === "asking" && question === asked) lose(id, "TIDEN ER UTE!"); });
+    answerTimer = after(io.answerSeconds() * 1000, () => { if (still(id) && state === "asking" && question === asked) lose(id, T().timeUp); });
     io.log(`Spørsmål ${level + 1}: ${question.text} (${question.answer ? "JA" : "NEI"})`);
   }
 
   async function lose(id, message) {
     setState("lost");
-    io.text(`${message} TILBAKE TIL START...`);
+    io.text(`${message} ${T().backToStart}`);
     io.log(`Feil — ${message}`);
     io.flash?.(false);           // red blinks; the board starts the rewind once they're over
     await Promise.all([io.belt.rewind(), wait(4000)]);
@@ -57,13 +59,14 @@ export function createGame(io) {
 
   async function win(id) {
     setState("won");
-    io.text("DU VANT!!!", { blink: true });
+    io.text(T().won, { blink: true });
     io.log("Vant!");
+    io.celebrate?.();            // the board's win light; the rewind below waits for it
     io.bell(3);
     io.printWin();
     await wait(9000);
     if (!still(id)) return;
-    io.text("TAKK FOR SPILLET!");
+    io.text(T().thanks);
     await Promise.all([io.belt.rewind(), wait(3000)]);
     if (!still(id)) return;
     level = 0;
@@ -80,13 +83,15 @@ export function createGame(io) {
     get state() { return state; },
     get level() { return level; },
 
-    /** A coin (or a scanned card) — starts a game from the attract screen. */
+    /** A coin (or a scanned card) — starts a game from the attract screen, or
+     *  straight after a win or a loss: those used to swallow the coin for the
+     *  ~12 s of "DU VANT!" / rewinding, so a coin then seemed to do nothing. */
     async coin() {
-      if (state !== "attract") return false;
+      if (!["attract", "won", "lost"].includes(state)) return false;
       const id = ++run;
       level = 0;
       setState("starting");
-      io.text("MYNT MOTTATT! LA OSS SPILLE!", { blink: true });
+      io.text(T().coin, { blink: true });
       io.log("Mynt — nytt spill");
       await Promise.all([io.belt.rewind(), wait(2500)]);
       ask(id);
@@ -98,10 +103,10 @@ export function createGame(io) {
       if (state !== "asking") return;
       const id = run;
       stopTimer();
-      if (yes !== question.answer) return lose(id, `FEIL! SVARET VAR ${question.answer ? "JA" : "NEI"}.`);
+      if (yes !== question.answer) return lose(id, T().wrong(question.answer));
       level++;
       setState("climbing");
-      io.text("RIKTIG!", { blink: true });
+      io.text(T().right, { blink: true });
       io.log(`Riktig! Nivå ${level}`);
       io.flash?.(true);          // green blinks; the board starts the step once they're over
       io.bell(1);
@@ -117,7 +122,7 @@ export function createGame(io) {
       const id = ++run;
       stopTimer();
       setState("resetting");
-      io.text("TILBAKESTILLER...");
+      io.text(T().resetting);
       await io.belt.rewind();
       if (!still(id)) return;
       level = 0;

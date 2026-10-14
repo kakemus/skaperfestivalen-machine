@@ -74,7 +74,8 @@ export function createBelt({ canvas, send }) {
     },
     /** call with every line from the micro:bit */
     handleLine(line) {
-      if (line.startsWith("BELT:DONE") || line.startsWith("BELT:ERROR")) {
+      // BUSY too: a move the board refused must not leave the game waiting a minute
+      if (line.startsWith("BELT:DONE") || line.startsWith("BELT:ERROR") || line === "BUSY") {
         const resolve = waitingForBoard;
         waitingForBoard = null;
         resolve?.(line);

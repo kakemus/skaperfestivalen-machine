@@ -19,6 +19,7 @@ export default {
     { key: "title", label: "Title ({level} = level reached)", default: "NIVÅ {level}!" },
     { key: "rewards", label: "Rewards (one per line, one is picked)", type: "textarea", default: REWARDS },
     { key: "footer", label: "Footer", default: "FORTSETT Å SVARE!" },
+    { key: "wonLabel", label: "Above the reward", default: "DU VANT:" },
     { key: "level", label: "Level (for the preview)", type: "number", default: 3 },
   ],
   randomize() { return { level: 1 + Math.floor(Math.random() * 9) }; },
@@ -33,7 +34,7 @@ export default {
       ctx.fillText("★".repeat(Math.min(level, 10)), WIDTH / 2, y);
       ctx.textAlign = "left";
       y = rule(ctx, y + 44) + 14;
-      y = centered(ctx, "DU VANT:", y, 20, { weight: "normal" }) + 2;
+      y = centered(ctx, v.wonLabel ?? "DU VANT:", y, 20, { weight: "normal" }) + 2;
       y = paragraph(ctx, reward, y, 36, { weight: "bold" }) + 10;
       return centered(ctx, v.footer, y, 18, { weight: "normal" }) + 4;
     }, { feedMm });

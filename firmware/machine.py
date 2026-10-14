@@ -25,6 +25,10 @@
 #   LED:ON | LED:OFF | LED:RGB:r:g:b      the backlight (8×8 NeoPixel matrix)
 #   LED:FLASH:G | LED:FLASH:R             blink green (right answer) / red (wrong); a BELT
 #                                         command sent meanwhile waits until it's over
+#   LED:WIN                               the win light: a running rainbow with sparkles (~6 s),
+#                                         BELT commands wait for it the same way
+#   A BELT command arriving while a move is still finishing (tightening, settling) is
+#   queued (one) and run after it, instead of being refused with BUSY.
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
 #   STREAM:ON|OFF  LIGHT?  PING  STATUS?  STOP
 # Replies: BELT:DONE:pos / BELT:ERROR:why / BELT:WARN:..., MARK:... (what the
@@ -60,6 +64,7 @@
 # the mark and settle back up onto its top edge: every stop lands the same.
 from microbit import *
 from neopixel import NeoPixel
+import random
 
 WUKONG = 0x10
 BELL_MS = 250
@@ -258,11 +263,18 @@ pos = -1           # screen the window shows; -1 = don't know (just switched on)
 last_action = 0
 
 
+queued = [None]    # a BELT command that arrived while a move was finishing
+
+
 def finish(reply):
-    """A belt job is over: report it, with the position for moves."""
+    """A belt job is over: report it, with the position for moves — then run a
+    queued BELT command, if one came in meanwhile."""
     global task
     task = None
     say(reply + (":%d" % pos if reply == "BELT:DONE" else ""))
+    line, queued[0] = queued[0], None
+    if line:
+        safe_handle(line, running_time())
 
 
 def start_tension(now, reply, move=0):
@@ -318,6 +330,7 @@ def fail(why):
     stop()
     task = None
     pos = -1
+    queued[0] = None             # whatever was queued assumed this move worked
     say("BELT:ERROR:" + why)
 
 
@@ -606,7 +619,8 @@ def bell_tick(now):
 # light is back.
 FLASH_COLOURS = {"G": (0, 1, 0), "R": (1, 0, 0)}
 FLASH_ON, FLASH_OFF, FLASH_TIMES = 180, 120, 3
-flash = {"left": 0, "on": False, "next": 0, "rgb": (0, 0, 0), "then": []}
+flash = {"left": 0, "on": False, "next": 0, "rgb": (0, 0, 0), "then": [], "win": 0}
+WIN_MS = 6000
 
 
 def start_flash(now, colour):
@@ -616,7 +630,54 @@ def start_flash(now, colour):
     flash["left"], flash["on"], flash["next"] = FLASH_TIMES, False, now
 
 
+def wheel(h, v):
+    """A rainbow colour for h 0-255 at level v."""
+    h %= 256
+    if h < 85:
+        return (v * (85 - h) // 85, v * h // 85, 0)
+    if h < 170:
+        h -= 85
+        return (0, v * (85 - h) // 85, v * h // 85)
+    h -= 170
+    return (v * h // 85, 0, v * (85 - h) // 85)
+
+
+def start_win(now):
+    flash["win"] = now + WIN_MS
+    flash["left"], flash["on"], flash["next"] = 0, False, now
+
+
+def win_tick(now):
+    """The rainbow runs round the matrix (each pixel a step further along the
+    wheel, the whole wheel turning) with a few white sparkles, ~25 frames/s."""
+    if now >= flash["win"]:
+        flash["win"] = 0
+        flash_done(now)
+        return
+    if now < flash["next"]:
+        return
+    flash["next"] = now + 40
+    v = min(LED_MAX, max(40, S["backlight"] * 2))
+    turn = now // 6
+    for i in range(LED_COUNT):
+        leds[i] = wheel(i * 4 + turn, v)
+    for _ in range(3):
+        leds[random.randrange(LED_COUNT)] = (v, v, v)
+    leds.show()
+
+
+def flash_done(now):
+    """Normal light again, then the moves that waited."""
+    backlight_on()
+    waiting, flash["then"] = flash["then"], []
+    for line in waiting:
+        safe_handle(line, now)
+
+
 def flash_tick(now):
+    if flash["win"]:
+        win_tick(now)
+        return
     if not (flash["left"] or flash["on"]) or now < flash["next"]:
         return
     if flash["on"]:
@@ -624,10 +685,7 @@ def flash_tick(now):
         flash["on"] = False
         flash["next"] = now + FLASH_OFF
         if flash["left"] == 0:                           # last blink done: normal light, then the waiting moves
-            backlight_on()
-            waiting, flash["then"] = flash["then"], []
-            for line in waiting:
-                safe_handle(line, now)
+            flash_done(now)
     else:
         flash["left"] -= 1
         leds_fill(*flash["rgb"])
@@ -636,7 +694,7 @@ def flash_tick(now):
 
 
 def flashing():
-    return flash["left"] > 0 or flash["on"]
+    return flash["left"] > 0 or flash["on"] or flash["win"] > 0
 
 
 # ---------- commands ----------
@@ -663,8 +721,9 @@ def handle(line, now):
     last_action = now
     if line == "STOP":
         if flashing():
-            flash["left"], flash["on"], flash["then"] = 0, False, []
+            flash["left"], flash["on"], flash["then"], flash["win"] = 0, False, [], 0
             backlight_on()
+        queued[0] = None
         stop_all()
     elif line == "PING":
         say("PONG")
@@ -684,6 +743,9 @@ def handle(line, now):
         say("STREAM:OK:" + ("ON" if streaming else "OFF"))
     elif cmd == "BELT" and flashing():
         flash["then"].append(line)                       # runs when the flash is over
+    elif cmd == "BELT" and task and task["kind"] in ("move", "tension", "settle"):
+        queued[0] = line                                 # runs when this move is done (the latest one wins)
+        say("BELT:QUEUED")
     elif cmd == "BELT":
         if parts[1] == "STEP":
             start_move(now, 1, 1)
@@ -723,6 +785,8 @@ def handle(line, now):
             leds_fill(int(parts[2]), int(parts[3]), int(parts[4]))
         elif parts[1] == "FLASH":
             start_flash(now, parts[2] if len(parts) > 2 else "G")
+        elif parts[1] == "WIN":
+            start_win(now)
         say("LED:OK:" + parts[1])
     elif cmd == "BELL":
         ring(int(parts[-1]) if len(parts) > 1 and parts[-1].isdigit() else 1)

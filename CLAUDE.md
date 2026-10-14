@@ -331,3 +331,14 @@ onto START (the blank above START is ~250 mm). **Colour**: picked colours are sc
 `led_level()` applies gamma 2.6 (LEDs are linear — picked orange came out yellow) and green × 0.8.
 **Packing**: `strip.py` also cuts indentation to 1 space/level (18.8 → 15.8 KB of uflash's 20 KB);
 packed and source checked identical in the simulator.
+**English mode, win light, coin after a game (2026-10-14):** `game/lang.js` holds every word the
+game says (no / en), the attract lines, ticket texts and `DEFAULT_QUESTIONS_EN`; `game.js` takes
+them via `io.lang()` (default Norwegian, so `main.js` is unchanged in words). Phone panel: Norsk /
+English buttons; each language keeps its own question list (`phoneSettings.questions` /
+`questionsEn`). Win light: `LED:WIN` — a turning rainbow with white sparkles for 6 s
+(`win_tick`, ~25 frames/s), BELT commands wait for it like for a flash; the game sends it on a
+win (`io.celebrate`). Coin is now taken in "won" and "lost" too (it used to be ignored for ~12 s
+after a win, which looked like the belt not going back to START). The board queues one BELT
+command that arrives while a move is still tightening/settling (`BELT:QUEUED`, run by `finish()`;
+dropped on STOP or a failed move) instead of answering BUSY; belt/belt.js also treats BUSY as an
+answer so the game never waits a minute. Phone panel: Win light test, Send log to the Mac.
