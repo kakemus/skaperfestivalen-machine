@@ -49,6 +49,7 @@
 <body>
 <div id="otherTab" class="warn" hidden>The machine is already open in another tab, and that tab is using the micro:bit. Close it — this page takes over by itself.</div>
 <header>
+  <a href="./" class="pill" style="text-decoration:none;color:inherit">← Game</a>
   <h1>Belt test</h1>
   <button id="connect">Connect micro:bit</button>
   <span class="pill" id="pUsb">micro:bit: not connected</span>
@@ -150,7 +151,7 @@
 
   <section style="grid-column: 1 / -1">
     <h2>Log</h2>
-    <div class="row"><button id="copyLog">Copy log</button><button id="clearLog">Clear</button><label><input type="checkbox" id="showHb">Show heartbeats</label></div>
+    <div class="row"><button id="copyLog">Copy log</button><button id="sendLog">Send log to the Mac</button><button id="clearLog">Clear</button><label><input type="checkbox" id="showHb">Show heartbeats</label></div>
     <div id="log"></div>
   </section>
 </main>

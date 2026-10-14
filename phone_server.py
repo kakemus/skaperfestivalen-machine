@@ -14,7 +14,7 @@ import sys
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8131
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FILES = {
-    "phone.html", "phone.js", "sw.js", "manifest.json", "icon.svg", "phonecheck.html",
+    "phone.html", "phone.js", "sw.js", "manifest.json", "icon.svg", "phonecheck.html", "belt.html", "belt.js",
     "core/clock.js", "core/clockWorker.js", "core/controller.js", "core/eventBus.js", "core/printer.js",
     "core/raster.js", "core/singleTab.js", "core/usbSerial.js",
     "game/game.js", "game/questions.js", "game/sound.js",

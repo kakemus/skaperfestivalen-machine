@@ -14,7 +14,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14";
+const VERSION = "phone 2026-10-14 b";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -171,6 +171,8 @@ $("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit con
 $("tPrint").onclick = () => printTicket("reward", { level: 1 });
 $("tCut").onclick = () => printer.cut().catch(e => log(e.message));
 $("tReset").onclick = () => { $("panel").hidden = true; game.reset(); };
+// same tab, so this page lets go of the micro:bit and the belt page takes it; "← Game" comes back
+$("beltPage").onclick = () => { location.href = "belt.html"; };
 
 $("answerSeconds").value = settings.answerSeconds;
 $("answerSeconds").onchange = () => { settings.answerSeconds = Math.max(5, Number($("answerSeconds").value) || 30); save(); };

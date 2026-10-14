@@ -310,3 +310,12 @@ server stopped. (The Claude browser pane refuses service workers altogether — 
 Chrome.) The origin must stay the same (`http://172.20.10.4:8131`, the flag's address) or the
 phone has a different, empty copy. `manifest.json` + `icon.svg`: "Add to Home screen" → an icon
 that opens it full screen.
+**Belt page on the phone** (2026-10-14, the maker: recalibrating live will happen, so do it from the
+phone): `belt.html`/`belt.js` are in the phone file lists (sw.js cache v2) and work as they are
+(micro:bit over WebUSB via usbSerial.js). Operator panel → "Belt setup & calibration →" (same tab,
+so the game page lets go of the micro:bit); "← Game" goes back to `./`. "Send log to the Mac"
+posts the log to phone_server.py (/tmp/phonecheck-results.txt).
+**Plan agreed 2026-10-14** (after "you moved too fast"): 1 belt tuning (firmware flashed) → 2 YES/NO
+buttons (not found yet) → 3 bell (soon: square doorbell rings on 9 V DC; the round one is a 1966
+Swedish telephone ringer KLA 22124, probably needs AC) → 4 coin maybe skipped → 5 the maker wants
+the QUESTIONS PRINTED by the printer instead of a screen → 6 box. One step at a time; don't build ahead.

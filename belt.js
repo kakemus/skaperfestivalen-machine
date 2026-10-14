@@ -54,6 +54,14 @@ $("copyLog").onclick = async () => {
   catch { log("Couldn't copy automatically — select the log text and copy it by hand.", "err"); }
 };
 $("clearLog").onclick = () => { $("log").innerHTML = ""; };
+// On the phone, copying text off it is awkward: post the log to the Mac's
+// phone_server.py instead (it keeps it in /tmp/phonecheck-results.txt).
+$("sendLog").onclick = () => {
+  const text = "BELT LOG\n" + [...$("log").children].reverse().map(e => e.textContent).join("\n");
+  fetch("results", { method: "POST", body: text })
+    .then(r => log(r.ok ? "Log sent to the Mac." : "The Mac didn't take it (open this page through start-phone.command).", r.ok ? "ok" : "err"))
+    .catch(() => log("Couldn't reach the Mac — is it on the same hotspot with start-phone.command running?", "err"));
+};
 
 // ---------- sending ----------
 function toBoard(line, quiet = false) {

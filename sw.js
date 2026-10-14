@@ -4,9 +4,9 @@
 // background and used from the next start — so after a change, open the page
 // once with the Mac around, then once more.
 // A new file for the phone version = add it to FILES (and to phone_server.py's list).
-const CACHE = "machine-phone-v1";
+const CACHE = "machine-phone-v2";
 const FILES = [
-  "./", "phone.html", "phone.js", "manifest.json", "icon.svg", "phonecheck.html",
+  "./", "phone.html", "phone.js", "manifest.json", "icon.svg", "phonecheck.html", "belt.html", "belt.js",
   "core/clock.js", "core/clockWorker.js", "core/controller.js", "core/eventBus.js", "core/printer.js",
   "core/raster.js", "core/singleTab.js", "core/usbSerial.js",
   "game/game.js", "game/questions.js", "game/sound.js",
