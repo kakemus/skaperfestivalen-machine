@@ -280,9 +280,9 @@ USB is covered); WebHID (IBM display) is not on Android yet → the phone's own 
 the questions. Fallback if the phone fails: a Raspberry Pi runs these pages unchanged.
 `phonecheck.html` (self-contained) checks it on the phone: capabilities, connect + print a test
 ticket (text + GS v 0 picture + cut), micro:bit over Web Serial (PING/LIGHT?/BELL/BELT:STEP),
-WebUSB/WebHID probes, wake lock, "Copy results". Served to the phone by `phonecheck_server.py`
+WebUSB/WebHID probes, wake lock, "Copy results". Served to the phone by `phone_server.py`
 (0.0.0.0:8131, hands out only that page; devserver.py stays localhost-only) via
-`start-phonecheck.command`, which prints the Mac's IP and the chrome://flags step
+`start-phone.command`, which prints the Mac's IP and the chrome://flags step
 (#unsafely-treat-insecure-origin-as-secure) Chrome needs before it allows USB on a LAN http page.
 **Result on the Redmi Note 7** (Android 10 = its last; Chrome 87, can't be updated): WebUSB
 yes, Web Serial no, WebHID no. The printer printed the test ticket (text + raster + cut) over
@@ -294,3 +294,19 @@ on the phone's own screen (no WebHID for the IBM display). Getting there: page s
 Mac over the maker's iPhone hotspot (school Wi-Fi isolates devices), Chrome flag
 #unsafely-treat-insecure-origin-as-secure for the LAN address; the page posts its report to
 /tmp/phonecheck-results.txt on the Mac (no easy way to get text off the old phone).
+**Phone version** (2026-10-14): `phone.html` + `phone.js` — the same game/belt/ticket modules as
+`main.js`, on the phone's own screen: text set as big as fits by a font-size search (whole words
+only — hyphenation split "EL-LER"), answer timer bar, level dots, attract lines; "TRYKK FOR Å
+STARTE" first tap gives full screen + wake lock + sound; a hidden operator panel (long press 2 s
+in the top-left corner: connect, test coin/JA/NEI/step/Find START/print/cut, answer seconds,
+screens to win, reward prints, questions, log). Settings in localStorage `phoneSettings`.
+`core/usbSerial.js` rebuilds the bit of navigator.serial that `core/controller.js` uses on top of
+WebUSB (CDC-ACM claim, line coding, bulk streams); `serialApi()` picks Web Serial when it exists,
+so the Mac is unchanged. **Offline copy**: `sw.js` precaches every file (list = `FILES`, kept in
+step with `phone_server.py`'s list) and serves the copy first, refreshing it in the background —
+so the phone opens the game with no Mac, no Wi-Fi; after a change, open it twice with the Mac on
+the hotspot. Verified in real headless Chrome: 27 files cached, page + modules load with the
+server stopped. (The Claude browser pane refuses service workers altogether — test them in real
+Chrome.) The origin must stay the same (`http://172.20.10.4:8131`, the flag's address) or the
+phone has a different, empty copy. `manifest.json` + `icon.svg`: "Add to Home screen" → an icon
+that opens it full screen.

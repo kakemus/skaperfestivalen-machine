@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>Maskinen</title>
+<!--
+  The machine, run from an old Android phone (2026-10-14) instead of a
+  computer: the phone's screen shows the game (the IBM display needs WebHID,
+  which Android's Chrome doesn't have), the printer and the micro:bit hang off
+  its USB port. Works on the Redmi's Chrome 87 — the micro:bit goes through
+  core/usbSerial.js there. sw.js keeps a copy of everything on the phone, so
+  after one visit with the Mac around it opens with no Mac and no Wi-Fi.
+  The operator panel opens with a long press (2 s) in the top-left corner.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; color: #fff; overflow: hidden; }
+  body { font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif; -webkit-user-select: none; user-select: none; touch-action: manipulation; }
+  #stage { position: fixed; inset: 0; display: flex; flex-direction: column; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+  #screen { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; }
+  /* whole words only: the size search in phone.js shrinks the text until the longest word fits */
+  #text { font-weight: 900; line-height: 1.08; text-transform: uppercase; overflow-wrap: normal; word-break: normal; hyphens: manual; }
+  #text.blink { animation: blink 0.9s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0.15; } }
+  #timer { height: 10px; background: #222; border-radius: 5px; overflow: hidden; margin-top: 12px; visibility: hidden; }
+  #timer i { display: block; height: 100%; width: 100%; background: #ffcf3d; transform-origin: left; }
+  #levels { display: flex; gap: 6px; justify-content: center; margin-top: 14px; min-height: 22px; }
+  #levels b { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #555; }
+  #levels b.on { background: #ffcf3d; border-color: #ffcf3d; }
+  #corner { position: fixed; left: 0; top: 0; width: 70px; height: 70px; z-index: 5; }
+  #status { position: fixed; right: 10px; top: 8px; font: 12px Arial, sans-serif; color: #555; z-index: 4; }
+  #status .bad { color: #ff6b6b; }
+  #tapToStart { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 8; font: 900 26px Arial, sans-serif; text-align: center; padding: 24px; }
+  #tapToStart small { font: 15px Arial, sans-serif; color: #999; }
+  #tapToStart[hidden], #panel[hidden], #otherTab[hidden] { display: none; }
+  #panel { position: fixed; inset: 0; background: #111; z-index: 10; overflow-y: auto; padding: 16px; font: 15px/1.4 Arial, sans-serif; -webkit-user-select: text; user-select: text; }
+  #panel h2 { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 8px; }
+  #panel button { width: 100%; background: #2a2a35; color: #fff; border: 1px solid #444; border-radius: 8px; padding: 13px; font-size: 16px; font-weight: 700; margin-top: 8px; }
+  #panel .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } #panel .two button { margin-top: 0; }
+  #panel .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; } #panel .three button { margin-top: 0; }
+  #panel label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
+  #panel input[type=number] { width: 80px; padding: 8px; font-size: 16px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; }
+  #panel input[type=checkbox] { width: 24px; height: 24px; }
+  #panel textarea { width: 100%; height: 180px; background: #000; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 8px; font: 13px/1.4 monospace; margin-top: 8px; }
+  #panel pre { background: #000; border: 1px solid #333; border-radius: 6px; padding: 8px; font: 11px/1.45 monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; margin-top: 8px; }
+  .pill { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #222; }
+  .ok { color: #7dffa0; } .bad { color: #ff8a8a; } .dim { color: #888; }
+  #otherTab { position: fixed; left: 0; right: 0; bottom: 0; background: #5a1d1d; padding: 12px; font: 14px Arial, sans-serif; z-index: 9; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="screen"><div id="text"></div></div>
+  <div id="timer"><i></i></div>
+  <div id="levels"></div>
+</div>
+<div id="corner"></div>
+<div id="status"></div>
+
+<div id="tapToStart">
+  TRYKK FOR Å STARTE
+  <small>Full screen, screen stays on, sound on. (Chrome only allows these after a tap.)</small>
+</div>
+
+<div id="otherTab" hidden>The machine is already open in another tab — close that one.</div>
+
+<div id="panel" hidden>
+  <button id="close" style="margin-top:0">Close ✕</button>
+
+  <h2>Connections</h2>
+  <div class="pill"><span>Printer</span><b id="sPrinter" class="dim">–</b></div>
+  <div class="pill"><span>micro:bit</span><b id="sMicrobit" class="dim">–</b></div>
+  <div class="pill"><span>Belt position</span><b id="sPos" class="dim">–</b></div>
+  <div class="two" style="margin-top:8px"><button id="connectPrinter">Connect printer</button><button id="connectMicrobit">Connect micro:bit</button></div>
+  <p class="dim" style="margin-top:6px">Only needed once — after that the phone reconnects by itself when they're plugged in.</p>
+
+  <h2>Test</h2>
+  <div class="three"><button id="tCoin">Coin</button><button id="tYes">JA</button><button id="tNo">NEI</button></div>
+  <div class="two" style="margin-top:8px"><button id="tStep">Step up</button><button id="tHome">Find START</button></div>
+  <div class="two" style="margin-top:8px"><button id="tPrint">Test print</button><button id="tCut">Cut</button></div>
+  <button id="tReset">Reset game (find START)</button>
+
+  <h2>Game</h2>
+  <label>Seconds to answer <input type="number" id="answerSeconds" min="5" max="120"></label>
+  <label>Screens to win (as printed on the strip) <input type="number" id="levels_" min="3" max="15"></label>
+  <label>Print a reward slip on each right answer <input type="checkbox" id="rewardPrints"></label>
+  <p class="dim" style="margin-top:12px">Questions — one per line: <code>question | JA</code> or <code>| NEI</code></p>
+  <textarea id="questions" spellcheck="false"></textarea>
+  <div class="two" style="margin-top:8px"><span id="qCount" class="dim" style="align-self:center"></span><button id="qReset">Default questions</button></div>
+
+  <h2>Log</h2>
+  <pre id="log"></pre>
+  <p class="dim" style="margin-top:10px" id="version"></p>
+</div>
+<script type="module" src="phone.js"></script>
+</body>
+</html>

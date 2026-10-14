@@ -5,8 +5,13 @@
 // micro:bit flashed for that machine speaks the same language.
 import { emit } from "./eventBus.js";
 import { inCharge } from "./singleTab.js";
+import { serialApi } from "./usbSerial.js";
 
 const BAUD_RATE = 115200;
+
+// Web Serial where the browser has it; on the old Android phone (WebUSB only)
+// the same thing rebuilt on WebUSB — see usbSerial.js.
+const serial = serialApi();
 
 // micro:bit / DAPLink USB vendor id — picks the right port when more than one
 // serial device has been allowed on this page.
@@ -43,16 +48,16 @@ function resetButtonState({ emitReleases = true } = {}) {
 export async function connect({ auto = false } = {}) {
   if (!inCharge()) { if (!auto) emit("controller:error", { message: "Another tab is running the machine — use that one, or close it." }); return false; }
   if (connecting || port) return !!port;
-  if (!("serial" in navigator)) {
-    if (!auto) emit("controller:error", { message: "Web Serial isn't supported in this browser — use Chrome or Edge." });
+  if (!serial) {
+    if (!auto) emit("controller:error", { message: "This browser can't reach USB devices — use Chrome." });
     return false;
   }
   connecting = true;
   try {
-    const known = await navigator.serial.getPorts();
+    const known = await serial.getPorts();
     const knownMicrobit = pickPort(known);
     if (auto && !knownMicrobit) return false;
-    const chosen = knownMicrobit || await navigator.serial.requestPort({ filters: [{ usbVendorId: MICROBIT_VENDOR_ID }] });
+    const chosen = knownMicrobit || await serial.requestPort({ filters: [{ usbVendorId: MICROBIT_VENDOR_ID }] });
     await chosen.open({ baudRate: BAUD_RATE });
     port = chosen;
     keepReading = true;
@@ -78,13 +83,13 @@ export async function connect({ auto = false } = {}) {
 
 // If the board drops off the USB bus (a hub glitch, a bumped cable) and comes
 // back, pick it up again without anyone clicking Connect.
-if (typeof navigator !== "undefined" && navigator.serial?.addEventListener) {
-  navigator.serial.addEventListener("connect", (event) => {
+if (serial?.addEventListener) {
+  serial.addEventListener("connect", (event) => {
     if (event.port?.getInfo?.().usbVendorId !== MICROBIT_VENDOR_ID) return;
     if (port) reconnectWhenClosed = true;
     else connect({ auto: true });
   });
-  navigator.serial.addEventListener("disconnect", (event) => {
+  serial.addEventListener("disconnect", (event) => {
     if (event.port !== port) return;
     reconnectWhenClosed = true;
     keepReading = false;
