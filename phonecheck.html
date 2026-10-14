@@ -58,7 +58,8 @@
 
 <section>
   <h2>3 · micro:bit (Web Serial)</h2>
-  <button id="mConnect">Connect micro:bit</button>
+  <button id="mConnect">Connect micro:bit (Web Serial)</button>
+  <button id="mConnectUsb">Connect micro:bit (WebUSB — for old Chrome)</button>
   <div class="two" style="margin-top:8px">
     <button id="mPing" disabled>Ping</button>
     <button id="mLight" disabled>Read light</button>
@@ -223,41 +224,96 @@ async function mSend(line) {
   await writer.write(new TextEncoder().encode(line + "\n"));
   mLog("→ " + line);
 }
+function connected(how) {
+  for (const id of ["mPing", "mLight", "mBell", "mStep"]) $(id).disabled = false;
+  mLog("connected (" + how + ")");
+  note("micro:bit connect", "OK (" + how + ")");
+  mSend("PING");
+}
+
+// Serial over WebUSB, for Chrome without Web Serial (the Redmi's Chrome 87,
+// 2026-10-14). The micro:bit's USB plug carries an ordinary USB serial port
+// (CDC-ACM: a "communication" interface, class 2, and a "data" interface,
+// class 0x0A, with one bulk endpoint each way) — the one the Mac uses as
+// /dev/cu.usbmodem. Chrome lets WebUSB claim it, so: set 115200 baud with the
+// standard CDC control requests, then read and write the data endpoints.
+async function openUsbSerial(device, baud) {
+  await device.open();
+  if (!device.configuration) await device.selectConfiguration(1);
+  const ifaces = device.configuration.interfaces;
+  const comm = ifaces.find(i => i.alternates[0].interfaceClass === 2);
+  const data = ifaces.find(i => i.alternates[0].interfaceClass === 0x0a);
+  if (!data) throw new Error("No serial data interface on this device.");
+  if (comm) await device.claimInterface(comm.interfaceNumber);
+  await device.claimInterface(data.interfaceNumber);
+  const eps = data.alternates[0].endpoints;
+  const inEp = eps.find(e => e.direction === "in"), outEp = eps.find(e => e.direction === "out");
+  if (comm) {
+    const lc = new Uint8Array([baud & 255, (baud >> 8) & 255, (baud >> 16) & 255, baud >>> 24, 0, 0, 8]);
+    const setup = request => ({ requestType: "class", recipient: "interface", request, value: 0, index: comm.interfaceNumber });
+    await device.controlTransferOut(setup(0x20), lc);                                    // SET_LINE_CODING
+    await device.controlTransferOut({ ...setup(0x22), value: 0x03 });                   // SET_CONTROL_LINE_STATE: DTR + RTS
+  }
+  return {
+    write: bytes => device.transferOut(outEp.endpointNumber, bytes),
+    async *chunks() {
+      for (;;) {
+        const r = await device.transferIn(inEp.endpointNumber, inEp.packetSize || 64);
+        if (r.status !== "ok") throw new Error("read " + r.status);
+        if (r.data.byteLength) yield new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength);
+      }
+    },
+  };
+}
+$("mConnectUsb").onclick = async () => {
+  try {
+    if (!navigator.usb) throw new Error("WebUSB isn't available here.");
+    const d = await navigator.usb.requestDevice({ filters: [{ vendorId: 0x0d28 }] });
+    const usb = await openUsbSerial(d, 115200);
+    writer = { write: bytes => usb.write(bytes) };
+    (async () => {
+      const dec = new TextDecoder();
+      try { for await (const chunk of usb.chunks()) feed(dec.decode(chunk, { stream: true })); }
+      catch (e) { mLog(`read stopped: ${e.message}`); note("micro:bit read", "stopped — " + e.message); }
+    })();
+    connected("WebUSB serial");
+  } catch (e) { mLog(`${e.name}: ${e.message}`); note("micro:bit connect (WebUSB)", `FAILED — ${e.name}: ${e.message}`); }
+};
 $("mConnect").onclick = async () => {
   try {
     if (!navigator.serial) throw new Error("Web Serial isn't available in this Chrome.");
     port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x0d28 }] });
     await port.open({ baudRate: 115200 });
     writer = port.writable.getWriter();
-    for (const id of ["mPing", "mLight", "mBell", "mStep"]) $(id).disabled = false;
-    mLog("connected");
-    note("micro:bit connect", "OK (Web Serial)");
     readLoop();
-    mSend("PING");
+    connected("Web Serial");
   } catch (e) { mLog(`${e.name}: ${e.message}`); note("micro:bit connect", `FAILED — ${e.name}: ${e.message}`); }
 };
 async function readLoop() {
   const reader = port.readable.pipeThrough(new TextDecoderStream()).getReader();
-  let buf = "";
   try {
     for (;;) {
       const { value, done } = await reader.read();
       if (done) break;
-      buf += value;
-      let i;
-      while ((i = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, i).trim();
-        buf = buf.slice(i + 1);
-        if (!line) continue;
-        mLog("← " + line);
-        if (line === "PONG") note("micro:bit ping", "PONG received");
-        if (line.startsWith("LIGHT:")) note("micro:bit light", line.slice(6));
-        if (line.startsWith("BELT:DONE")) note("micro:bit belt step", "done (" + line + ")");
-        if (line.startsWith("BELT:ERROR")) note("micro:bit belt step", line);
-        if (line.startsWith("HB:")) note("micro:bit heartbeat", "arriving");
-      }
+      feed(value);
     }
   } catch (e) { mLog(`read stopped: ${e.message}`); note("micro:bit read", "stopped — " + e.message); }
+}
+let buf = "";
+function feed(value) {
+  buf += value;
+  let i;
+  while ((i = buf.indexOf("\n")) >= 0) {
+    const line = buf.slice(0, i).trim();
+    buf = buf.slice(i + 1);
+    if (!line) continue;
+    mLog("← " + line);
+    if (line === "PONG") note("micro:bit ping", "PONG received");
+    if (line.startsWith("LIGHT:")) note("micro:bit light", line.slice(6));
+    if (line.startsWith("BELT:DONE")) note("micro:bit belt step", "done (" + line + ")");
+    if (line.startsWith("BELT:ERROR")) note("micro:bit belt step", line);
+    if (line.startsWith("HB:")) note("micro:bit heartbeat", "arriving");
+  }
 }
 $("mPing").onclick = () => mSend("PING");
 $("mLight").onclick = () => mSend("LIGHT?");
