@@ -15,11 +15,11 @@ const $ = id => document.getElementById(id);
 // ---------- settings ----------
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
-  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "warm", "kick", "inv1", "inv2",
+  "steptime", "timeout", "after", "mingap", "idletension", "backlight", "cr", "cg", "cb", "kick", "inv1", "inv2",
   "brake", "creep", "settle"];
 const DEFAULTS = {
   pull: 60, feed: 45, rewind: 80, tension: 55, tensionms: 400, mode: 0, level: 0, hyst: 8,
-  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, warm: 70, kick: 80,
+  steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, cr: 255, cg: 120, cb: 10, kick: 80,
   inv1: 1, inv2: 1,   // this build has both motors wired the other way round (2026-10-13)
   brake: 30, creep: 40, settle: 600,
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,
@@ -82,7 +82,8 @@ function pushAllSettings() {
 }
 
 // ---------- inputs ----------
-const numberInputs = [...BOARD_KEYS.filter(k => !["mode", "inv1", "inv2"].includes(k)), "paper", "mark", "jogSpeed", "jogMs", "tUp", "tRounds", "tPause"];
+const NOT_NUMBERS = ["mode", "inv1", "inv2", "cr", "cg", "cb"];   // checkboxes / the colour picker
+const numberInputs = [...BOARD_KEYS.filter(k => !NOT_NUMBERS.includes(k)), "paper", "mark", "jogSpeed", "jogMs", "tUp", "tRounds", "tPause"];
 for (const k of numberInputs) {
   const el = $(inputId(k));
   el.value = st[k];
@@ -98,6 +99,16 @@ for (const k of numberInputs) {
   };
 }
 $("mode").checked = !!st.mode;
+// backlight colour: one colour field ↔ the board's cr/cg/cb; sent while dragging, so the box changes live
+const hex2 = n => n.toString(16).padStart(2, "0");
+const showColour = () => { $("colour").value = "#" + hex2(st.cr) + hex2(st.cg) + hex2(st.cb); };
+showColour();
+$("colour").oninput = () => {
+  const v = $("colour").value;
+  [st.cr, st.cg, st.cb] = [1, 3, 5].map(i => parseInt(v.slice(i, i + 2), 16));
+  persist();
+  for (const k of ["cr", "cg", "cb"]) sendSetting(k);
+};
 for (const k of ["inv1", "inv2"]) {
   $(k).checked = !!st[k];
   $(k).onchange = () => { st[k] = $(k).checked ? 1 : 0; persist(); sendSetting(k); };
@@ -210,7 +221,8 @@ on("controller:raw", ({ line }) => {
     const board = Object.fromEntries(line.slice(9).split(",").map(kv => kv.split("=")).map(([k, v]) => [k, Number(v)]));
     log(`← board settings: ${line.slice(9)}`, "ok");
     if (!hadSaved) {              // first time on this page: take over what the board already knows
-      for (const k of BOARD_KEYS) if (k in board) { st[k] = board[k]; const el = $(inputId(k)); if (el && !["mode", "inv1", "inv2"].includes(k)) el.value = st[k]; }
+      for (const k of BOARD_KEYS) if (k in board) { st[k] = board[k]; const el = $(inputId(k)); if (el && !NOT_NUMBERS.includes(k)) el.value = st[k]; }
+      showColour();
       $("mode").checked = !!st.mode;
       for (const k of ["inv1", "inv2"]) $(k).checked = !!st[k];
       persist(); drawMeter(); verdict();
