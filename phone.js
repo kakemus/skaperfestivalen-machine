@@ -15,7 +15,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-14 i";
+const VERSION = "phone 2026-10-14 j";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -179,6 +179,7 @@ $("tNo").onclick = () => game.answer(false);
 $("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
 $("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit connected");
 $("tPrint").onclick = () => printTicket("reward", { ...words().reward, level: 1 });
+$("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
 $("sendLog").onclick = () => fetch("results", { method: "POST", body: "GAME LOG\n" + lines.join("\n") })

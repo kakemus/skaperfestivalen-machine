@@ -51,7 +51,9 @@
 #   Wukong M2 = bottom spool (+ = lets paper out; − = winds it back in)
 #   (inv1 / inv2 flip a motor wired the other way round — the maker's build has both flipped)
 #   LDR: V (3.3 V) ── LDR ── P1, internal pull-down. Paper = high, mark = low.
-#   Bell: P2 → relay.   YES: P8 to GND.   NO: P12 to GND.   Coin: P13 to GND.   A/B = YES/NO.
+#   Bell: P2 → a relay module's IN (VCC → the 5V pin, GND → G); the relay switches the bell's own
+#   9 V battery. Never the bell straight on P2: it needs far more than a pin gives, and its coil
+#   kicks back a spike when switched off.   YES: P8 to GND.   NO: P12 to GND.   Coin: P13 to GND.   A/B = YES/NO.
 #   Backlight: 8×8 NeoPixel (WS2812B) IN → P15 (yellow S pin), V- → G, V+ → the Wukong's 5V pin in
 #   the small middle header (NOT the red pin rows — those are 3.3 V, too low for these LEDs).
 #   Or a separate 5 V supply with its GND joined to the Wukong's. 64 LEDs at full white draw
@@ -67,7 +69,6 @@ from neopixel import NeoPixel
 import random
 
 WUKONG = 0x10
-BELL_MS = 250
 LED_PIN = pin15
 LED_COUNT = 64
 LED_MAX = 120          # never brighter than this per colour channel (current!)
@@ -100,6 +101,8 @@ S = {                  # settings — the belt page sets these, the board keeps 
     "screenms": 0,     # how long one screen takes going down — learned
     "upms": 0,         # ... and going up — learned. Both limit how much blank paper a move may run
     "screens": 11,     # screens on the strip (START + levels): Find START never passes more marks
+    "bellms": 250,     # how long the bell gets power per ding (a doorbell rings as long as it's on)
+    "bellinv": 0,      # 1 = the relay module switches on when P2 is LOW (many cheap ones do)
 }
 SETTINGS_FILE = "settings.txt"
 
@@ -598,18 +601,22 @@ def ring(times):
     bell["left"] += max(1, min(times, 10))
 
 
+def bell_pin(on):
+    pin2.write_digital(1 if on != bool(S["bellinv"]) else 0)
+
+
 def bell_tick(now):
     if now < bell["next"]:
         return
     if bell["on"]:
-        pin2.write_digital(0)
+        bell_pin(False)
         bell["on"] = False
         bell["next"] = now + 300
     elif bell["left"] > 0:
         bell["left"] -= 1
-        pin2.write_digital(1)
+        bell_pin(True)
         bell["on"] = True
-        bell["next"] = now + BELL_MS
+        bell["next"] = now + max(20, min(S["bellms"], 3000))
 
 
 # ---------- right / wrong flash ----------
@@ -709,6 +716,8 @@ def set_value(key, value, now):
         return
     S[key] = int(value)
     save_due = now + 2000          # write to flash once things settle
+    if key == "bellinv":
+        bell_pin(False)
     if key in ("backlight", "cr", "cg", "cb"):
         backlight_on()
     say("SET:OK:%s:%d" % (key, S[key]))
@@ -851,6 +860,7 @@ next_hb = 0
 next_stream = 0
 next_buttons = 0
 stop()
+bell_pin(False)                  # quiet from the start, whichever way the relay switches
 show("M")
 try:
     backlight_on()

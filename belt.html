@@ -130,6 +130,17 @@
   </section>
 
   <section>
+    <h2>Bell</h2>
+    <div class="row"><button id="bell1">Ring once</button><button id="bell3">Ring 3 times</button></div>
+    <div class="grid" style="margin-top:8px">
+      <label>Ring length per ding (ms)</label><input type="number" id="bellms" min="20" max="3000" step="10">
+      <label>Relay switches on LOW</label><input type="checkbox" id="bellinv">
+      <small>Tick if the bell rings all the time while idle and stops when it should ring.</small>
+    </div>
+    <p class="hint">Wiring: relay module IN → P2 (S pin), VCC → the Wukong's 5V pin, GND → G. On the relay's other side: 9 V battery − → COM, NO → bell, bell's other wire → battery +. Never the bell straight on P2.</p>
+  </section>
+
+  <section>
     <h2>Backlight (LED matrix)</h2>
     <div class="grid">
       <label>Brightness (0–120)</label><input type="number" id="backlight" min="0" max="120">

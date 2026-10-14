@@ -16,12 +16,12 @@ const $ = id => document.getElementById(id);
 // keys the board knows (same names as firmware S); "rewind" uses input id "rewind_"
 const BOARD_KEYS = ["pull", "feed", "rewind", "tension", "tensionms", "mode", "level", "hyst",
   "steptime", "timeout", "after", "mingap", "idletension", "backlight", "cr", "cg", "cb", "kick", "inv1", "inv2",
-  "brake", "creep", "settle", "screens"];
+  "brake", "creep", "settle", "screens", "bellms", "bellinv"];
 const DEFAULTS = {
   pull: 60, feed: 45, rewind: 80, tension: 55, tensionms: 400, mode: 0, level: 0, hyst: 8,
   steptime: 1500, timeout: 8000, after: 0, mingap: 300, idletension: 0, backlight: 25, cr: 255, cg: 200, cb: 40, kick: 80,
   inv1: 1, inv2: 1,   // this build has both motors wired the other way round (2026-10-13)
-  brake: 30, creep: 40, settle: 600, screens: 11,
+  brake: 30, creep: 40, settle: 600, screens: 11, bellms: 250, bellinv: 0,
   paper: 0, mark: 0, jogSpeed: 50, jogMs: 800, tUp: 3, tRounds: 10, tPause: 500, pos: 0,
 };
 let saved = null;
@@ -82,7 +82,7 @@ function pushAllSettings() {
 }
 
 // ---------- inputs ----------
-const NOT_NUMBERS = ["mode", "inv1", "inv2", "cr", "cg", "cb"];   // checkboxes / the colour picker
+const NOT_NUMBERS = ["mode", "inv1", "inv2", "cr", "cg", "cb", "bellinv"];   // checkboxes / the colour picker
 const numberInputs = [...BOARD_KEYS.filter(k => !NOT_NUMBERS.includes(k)), "paper", "mark", "jogSpeed", "jogMs", "tUp", "tRounds", "tPause"];
 for (const k of numberInputs) {
   const el = $(inputId(k));
@@ -109,7 +109,7 @@ $("colour").oninput = () => {
   persist();
   for (const k of ["cr", "cg", "cb"]) sendSetting(k);
 };
-for (const k of ["inv1", "inv2"]) {
+for (const k of ["inv1", "inv2", "bellinv"]) {
   $(k).checked = !!st[k];
   $(k).onchange = () => { st[k] = $(k).checked ? 1 : 0; persist(); sendSetting(k); };
 }
@@ -224,7 +224,7 @@ on("controller:raw", ({ line }) => {
       for (const k of BOARD_KEYS) if (k in board) { st[k] = board[k]; const el = $(inputId(k)); if (el && !NOT_NUMBERS.includes(k)) el.value = st[k]; }
       showColour();
       $("mode").checked = !!st.mode;
-      for (const k of ["inv1", "inv2"]) $(k).checked = !!st[k];
+      for (const k of ["inv1", "inv2", "bellinv"]) $(k).checked = !!st[k];
       persist(); drawMeter(); verdict();
     }
     return;
@@ -285,6 +285,8 @@ $("rewind").onclick = rewindToStart;
 $("tighten").onclick = () => move("TENSION", "Tighten");
 $("ledOn").onclick = () => toBoard("LED:ON");
 $("ledOff").onclick = () => toBoard("LED:OFF");
+$("bell1").onclick = () => toBoard("BELL:1");
+$("bell3").onclick = () => toBoard("BELL:3");
 $("flashG").onclick = () => toBoard("LED:FLASH:G");     // what a right answer shows
 $("flashR").onclick = () => toBoard("LED:FLASH:R");     // ... and a wrong one
 // hold-to-run: HOLD:±1 repeated every 250 ms while pressed (the board stops by itself
