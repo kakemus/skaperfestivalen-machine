@@ -342,3 +342,17 @@ after a win, which looked like the belt not going back to START). The board queu
 command that arrives while a move is still tightening/settling (`BELT:QUEUED`, run by `finish()`;
 dropped on STOP or a failed move) instead of answering BUSY; belt/belt.js also treats BUSY as an
 answer so the game never waits a minute. Phone panel: Win light test, Send log to the Mac.
+**Firmware now goes on over USB, in pieces (2026-10-15).** The bell + win-light version gave a sad
+face: `MemoryError` at start-up — MicroPython parses the whole main.py before running it, and
+~17 KB (packed) no longer fit. Precompiled `.mpy` was tried: this build can't import .mpy at all
+("no module named"). Fix: `firmware/upload.py` packs machine.py (strip.py), cuts it at top-level
+statements (ast) into pieces ≤ 5 KB (`belt0.py`…; the main loop alone in the last), and writes
+them plus a small loader `main.py` (exec each piece into the same globals, gc between) over the
+raw REPL — no soft reset, which would re-run a crashing main.py. Simulator: pieces-in-sequence
+give output identical to the whole file. **No more .hex for the machine board** (machine.hex
+removed; dragging a hex wipes the board's files incl. settings.txt — then run
+`upload.py --loader`). Updates keep settings.txt. Double-click `update-microbit.command`
+(makes `.venv` with pyserial once — Homebrew Python refuses pip installs, PEP 668). The page
+must be closed (one program per serial port).
+**If memory gets tight again** (the maker, 2026-10-15): drop the backlight colour picker /
+cr/cg/cb + gamma — a fixed slightly warm white is fine; keep the red and green flashes.
