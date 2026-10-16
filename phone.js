@@ -15,7 +15,7 @@ import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
 import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-16 a";
+const VERSION = "phone 2026-10-16 b";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -128,7 +128,9 @@ on("controller:raw", ({ line }) => {
   else if (line.startsWith("COIN")) game.coin();
   const pos = line.match(/^(?:BELT:DONE|HB:\w+:W\d):(-?\d+)/);
   if (pos) $("sPos").textContent = pos[1] === "-1" ? "unknown" : pos[1] === "0" ? "START" : "screen " + pos[1];
-  if (!line.startsWith("HB:")) log("← " + line);
+  // heartbeats, live light readings and trace samples would flood the log
+  // (a whole game's events got pushed out by LIGHT lines, 2026-10-16)
+  if (!/^(HB|LIGHT|T):/.test(line)) log("← " + line);
   lastHeard = Date.now();
 });
 let lastHeard = 0;

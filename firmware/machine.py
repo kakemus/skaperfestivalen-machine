@@ -31,6 +31,9 @@
 #   queued (one) and run after it, instead of being refused with BUSY.
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
 #   STREAM:ON|OFF  LIGHT?  PING  STATUS?  STOP
+#   CALIBRATE                             run up ~1.5 screens measuring the light, set level + hyst
+#                                         from the brightest (paper) and darkest (mark) reading:
+#                                         CAL:OK:paper:mark:level / CAL:FAIL:why. Position unknown after.
 #   TRACE:ON|OFF                          while the belt moves, send T:ms:light:phase every 20 ms
 #                                         (the belt page draws it — to see what the sensor really gets)
 # Replies: BELT:DONE:pos / BELT:ERROR:why / BELT:WARN:..., MARK:... (what the
@@ -521,6 +524,12 @@ def tick(now):
             say("BELT:WARN:mark not found again")
             finish(t["reply"])
         return
+    if kind == "cal":
+        lv = light()
+        task["lo"], task["hi"] = min(task["lo"], lv), max(task["hi"], lv)
+        if now >= task["end"]:
+            calibrated(now)
+        return
     if kind == "jog":
         if now >= task["end"]:
             stop()
@@ -599,6 +608,40 @@ def tick(now):
                 say("MARK:flicker:%dms" % (now - task["dark0"]))
                 return
             mark_passed(now, now - task["dark0"], task["dark0"] - task["gap0"])
+
+
+def start_calibrate(now):
+    """Auto-calibration (2026-10-16): after the backlight was changed, the old
+    threshold sat above even the paper's reading — the board then thought it
+    was always on a mark and Find START stopped at once. Running up 1.5 screens
+    is sure to pass paper and at least one mark (the blank-paper limit)."""
+    global task, pos
+    if task:
+        say("BUSY")
+        return
+    if not drive(*belt_speeds(1)):
+        fail("Wukong is off")
+        return
+    pos = -1
+    lv = light()
+    task = {"kind": "cal", "end": now + blank_limit(1), "lo": lv, "hi": lv}
+    show(Image.ARROW_N)
+
+
+def calibrated(now):
+    global task, save_due
+    stop()
+    lo, hi = task["lo"], task["hi"]
+    task = None
+    if hi - lo < 20:
+        say("CAL:FAIL:no mark seen (paper %d, darkest %d) - is the sensor on the marks?" % (hi, lo))
+        return
+    S["level"] = (hi + lo) // 2
+    S["hyst"] = max(4, (hi - lo) // 6)
+    S["mode"] = 1
+    save_due = now + 500
+    say("CAL:OK:%d:%d:%d:%d" % (hi, lo, S["level"], S["hyst"]))
+    start_tension(now, "TENSION:DONE")
 
 
 def stop_all():
@@ -763,6 +806,8 @@ def handle(line, now):
         say("SAVED")
     elif cmd == "SET" and len(parts) == 3:
         set_value(parts[1], parts[2], now)
+    elif line == "CALIBRATE":
+        start_calibrate(now)
     elif cmd == "TRACE":
         tracing = parts[1] == "ON"
         say("TRACE:OK:" + ("ON" if tracing else "OFF"))

@@ -133,6 +133,21 @@ const recent = [];
 $("live").onchange = () => toBoard(`STREAM:${$("live").checked ? "ON" : "OFF"}`);
 $("usePaper").onclick = () => useCurrent("paper");
 $("useMark").onclick = () => useCurrent("mark");
+$("autoCal").onclick = async () => {
+  log("Auto-calibrating: the belt runs up 1½ screens and measures…");
+  const r = await move("CALIBRATE", "Auto-calibrate");
+  if (r === "ok") stepHome();
+};
+// CAL:OK:paper:mark:level:hyst — the board measured and set it; keep it here too
+function calibratedOnBoard(line) {
+  const [, , paper, mark, level, hyst] = line.split(":").map(Number);
+  Object.assign(st, { paper, mark, level, hyst, mode: 1 });
+  for (const k of ["paper", "mark", "level", "hyst"]) $(k).value = st[k];
+  $("mode").checked = true;
+  persist(); drawMeter(); verdict();
+  log(`Calibrated: paper ${paper}, mark ${mark} → threshold ${level} (hysteresis ${hyst}). Finding START…`, "ok");
+}
+const stepHome = () => move("BELT:HOME", "Find START");
 function useCurrent(key) {
   if (lightNow == null) { log("No light reading yet — tick Live reading first.", "err"); return; }
   st[key] = lightNow;
@@ -272,7 +287,9 @@ function finish(result) {
 }
 function settleMove(line) {
   if (!pending) return;
+  if (line.startsWith("CAL:OK")) calibratedOnBoard(line);
   if (line.startsWith("BELT:DONE") || line === "TENSION:DONE" || line === "MOTOR:DONE") finish("ok");
+  else if (line.startsWith("CAL:FAIL")) finish(line);
   else if (line.startsWith("BELT:ERROR") || line.startsWith("MOTOR:ERROR") || line === "BUSY" || line === "STOPPED" || line.startsWith("ERR:")) finish(line);
 }
 // The board knows where the belt is (BELT:DONE:n, heartbeats); -1 = it doesn't.
