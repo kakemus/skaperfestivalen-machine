@@ -111,7 +111,7 @@ Outer **380 W × 384 H × 260 D mm**. Made by `make_cabinet.py` (change a number
 
 ## Hardware
 
-- 4 × **M3 bolt, 16 mm** + 4 × **M3 nut** (back panel)
+- 4 × **M3 bolt, 10–20 mm** + 4 × **M3 nut** (back panel) — e.g. from the Clas Ohlson nut & bolt set 40-7042
 - Wood glue
 
 ## Assembly

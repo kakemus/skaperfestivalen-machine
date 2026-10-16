@@ -279,7 +279,7 @@ def back():
         for cy in (T + BLOCK / 2, Y - T - BLOCK / 2):
             s.append(circle(cx, cy, M3_HOLE))
     s.append(circle(X - 40, Y - 45, 30))                         # cables out
-    s.append(text(T + 8, Y - 10, "BACK — bolts (M3 × 16) into the corner blocks"))
+    s.append(text(T + 8, Y - 10, "BACK — M3 bolts (10–20 mm) into the corner blocks"))
     s.append(text(X - 62, Y - 66, "cables", 5))
     return s, X, Y, 0, 0
 
