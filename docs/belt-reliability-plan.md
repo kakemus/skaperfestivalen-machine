@@ -31,7 +31,13 @@ The mechanism lets it vary a little from move to move.
 
 ## Plan, in order
 
-### A. Measure first (code)
+### A. Measure first (code) — BUILT 2026-10-16
+Belt page → Light sensor → "Trace moves (graph)" (firmware `TRACE:ON`, `T:ms:light:phase` every
+20 ms while moving). "Send log to the Mac" includes the readings. Also built: down moves that
+start on a mark ignore darkness for `mingap` ms, and a mark shorter than 25 ms is a "flicker"
+(`MARK:flicker`). Note: the simulator (slow + noisy sensor) could NOT reproduce the step-down
+failure with the old firmware, so its real cause is still open — read it off a trace.
+
 A **light trace** on the belt page: the sensor reading drawn as a graph while the belt
 moves (the board streams readings fast during moves). Shows the real gap between
 paper and mark, the wobble, and how slow the LDR is. Take a trace before and after

@@ -31,6 +31,8 @@
 #   queued (one) and run after it, instead of being refused with BUSY.
 #   SET:key:value  /  SETTINGS?  /  SAVE  settings (kept on the board in settings.txt)
 #   STREAM:ON|OFF  LIGHT?  PING  STATUS?  STOP
+#   TRACE:ON|OFF                          while the belt moves, send T:ms:light:phase every 20 ms
+#                                         (the belt page draws it — to see what the sensor really gets)
 # Replies: BELT:DONE:pos / BELT:ERROR:why / BELT:WARN:..., MARK:... (what the
 #   sensor did), HOLD:DONE, MOTOR:DONE, TENSION:DONE, STOPPED, BUSY,
 #   SET:OK:key:value, SETTINGS:k=v,..., LIGHT:n, PONG, HB:state:W1|W0:pos,
@@ -393,11 +395,19 @@ def start_move(now, direction, screens, home=False):
     show(Image.ARROW_N if direction > 0 else Image.ARROW_S)
 
 
+MIN_MARK_MS = 25     # darker than the threshold for less than this = a flicker, not a mark
+
+
 def go_seek(now):
-    """Down, starting on clear paper: look for the next mark straight away."""
+    """Down, starting on clear paper: look for the next mark — straight away
+    from an unknown spot (START may be right there), but not during the first
+    mingap ms when the move began on a mark: the slow LDR still "sees" that mark
+    for a moment after leaving it, which was taken for the next one — step down
+    stayed on its screen, rocking up and down (2026-10-15)."""
     task["phase"] = "seek"
     task["gap0"] = now
     task["first"] = True
+    task["quiet"] = now + S["mingap"] if task["sure"] else 0
 
 
 def screen_done(now, marks):
@@ -562,7 +572,7 @@ def tick(now):
             else:
                 task["phase"] = "seek"
     elif phase == "seek":
-        if dark(lv):
+        if dark(lv) and now >= task.get("quiet", 0):
             say("MARK:seen:%d" % lv)
             if task["dir"] > 0 and task["sure"] and not task.get("upstart"):
                 u = S["upms"]                            # learn how long a screen takes going up
@@ -583,6 +593,10 @@ def tick(now):
                 screen_done(now, True)
     elif phase == "through":
         if clear(lv):
+            if now - task["dark0"] < MIN_MARK_MS and not first:
+                task["phase"] = "seek"                   # a flicker, not a mark: keep looking
+                say("MARK:flicker:%dms" % (now - task["dark0"]))
+                return
             mark_passed(now, now - task["dark0"], task["dark0"] - task["gap0"])
 
 
@@ -707,6 +721,7 @@ def flashing():
 # ---------- commands ----------
 save_due = 0
 streaming = False
+tracing = False
 
 
 def set_value(key, value, now):
@@ -724,7 +739,7 @@ def set_value(key, value, now):
 
 
 def handle(line, now):
-    global task, streaming, last_action, pos
+    global task, streaming, last_action, pos, tracing
     parts = line.split(":")
     cmd = parts[0]
     last_action = now
@@ -747,6 +762,9 @@ def handle(line, now):
         say("SAVED")
     elif cmd == "SET" and len(parts) == 3:
         set_value(parts[1], parts[2], now)
+    elif cmd == "TRACE":
+        tracing = parts[1] == "ON"
+        say("TRACE:OK:" + ("ON" if tracing else "OFF"))
     elif cmd == "STREAM":
         streaming = parts[1] == "ON"
         say("STREAM:OK:" + ("ON" if streaming else "OFF"))
@@ -858,6 +876,7 @@ def buttons(now):
 line_in = ""
 next_hb = 0
 next_stream = 0
+next_trace = 0
 next_buttons = 0
 stop()
 bell_pin(False)                  # quiet from the start, whichever way the relay switches
@@ -892,6 +911,9 @@ while True:
                 last_action = now
                 start_tension(now, "TENSION:AUTO")
 
+        if tracing and task and now >= next_trace:
+            next_trace = now + 20
+            say("T:%d:%d:%s" % (now, light(), task.get("phase", task["kind"])[:2]))
         if streaming and now >= next_stream:
             next_stream = now + 150
             say("LIGHT:%d" % light())

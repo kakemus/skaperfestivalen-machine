@@ -57,7 +57,8 @@ $("clearLog").onclick = () => { $("log").innerHTML = ""; };
 // On the phone, copying text off it is awkward: post the log to the Mac's
 // phone_server.py instead (it keeps it in /tmp/phonecheck-results.txt).
 $("sendLog").onclick = () => {
-  const text = "BELT LOG\n" + [...$("log").children].reverse().map(e => e.textContent).join("\n");
+  const text = "BELT LOG\n" + [...$("log").children].reverse().map(e => e.textContent).join("\n") +
+    (traceAll.length ? "\n\nTRACE (board ms, light, phase)\n" + traceAll.map(t => t.join(",")).join("\n") : "");
   fetch("results", { method: "POST", body: text })
     .then(r => log(r.ok ? "Log sent to the Mac." : "The Mac didn't take it (open this page through start-phone.command).", r.ok ? "ok" : "err"))
     .catch(() => log("Couldn't reach the Mac — is it on the same hotspot with start-phone.command running?", "err"));
@@ -173,6 +174,7 @@ on("controller:connected", () => {
     toBoard("SETTINGS?");
     if (hadSaved) after(400, pushAllSettings);   // this page's settings win; first visit adopts the board's
     if ($("live").checked) toBoard("STREAM:ON", true);
+    if ($("trace").checked) toBoard("TRACE:ON", true);
   });
 });
 on("controller:disconnected", () => {
@@ -211,6 +213,12 @@ on("controller:raw", ({ line }) => {
     log(`← ${line}`, "hb");
     return;
   }
+  if (line.startsWith("T:")) {                    // a trace sample: T:ms:light:phase
+    const [, t, v, ph] = line.split(":");
+    addTrace(Number(t), Number(v), ph);
+    return;
+  }
+  if (/^MARK:/.test(line)) traceEvent(line);
   if (line.startsWith("LIGHT:")) {
     lightNow = Number(line.slice(6));
     recent.push(lightNow); if (recent.length > 20) recent.shift();
@@ -363,3 +371,60 @@ verdict();
 setBusy(false);
 whenInCharge(() => { $("otherTab").hidden = true; controller.connect({ auto: true }); },
   () => { $("otherTab").hidden = false; log("Another tab has the micro:bit — close it.", "err"); });
+
+// ---------- light trace ----------
+// The board streams T:ms:light:phase every 20 ms while the belt moves (TRACE:ON).
+// Drawn as a graph with the threshold lines, so we can see how big the gap between
+// paper and mark really is, how much it wobbles and how slow the sensor is
+// (2026-10-16, the belt wasn't reliable and the cause wasn't clear).
+const traceAll = [];          // every sample since the last clear: [boardMs, light, phase]
+const traceMarks = [];        // [boardMs, kind]
+let traceLast = 0;
+function addTrace(t, v, ph) {
+  if (!Number.isFinite(t) || !Number.isFinite(v)) return;
+  traceAll.push([t, v, ph]);
+  if (traceAll.length > 30000) traceAll.splice(0, 5000);
+  traceLast = t;
+  drawTraceSoon();
+}
+function traceEvent(line) {
+  const kind = line.split(":")[1];
+  traceMarks.push([traceLast, kind]);
+  if (traceMarks.length > 500) traceMarks.shift();
+  drawTraceSoon();
+}
+let traceTimer = null;
+function drawTraceSoon() { if (!traceTimer) traceTimer = after(100, () => { traceTimer = null; drawTrace(); }); }
+function drawTrace() {
+  const c = $("traceView"), g = c.getContext("2d");
+  const W = c.width = c.clientWidth || 600, H = c.height;
+  g.clearRect(0, 0, W, H);
+  const WINDOW_MS = 12000;
+  const pts = traceAll.filter(p => p[0] > traceLast - WINDOW_MS);
+  if (!pts.length) { g.fillStyle = "#666"; g.font = "12px sans-serif"; g.fillText("No trace yet — tick Trace moves and move the belt.", 10, 20); return; }
+  const vals = pts.map(p => p[1]).concat(st.level > 0 ? [st.level, st.level + st.hyst] : []);
+  const lo = Math.min(...vals) - 15, hi = Math.max(...vals) + 15;
+  const x = t => W - (traceLast - t) / WINDOW_MS * W;
+  const y = v => H - (v - lo) / (hi - lo) * H;
+  for (const [v, col] of [[st.level, "#ff4d4d"], [st.level + st.hyst, "#ff9a3d"], [st.paper, "#ffffff55"], [st.mark, "#88888888"]]) {
+    if (!v) continue;
+    g.strokeStyle = col; g.beginPath(); g.moveTo(0, y(v)); g.lineTo(W, y(v)); g.stroke();
+  }
+  g.strokeStyle = "#ffcf3d"; g.lineWidth = 1.5; g.beginPath();
+  pts.forEach((p, i) => {
+    const gapBefore = i && p[0] - pts[i - 1][0] > 200;           // a pause between moves: don't join them
+    if (i === 0 || gapBefore) g.moveTo(x(p[0]), y(p[1])); else g.lineTo(x(p[0]), y(p[1]));
+  });
+  g.stroke(); g.lineWidth = 1;
+  g.font = "10px sans-serif";
+  for (const [t, kind] of traceMarks) {
+    if (t < traceLast - WINDOW_MS) continue;
+    g.strokeStyle = g.fillStyle = kind === "flicker" ? "#888" : "#7dffa0";
+    g.beginPath(); g.moveTo(x(t), 0); g.lineTo(x(t), H); g.stroke();
+    g.fillText(kind, x(t) + 2, 12);
+  }
+  g.fillStyle = "#888"; g.fillText(`${Math.round(lo)}–${Math.round(hi)} · last 12 s`, 4, H - 4);
+}
+$("trace").onchange = () => { toBoard(`TRACE:${$("trace").checked ? "ON" : "OFF"}`); drawTrace(); };
+$("traceClear").onclick = () => { traceAll.length = 0; traceMarks.length = 0; drawTrace(); };
+drawTrace();

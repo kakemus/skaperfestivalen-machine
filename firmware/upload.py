@@ -29,7 +29,7 @@ import time
 import serial
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-PIECE_BYTES = 5000          # largest piece the board has to parse at once
+PIECE_BYTES = 4500          # largest piece the board has to parse at once
 LOADER = (
     "import gc\n"
     "n = 0\n"

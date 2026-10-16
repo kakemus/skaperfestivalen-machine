@@ -90,6 +90,9 @@
       <small>Off = each step runs for a fixed time.</small>
     </div>
     <div id="verdict" class="hint"></div>
+    <div class="row" style="margin-top:10px"><label><input type="checkbox" id="trace">Trace moves (graph)</label><button id="traceClear">Clear graph</button></div>
+    <canvas id="traceView" width="600" height="180" style="width:100%;height:180px;background:#0b0b0d;border:1px solid #2a2a30;border-radius:4px"></canvas>
+    <p class="hint">While the belt moves, the board sends the light reading every 20 ms. Yellow = the reading; red = threshold (below = mark); orange = threshold + hysteresis; ticks = what the board decided (green: mark, grey: flicker ignored). "Send log to the Mac" includes these readings.</p>
   </section>
 
   <section>
