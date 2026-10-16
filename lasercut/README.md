@@ -79,3 +79,54 @@ Outer 126 × 216 × 95 mm. Window 64 × 90 mm (one screen of the strip shows thr
   Hold a motor against the engraved outline before gluing.
 - The scanner housing's own bracket positions weren't measured exactly — the slots are long so
   it can be bolted anywhere along them.
+
+---
+
+# Arcade cabinet — laser-cut box (2026-10-16)
+
+The cabinet the cassette slides into, with the printer, buttons, bell and electronics.
+Outer **380 W × 384 H × 260 D mm**. Made by `make_cabinet.py` (change a number at the top, run
+`python3 lasercut/make_cabinet.py`). Same joints, colours and units as the cassette.
+
+## Files — one per 565 × 395 laser piece
+
+| File | Material | Parts |
+|---|---|---|
+| `cabinet_1_front_3mm.svg` | 3 mm | front (cassette opening, button holes), cassette shelf |
+| `cabinet_2_back_3mm.svg` | 3 mm | back panel, button doubler, **joint test A + B**, 12 corner-block squares |
+| `cabinet_3_sides_3mm.svg` | 3 mm | left side, right side (bell grille) |
+| `cabinet_4_bottom_lid_3mm.svg` | 3 mm | bottom (placement marks), printer lid, 4 lid cleats |
+| `cabinet_5_top_3mm.svg` | 3 mm | top (opening above the printer) |
+| `cabinet_6_printer_shelf_3mm.svg` | 3 mm | printer shelf, 4 wedges |
+| `cabinet_7_divider_2mm.svg` | **2 mm** | divider wall |
+
+6 pieces of 3 mm + 1 piece of 2 mm.
+
+## Before cutting
+
+1. **Cut sheet 2 first** and push TEST A and TEST B together — same check as for the cassette.
+2. **Measure the printer's paper mouth**: how far its *front edge* is behind the printer's front.
+   The file assumes 22.5 mm (mouth centred 40 mm back). If yours differs, change `MOUTH_FROM_FRONT`
+   in `make_cabinet.py` and run it again — only the lid (sheet 4) changes.
+
+## Hardware
+
+- 4 × **M3 bolt, 16 mm** + 4 × **M3 nut** (back panel)
+- Wood glue
+
+## Assembly
+
+1. **Corner blocks**: glue 3 squares per block — hole, hexagon (press an M3 nut into it), hole.
+2. **Box**: glue front, sides and bottom (finger joints). Slide the **divider** in (tabs into the
+   bottom's slots), then the **cassette shelf** (left wall ↔ divider) and the **printer shelf**
+   (divider ↔ right wall), tabs through their slots. Then the **top** (divider tabs into its slots).
+   Glue the **button doubler** behind the front (blue box on the front shows where).
+3. **Corner blocks** into the four back corners, flush with the back edges, nut side inwards.
+4. **Wedges**: glue them in pairs (2 × 3 mm thick), then onto the printer shelf where the blue lines
+   are — high end at the front. The printer stands on them; its top ends up level, 1 mm under the
+   top surface, inside the top's opening.
+5. **Lid**: lay it on the top over the printer, put the 4 cleats into the corners of the opening
+   underneath it and glue them to the lid. The lid then drops into place and can't slide. To change
+   the paper roll: lift the lid; the printer's cover opens up through the opening.
+6. **Cassette** slides in from the back onto its shelf, against the lip of the front opening.
+7. **Back panel**: 4 M3 bolts into the corner blocks.
