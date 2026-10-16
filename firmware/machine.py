@@ -39,6 +39,7 @@
 #   WUKONG:ON|OFF, ANSWER:YES|NO, COIN:1, SERVICE:ON|OFF, ERR:...
 #   pos is -1 while the board doesn't know where it is (after switching on).
 #
+# START: a quick press of YES + NO together (or A + B) = COIN:1, like a coin.
 # SERVICE MODE: hold YES + NO (or A + B) for 5 s, again to leave. The display
 # shows S. Hold YES = wind up, hold NO = wind down, coin = find START. Presses
 # aren't sent to the game meanwhile.
@@ -834,6 +835,12 @@ service = False
 held = {"yes": False, "no": False, "coin": False}
 both_since = 0     # when YES + NO started being held together (0 = not both)
 both_used = False  # this hold already toggled service: wait for a release
+# YES + NO pressed together briefly = start a game, like a coin (the maker, 2026-10-16).
+# So a lone press waits CHORD_MS for the other before it counts as an answer —
+# otherwise starting a game would also answer with whichever was pressed first.
+CHORD_MS = 150
+pending = [None, 0]   # the lone press waiting: "yes"/"no", when
+chord = [False]       # both went down together: decided when both are released
 
 
 def buttons(now):
@@ -851,6 +858,9 @@ def buttons(now):
                 hold(now, 0)
             say("SERVICE:" + ("ON" if service else "OFF"))
     elif not yes and not no:
+        if chord[0] and not both_used and not service:
+            say("COIN:1")                              # a quick press of both: start
+        chord[0] = False
         both_since = 0
         both_used = False
     if service:
@@ -863,10 +873,16 @@ def buttons(now):
         if coin and not held["coin"] and not task:
             start_move(now, -1, 0, True)
     else:
-        if yes and not held["yes"]:
-            say("ANSWER:YES")
-        if no and not held["no"]:
-            say("ANSWER:NO")
+        for name, down in (("yes", yes), ("no", no)):
+            if down and not held[name] and not chord[0]:
+                if pending[0] and pending[0] != name and now - pending[1] <= CHORD_MS:
+                    chord[0] = True                    # the other one came in time: both together
+                    pending[0] = None
+                elif not pending[0]:
+                    pending[0], pending[1] = name, now
+        if pending[0] and now - pending[1] > CHORD_MS:
+            say("ANSWER:" + pending[0].upper())        # no partner: a plain answer
+            pending[0] = None
         if coin and not held["coin"]:
             say("COIN:1")
     held["yes"], held["no"], held["coin"] = yes, no, coin
