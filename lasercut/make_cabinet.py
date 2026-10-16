@@ -11,7 +11,7 @@ finger-jointed like the cassette (same joint code, so the same KERF fits):
   front, left/right side, top, bottom jointed; the back panel bolts on with
   4 M3 bolts into corner blocks (3 glued squares each, the middle one holding
   the nut), so it comes off for the electronics.
-INSIDE — a divider wall (2 mm) at x 137–139 splits the upper part:
+INSIDE — a divider wall (2 mm) just right of the cassette's motors (x 162) splits the upper part:
   left: the CASSETTE on a shelf (top surface 150 mm up); the front has an
         opening 4 mm smaller than the cassette all round, so the cassette's own
         front (window, sensor) shows and it stops against that lip. It slides
@@ -50,12 +50,13 @@ CAS_X = 10.0         # its left side, from the box's outer left
 CAS_SHELF = 150.0    # top surface of its shelf, from the outer bottom
 LIP = 4.0            # front opening is this much smaller than the cassette on every side
 
-DIV_X = 137.0        # divider wall's left face, from the outer left (thickness T2)
+CAS_MOTORS = 25.0    # the TT motors stick out of the cassette's RIGHT side (seen from the front), measured 2026-10-16
+DIV_X = CAS_X + CAS_W + CAS_MOTORS + 4   # divider wall's left face (thickness T2): 4 mm past the motors
 
 # printer (right column)
 PR_W, PR_D = 190.0, 140.0
 PR_FRONT_H, PR_BACK_H = 125.0, 150.0
-PR_X = 145.0         # its left side
+PR_X = DIV_X + T2 + 6   # its left side
 PR_Z = 11.0          # its front, from the box's outer front (behind the top panel's front strip)
 PR_TOP = Y - 1.0     # where its (levelled) top ends up: 1 mm under the top surface
 MOUTH_X, MOUTH_W, MOUTH_D = 17.0, 100.0, 35.0          # from the printer's left; size
@@ -86,10 +87,10 @@ IN_TOP = Y - T                        # inner top (underside of the top panel), 
 SHELF_PR = PR_TOP - PR_BACK_H         # printer shelf top: the printer's back sits on it
 WEDGE = PR_BACK_H - PR_FRONT_H        # front raised by this (25)
 opening = (PR_X - 2, PR_Z - 2, PR_W + 4, PR_D + 4)   # top panel opening x, z, w, d — the printer rises into it
-LID = (opening[0] - 15, 2.0, opening[2] + 30, 170.0) # lid x, z, w, d — overlaps the opening
+LID = (opening[0] - 13, 2.0, opening[2] + 26, 170.0) # lid x, z, w, d — overlaps the opening
 
 assert CAS_SHELF + CAS_H < IN_TOP - 5, "cassette doesn't fit under the top"
-assert CAS_X + CAS_W < DIV_X - 2 and CAS_X > T + 2, "cassette doesn't fit between the left wall and the divider"
+assert CAS_X + CAS_W + CAS_MOTORS < DIV_X - 2 and CAS_X > T + 2, "cassette + motors don't fit between the left wall and the divider"
 assert PR_X > DIV_X + T2 + 2 and PR_X + PR_W < X - T - 10, "printer doesn't fit in its column"
 assert opening[1] > T + T + 2, "printer opening runs into the top panel's front joint"
 assert LID[1] + LID[3] < Z - 10 and LID[0] + LID[2] < X - T, "lid too big"
@@ -259,14 +260,17 @@ def bottom():
     s = [poly(outline(X, Z, ("H", "H", "P", "H")))]
     for t in DIV_TABS:
         s.append(tab_slot(DIV_X + T2 / 2, T + t, False, T2))
+    bx = DIV_X + T2 + 8          # the bay right of the divider's bottom rail
     zones = [   # x, z, w, d, label — what stands where in the bay (engraved)
         (X - T - 45, 90, 45, 80, "BELL"),
-        (150, 80, 75, 160, "PHONE"),
-        (240, 200, 60, 40, "WUKONG"),
-        (240, 150, 25, 35, "RELAY"),
-        (280, 150, 25, 15, "9V"),
+        (bx, 80, 75, 160, "PHONE"),
+        (bx + 85, 200, 60, 40, "WUKONG"),
+        (bx + 85, 150, 25, 35, "RELAY"),
+        (bx + 120, 150, 25, 15, "9V"),
         (25, 100, 70, 140, "POWER BANK"),
     ]
+    for x, z, w, d, name in zones:
+        assert x + w <= X - T and (x + w <= DIV_X or x >= DIV_X + T2), name + " crosses the divider or the wall"
     for x, z, w, d, name in zones:
         s.append(rect(x, z, w, d, style=MARK))
         s.append(text(x + 2, z + 8, name, 5))
@@ -325,7 +329,7 @@ def divider():
         s.append(tab_slot(t, IN_TOP - SHELF_PR + T / 2, True, T))
     # the bay: open, leaving a frame
     s.append(rect(15, IN_TOP - (CAS_SHELF - 15), w - 30, CAS_SHELF - 15 - 15 - T, r=6))
-    s.append(text(8, 14, "DIVIDER (2 mm) — front edge on the left", 6))
+    s.append(text(8, 14, "DIVIDER (2 mm) — front edge on the left; cassette motors on its left", 6))
     s.append(text(8, IN_TOP - CAS_SHELF - 4, "cassette shelf on the LEFT face, printer shelf on the RIGHT", 4))
     return s, w, h, 0, T
 
