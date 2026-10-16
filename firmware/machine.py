@@ -43,8 +43,8 @@
 #   pos is -1 while the board doesn't know where it is (after switching on).
 #
 # START: a quick press of YES + NO together (or A + B) = COIN:1, like a coin.
-# CALIBRATE: hold the micro:bit's own A + B for 3 s (not the arcade buttons, so
-# visitors can't): auto-calibrate, then find START.
+# CALIBRATE: hold YES + NO for 10 s (service mode flicks on at 5 s and off again),
+# or the micro:bit's own A + B for 3 s: auto-calibrate, then find START.
 # SERVICE MODE: hold YES + NO (or A + B) for 5 s, again to leave. The display
 # shows S. Hold YES = wind up, hold NO = wind down, coin = find START. Presses
 # aren't sent to the game meanwhile.
@@ -887,10 +887,20 @@ both_used = False  # this hold already toggled service: wait for a release
 # So a lone press waits CHORD_MS for the other before it counts as an answer —
 # otherwise starting a game would also answer with whichever was pressed first.
 CHORD_MS = 150
-CAL_HOLD_MS = 3000
+CAL_HOLD_MS = 3000       # the micro:bit's own A + B
+CAL_ARCADE_MS = 10000    # the arcade YES + NO — long, so a visitor won't by accident (the maker, 2026-10-16)
+toggled = [False]        # this hold switched service mode (undone if it goes on to calibrate)
+cal_this = [False]       # this hold already started a calibration
 ab_since = [0]        # when the micro:bit's own A + B started being held together
 pending = [None, 0]   # the lone press waiting: "yes"/"no", when
 chord = [False]       # both went down together: decided when both are released
+
+
+def calibrate_then_home(now):
+    if not task:
+        start_calibrate(now)
+        if task and task["kind"] == "cal":
+            queued[0] = "BELT:HOME"                   # finish() runs it after calibrating
 
 
 def buttons(now):
@@ -903,10 +913,8 @@ def buttons(now):
             ab_since[0] = now
         elif not both_used and now - ab_since[0] >= CAL_HOLD_MS:
             both_used = True                          # no coin, no service mode from this hold
-            if not task:
-                start_calibrate(now)
-                if task and task["kind"] == "cal":
-                    queued[0] = "BELT:HOME"           # finish() runs it after calibrating
+            cal_this[0] = True
+            calibrate_then_home(now)
     else:
         ab_since[0] = 0
     if yes and no:
@@ -914,16 +922,24 @@ def buttons(now):
             both_since = now
         elif not both_used and now - both_since >= SERVICE_HOLD_MS:
             both_used = True
+            toggled[0] = True
             service = not service
             if task and task["kind"] == "hold":
                 hold(now, 0)
             say("SERVICE:" + ("ON" if service else "OFF"))
+        if both_since and not cal_this[0] and now - both_since >= CAL_ARCADE_MS:
+            cal_this[0] = True
+            if toggled[0]:                            # still held at 10 s: it meant calibrate, not service
+                service = not service
+                say("SERVICE:" + ("ON" if service else "OFF"))
+            calibrate_then_home(now)
     elif not yes and not no:
         if chord[0] and not both_used and not service:
             say("COIN:1")                              # a quick press of both: start
         chord[0] = False
         both_since = 0
         both_used = False
+        toggled[0] = cal_this[0] = False
     if service:
         if both_since or (task and task["kind"] != "hold"):
             pass                                       # both held, or finding START: leave it
