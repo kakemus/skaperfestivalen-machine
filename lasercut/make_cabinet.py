@@ -81,6 +81,8 @@ DIV_TABS = (50.0, 200.0)
 BLOCK = 20.0
 M3_HOLE = 3.4
 M3_NUT_AF = 5.7      # hexagon across flats (M3 nut is 5.5)
+NUT_RECUT_AF = 6.1   # the recut squares: roomier, since 5.7 came out too small even without kerf
+                     # offset (2026-10-16). Must stay under the nut's 6.35 across corners, so it can't turn.
 
 # ---------- derived ----------
 IN_TOP = Y - T                        # inner top (underside of the top panel), from the bottom
@@ -484,13 +486,15 @@ def button_recut():
 def hex_recut():
     """A small extra file (2026-10-16): just the 4 hexagon squares of the corner
     blocks, to cut again. On sheet 2 the laser software's kerf offset shrank the
-    hexagons so the M3 nuts didn't fit — cut this one with kerf offset OFF."""
+    hexagons so the M3 nuts didn't fit — cut this one with kerf offset OFF. The nut
+    doesn't need a press fit (it's glued in between two round-hole squares), only
+    not to turn, so the hexagon here is roomier (NUT_RECUT_AF)."""
     w, h = 4 * BLOCK + 3 * G + 2 * M, BLOCK + 2 * M + 8
     parts = []
     for i in range(4):
         x = M + i * (BLOCK + G)
         parts.append(rect(x, M, BLOCK, BLOCK))
-        parts.append(hexagon(x + BLOCK / 2, M + BLOCK / 2, M3_NUT_AF))
+        parts.append(hexagon(x + BLOCK / 2, M + BLOCK / 2, NUT_RECUT_AF))
     parts.append(text(M, M + BLOCK + 6, "4 NUT SQUARES - KERF OFFSET OFF", 4))
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}mm" height="{h}mm" viewBox="0 0 {w} {h}">\n'
            f'<!-- 3 mm MDF: the 4 hexagon squares of the corner blocks again; cut with kerf offset OFF -->\n'
