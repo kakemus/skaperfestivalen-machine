@@ -32,7 +32,7 @@ Everything is computed from the numbers below; change one and re-run.
 Measured on the maker's parts (2026-10-15/16): printer 190 W × 140 D, 125 front /
 150 back high; paper mouth 100 × 35 starting 17 mm from the printer's left;
 cover lever 45 × 20 × 10 high, ending 22 mm from its right; cassette 123 × 95 × 216.
-MOUTH_FROM_FRONT is assumed — measure it before cutting the lid (see below).
+The mouth's front edge is 35 mm behind the printer's front (measured).
 """
 import os
 
@@ -59,7 +59,7 @@ PR_X = 145.0         # its left side
 PR_Z = 11.0          # its front, from the box's outer front (behind the top panel's front strip)
 PR_TOP = Y - 1.0     # where its (levelled) top ends up: 1 mm under the top surface
 MOUTH_X, MOUTH_W, MOUTH_D = 17.0, 100.0, 35.0          # from the printer's left; size
-MOUTH_FROM_FRONT = 22.5   # mouth's front edge behind the printer's front (ASSUMED: centred 40 mm back) — measure!
+MOUTH_FROM_FRONT = 35.0   # mouth's front edge behind the printer's front (measured by the maker, 2026-10-16)
 LEVER_W, LEVER_D = 45.0, 20.0
 LEVER_FROM_RIGHT = 22.0                                  # lever's right end, from the printer's right
 CUT_MARGIN = 2.0     # around the mouth / lever cut-outs (the paper wanders a little)

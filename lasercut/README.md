@@ -105,9 +105,9 @@ Outer **380 W × 384 H × 260 D mm**. Made by `make_cabinet.py` (change a number
 ## Before cutting
 
 1. **Cut sheet 2 first** and push TEST A and TEST B together — same check as for the cassette.
-2. **Measure the printer's paper mouth**: how far its *front edge* is behind the printer's front.
-   The file assumes 22.5 mm (mouth centred 40 mm back). If yours differs, change `MOUTH_FROM_FRONT`
-   in `make_cabinet.py` and run it again — only the lid (sheet 4) changes.
+2. The lid's cut-outs use the measured paper mouth (front edge 35 mm behind the printer's front,
+   `MOUTH_FROM_FRONT`). The cover lever's cut-out is assumed at the same depth as the mouth —
+   lay the cut lid on the printer and check before gluing anything.
 
 ## Hardware
 
