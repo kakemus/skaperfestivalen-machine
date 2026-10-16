@@ -62,6 +62,7 @@ MOUTH_X, MOUTH_W, MOUTH_D = 17.0, 100.0, 35.0          # from the printer's left
 MOUTH_FROM_FRONT = 35.0   # mouth's front edge behind the printer's front (measured by the maker, 2026-10-16)
 LEVER_W, LEVER_D = 45.0, 20.0
 LEVER_FROM_RIGHT = 22.0                                  # lever's right end, from the printer's right
+LEVER_FROM_FRONT = 58.0                                  # lever's front edge behind the printer's front (measured)
 CUT_MARGIN = 2.0     # around the mouth / lever cut-outs (the paper wanders a little)
 
 # front
@@ -336,8 +337,7 @@ def lid():
     mz0 = PR_Z + MOUTH_FROM_FRONT - CUT_MARGIN - lz
     s.append(rect(mx0, mz0, MOUTH_W + 2 * CUT_MARGIN, MOUTH_D + 2 * CUT_MARGIN, r=2))
     lever_x = PR_X + PR_W - LEVER_FROM_RIGHT - LEVER_W
-    lever_cz = PR_Z + MOUTH_FROM_FRONT + MOUTH_D / 2
-    s.append(rect(lever_x - CUT_MARGIN - lx, lever_cz - LEVER_D / 2 - CUT_MARGIN - lz,
+    s.append(rect(lever_x - CUT_MARGIN - lx, PR_Z + LEVER_FROM_FRONT - CUT_MARGIN - lz,
                   LEVER_W + 2 * CUT_MARGIN, LEVER_D + 2 * CUT_MARGIN, r=2))
     s.append(circle(lw / 2, ld, 26))                               # finger notch at the back edge
     s.append(text(6, ld - 8, "LID — lies on the top; cleats underside drop into the opening", 4.5))
