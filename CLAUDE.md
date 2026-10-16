@@ -366,3 +366,18 @@ Ctrl-C (the running firmware doesn't always stop on the first). The loader keeps
 a function (`__load`): with short names the program's own `n` overwrote a global loop counter →
 sad face. Test the packed firmware with the REAL loader + piece files in the simulator, not just
 the pieces exec'd in sequence (that missed the loader clash). After two uploads: 13.1 KB used.
+**The life simulator (2026-10-16) — the maker's new game, on the phone version.** "Livet AS": you
+buy your way up through 15 cards (one per screen, START = card 1); the printed receipt is the only
+screen (the phone's display just mirrors state for the operator). `game/cards.js`: cards are
+`title | price | JA|NEI | losing text` (JA = a purchase to make, NEI = a trap to refuse — the
+maker didn't want JA always right, nor random events), placeholders + FINAL_TEXT (the maker's
+ending, without their phone number). `game/life.js`: right choice → ding + green + a receipt line
+(+ debt) + step; wrong / timeout → red + losing text + total debt + cut + rewind; last card →
+LED:WIN, 3 bells, optional ntfy push (topic in the panel; ntfy.sh/app works in a browser), final
+receipt, cut. `game/receipt.js`: till-receipt parts, no feed between lines (one strip), feed only
+before a cut. Timer: `LED:HURRY:ms` (firmware) — the light blinks faster for the last 10 s; any
+flash/win/move/hold/calibrate/STOP/LED:ON ends it (moves need steady light). The phone pushes
+`SET:screens:<cards>` on connect. No printing in attract (the maker plans a sign: "TRYKK JA + NEI
+FOR Å STARTE"). The Mac page (main.js) still runs the old quiz. **Firmware now 14.4 KB packed** —
+with loader + settings ~15 of ~16 KB: the next firmware feature should come with dropping the
+colour picker (cr/cg/cb + gamma), as the maker allowed.

@@ -90,14 +90,16 @@
   <button id="beltPage">Belt setup &amp; calibration →</button>
 
   <h2>Game</h2>
-  <div class="two"><button id="lang_no">Norsk</button><button id="lang_en">English</button></div>
-  <p class="dim" style="margin-top:6px">Each language has its own question list below.</p>
-  <label>Seconds to answer <input type="number" id="answerSeconds" min="5" max="120"></label>
-  <label>Screens to win (as printed on the strip) <input type="number" id="levels_" min="3" max="15"></label>
-  <label>Print a reward slip on each right answer <input type="checkbox" id="rewardPrints"></label>
-  <p class="dim" style="margin-top:12px">Questions — one per line: <code>question | JA</code> or <code>| NEI</code></p>
-  <textarea id="questions" spellcheck="false"></textarea>
-  <div class="two" style="margin-top:8px"><span id="qCount" class="dim" style="align-self:center"></span><button id="qReset">Default questions</button></div>
+  <label>Seconds per card <input type="number" id="answerSeconds" min="5" max="120"></label>
+  <p class="dim" style="margin-top:6px">The light flickers faster and faster in the last 10 seconds.</p>
+  <p class="dim" style="margin-top:12px">Cards — one per screen, START first: <code>title | price | JA or NEI | text when lost here</code>.
+    JA = a purchase to make; NEI = a trap to refuse. The last card is the jackpot.</p>
+  <textarea id="cards" spellcheck="false"></textarea>
+  <div class="two" style="margin-top:8px"><span id="cCount" class="dim" style="align-self:center"></span><button id="cReset">Placeholder cards</button></div>
+  <p class="dim" style="margin-top:12px">Printed after the jackpot (the last line comes out big):</p>
+  <textarea id="finalText" spellcheck="false" style="height:120px"></textarea>
+  <p class="dim" style="margin-top:12px">Push to your phone on the jackpot (optional): an ntfy topic name — subscribe to the same name in the ntfy app or at ntfy.sh/app. Needs internet.</p>
+  <div class="two"><input id="ntfy" placeholder="secret-topic-name" style="padding:10px;font-size:16px;background:#000;color:#fff;border:1px solid #444;border-radius:6px"><button id="ntfyTest" style="margin-top:0">Test push</button></div>
 
   <h2>Log</h2>
   <button id="sendLog" style="margin-top:0">Send log to the Mac</button>

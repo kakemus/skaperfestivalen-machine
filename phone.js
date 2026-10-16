@@ -1,34 +1,33 @@
-// The phone version of the machine (phone.html): the game on the phone's own
-// screen, the printer and the micro:bit on its USB port, a hidden operator
-// panel. Same game, belt and ticket modules as the computer page (main.js);
-// only the screen and the controls differ. Must keep working on Chrome 87.
+// The phone version of the machine (phone.html): the printer and the micro:bit
+// on the phone's USB port, a hidden operator panel. Since 2026-10-16 it runs the
+// maker's life simulator (game/life.js): the printed receipt is the only screen
+// visitors see — the phone's own screen just mirrors the state for the operator.
+// (The Mac page, main.js, still runs the old quiz.) Must keep working on Chrome 87.
 import { on } from "./core/eventBus.js";
 import * as printer from "./core/printer.js";
 import * as controller from "./core/controller.js";
 import { whenInCharge } from "./core/singleTab.js";
 import { after, every, cancel } from "./core/clock.js";
-import { createGame } from "./game/game.js";
-import { DEFAULT_QUESTIONS, parseQuestions } from "./game/questions.js";
-import { TEXT, DEFAULT_QUESTIONS_EN } from "./game/lang.js";
+import { createLifeGame } from "./game/life.js";
+import { DEFAULT_CARDS, FINAL_TEXT, parseCards, kroner } from "./game/cards.js";
+import * as receipt from "./game/receipt.js";
 import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
-import { TICKETS } from "./tickets/index.js";
 
-const VERSION = "phone 2026-10-16 b";
+const VERSION = "phone 2026-10-16 c";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
 const settings = (() => {
-  // questions: the Norwegian list (null = the default); questionsEn: the English one
-  const d = { answerSeconds: 30, levels: DEFAULT_STRIP.levels, rewardPrints: true, questions: null, questionsEn: null, lang: "no" };
+  // cards / finalText: null = the defaults in game/cards.js; ntfyTopic: "" = no push notification
+  const d = { answerSeconds: 30, cards: null, finalText: null, ntfyTopic: "" };
   try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
-const words = () => TEXT[settings.lang] || TEXT.no;
-const qKey = () => (settings.lang === "en" ? "questionsEn" : "questions");
-const qDefault = () => (settings.lang === "en" ? DEFAULT_QUESTIONS_EN : DEFAULT_QUESTIONS);
-const questionText = () => settings[qKey()] ?? qDefault();
+const cardText = () => settings.cards ?? DEFAULT_CARDS;
+const cards = () => parseCards(cardText());
+const finalText = () => settings.finalText ?? FINAL_TEXT;
 
 // ---------- log ----------
 const lines = [];
@@ -73,12 +72,13 @@ function runTimer(seconds) {
 }
 
 // attract mode: a few lines taking turns until a coin comes
+const ATTRACT = ["TRYKK JA + NEI FOR Å STARTE", "KJØP DEG OPP I LIVET", "IKKE NØL"];
 let attractTimer = null, attractI = 0;
 function attract(on) {
   if (attractTimer) { cancel(attractTimer); attractTimer = null; }
   if (!on) return;
   const next = () => {
-    const lines = words().attract, i = attractI++ % lines.length;
+    const lines = ATTRACT, i = attractI++ % lines.length;
     shown = [lines[i], { blink: i === 0 }];             // the first line ("insert coin") blinks
     show(...shown);
   };
@@ -88,35 +88,50 @@ function attract(on) {
 
 // ---------- belt + game ----------
 const belt = createBelt({ canvas: document.createElement("canvas"), send: line => controller.send(line) });
+// one screen per card (START = card 1), so the strip has cards − 1 levels above START
 function setStrip() {
-  const cfg = { ...DEFAULT_STRIP, levels: settings.levels };
+  const cfg = { ...DEFAULT_STRIP, levels: Math.max(1, cards().length - 1) };
   belt.setStrip(drawStrip(cfg), cfg);
 }
 setStrip();
 
-const ticketValues = key => Object.fromEntries(TICKETS[key].fields.map(f => [f.key, f.default]));
-const printTicket = (key, extra) =>
-  printer.print({ label: TICKETS[key].label, build: () => TICKETS[key].draw({ ...ticketValues(key), ...extra }, { feedMm: 15 }) })
-    .catch(e => log("Print failed: " + e.message));
+const print = (label, build) => printer.print({ label, build }).catch(e => log("Print failed: " + e.message));
 
-const game = createGame({
-  questions: () => parseQuestions(questionText()),
-  lang: () => settings.lang,
-  answerSeconds: () => settings.answerSeconds,
+// optional push notification through ntfy (ntfy.sh — an app, or ntfy.sh/app in a browser)
+function notify(text) {
+  if (!settings.ntfyTopic) return;
+  fetch("https://ntfy.sh/" + encodeURIComponent(settings.ntfyTopic), { method: "POST", body: text })
+    .then(() => log("Push sent"), e => log("Push failed (no internet?): " + e.message));
+}
+
+const game = createLifeGame({
+  cards,
+  seconds: () => settings.answerSeconds,
+  finalText,
   belt,
-  text(str, opts = {}) { attract(false); shown = [str, opts]; show(str, opts); },
-  idle() { runTimer(0); showLevels(0); attract(true); },
+  print,
+  cut: () => printer.cut().catch(e => log("Cut: " + e.message)),
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
   flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
-  printReward(level) { if (settings.rewardPrints) printTicket("reward", { ...words().reward, level }); },
-  printWin() { printTicket("prize", { reels: "★ ★ ★", ...words().prize(belt.last) }); },
+  hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
   celebrate() { controller.send("LED:WIN"); },
+  notify,
+  idle() { runTimer(0); showLevels(0); attract(true); },
   log,
-  onState({ state, level }) {
+  onState({ state, level, debt, card }) {
     showLevels(level);
-    runTimer(state === "asking" ? settings.answerSeconds : 0);
+    runTimer(state === "deciding" ? settings.answerSeconds : 0);
+    if (state === "attract") return;
+    attract(false);
+    // the phone's screen is only for the operator: what the scroll shows and what's right
+    const what = { starting: "NYTT SPILL", deciding: card ? `NIVÅ ${level + 1}: ${card.title} · ${kroner(card.price)} KR` : "",
+      climbing: "KJØPT!", lost: "TAPT", won: "JACKPOT!", resetting: "TILBAKE TIL START" }[state] || state;
+    shown = [what + (state === "deciding" ? `\n(${card && card.buy ? "JA" : "NEI"} · GJELD ${kroner(debt)})` : ""), {}];
+    show(...shown);
   },
 });
+// the board's Find START must know how many screens the strip has
+on("controller:connected", () => after(2500, () => controller.send(`SET:screens:${cards().length}`)));
 showLevels(0);
 attract(true);
 
@@ -180,7 +195,7 @@ $("tYes").onclick = () => game.answer(true);
 $("tNo").onclick = () => game.answer(false);
 $("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
 $("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit connected");
-$("tPrint").onclick = () => printTicket("reward", { ...words().reward, level: 1 });
+$("tPrint").onclick = () => print("Test", () => receipt.bought(1, cards()[0] || { title: "TEST", price: 0 }, 1234));
 $("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
@@ -193,26 +208,22 @@ $("beltPage").onclick = () => { location.href = "belt.html"; };
 
 $("answerSeconds").value = settings.answerSeconds;
 $("answerSeconds").onchange = () => { settings.answerSeconds = Math.max(5, Number($("answerSeconds").value) || 30); save(); };
-$("levels_").value = settings.levels;
-$("levels_").onchange = () => { settings.levels = Math.min(15, Math.max(3, Number($("levels_").value) || 10)); save(); setStrip(); showLevels(game.level); };
-$("rewardPrints").checked = settings.rewardPrints;
-$("rewardPrints").onchange = () => { settings.rewardPrints = $("rewardPrints").checked; save(); };
-const countQuestions = () => { $("qCount").textContent = `${parseQuestions(questionText()).length} questions`; };
-$("questions").value = questionText();
-$("questions").oninput = () => { settings[qKey()] = $("questions").value; save(); countQuestions(); };
-$("qReset").onclick = () => { settings[qKey()] = null; $("questions").value = qDefault(); save(); countQuestions(); };
-// language: the game's words, attract lines, tickets and the question list switch together
-function showLang() {
-  for (const l of ["no", "en"]) $("lang_" + l).classList.toggle("on", settings.lang === l);
-  $("questions").value = questionText();
-  countQuestions();
-}
-for (const l of ["no", "en"]) $("lang_" + l).onclick = () => {
-  settings.lang = l; save(); showLang();
-  if (game.state === "attract") { attractI = 0; attract(true); }
+const countCards = () => {
+  const n = cards().length;
+  $("cCount").textContent = `${n} cards → ${n} screens on the strip`;
 };
-showLang();
-countQuestions();
+$("cards").value = cardText();
+$("cards").oninput = () => {
+  settings.cards = $("cards").value; save(); countCards(); setStrip(); showLevels(game.level);
+  controller.send(`SET:screens:${cards().length}`);
+};
+$("cReset").onclick = () => { settings.cards = null; $("cards").value = DEFAULT_CARDS; save(); countCards(); setStrip(); showLevels(0); };
+countCards();
+$("finalText").value = finalText();
+$("finalText").oninput = () => { settings.finalText = $("finalText").value; save(); };
+$("ntfy").value = settings.ntfyTopic;
+$("ntfy").onchange = () => { settings.ntfyTopic = $("ntfy").value.trim(); save(); };
+$("ntfyTest").onclick = () => settings.ntfyTopic ? notify("Test fra maskinen") : log("Type a topic name first");
 
 // keyboard, for testing on a computer: C = coin, J = ja, N = nei
 window.addEventListener("keydown", e => {

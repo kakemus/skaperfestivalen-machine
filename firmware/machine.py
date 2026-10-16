@@ -25,6 +25,9 @@
 #   LED:ON | LED:OFF | LED:RGB:r:g:b      the backlight (8×8 NeoPixel matrix)
 #   LED:FLASH:G | LED:FLASH:R             blink green (right answer) / red (wrong); a BELT
 #                                         command sent meanwhile waits until it's over
+#   LED:HURRY:ms                          time is running out: the light dims in blinks that come
+#                                         faster and faster for ms, then steady again. Any flash,
+#                                         win light or belt move ends it (the sensor needs steady light)
 #   LED:WIN                               the win light: a running rainbow with sparkles (~6 s),
 #                                         BELT commands wait for it the same way
 #   A BELT command arriving while a move is still finishing (tightening, settling) is
@@ -371,6 +374,7 @@ def start_move(now, direction, screens, home=False):
     if task:
         say("BUSY")
         return
+    hurry_off()
     if home and not (S["mode"] == 1 and S["level"] > 0):
         say("BELT:ERROR:finding START needs Stop on marks and a calibrated sensor")
         return
@@ -471,6 +475,7 @@ HOLD_MS = 600          # a hold stops by itself this long after the last HOLD
 def hold(now, direction):
     """Run the belt while a button (page or service mode) is held down."""
     global task, pos
+    hurry_off()
     if direction == 0:                                   # let go
         if task and task["kind"] == "hold":
             stop()
@@ -621,6 +626,7 @@ def start_calibrate(now):
     if task:
         say("BUSY")
         return
+    hurry_off()
     if not drive(*belt_speeds(1)):
         fail("Wukong is off")
         return
@@ -650,6 +656,7 @@ def calibrated(now):
 def stop_all():
     global task
     task = None
+    hurry_off()
     stop()
     say("STOPPED")
 
@@ -691,7 +698,36 @@ flash = {"left": 0, "on": False, "next": 0, "rgb": (0, 0, 0), "then": [], "win":
 WIN_MS = 6000
 
 
+hurry = {"end": 0, "dim": False, "next": 0}
+
+
+def hurry_off():
+    if hurry["end"]:
+        hurry["end"] = 0
+        backlight_on()
+
+
+def hurry_tick(now):
+    """Blinks dark for 70 ms; the gap shrinks from ~1 s to ~0.15 s as the end nears."""
+    if not hurry["end"] or now < hurry["next"]:
+        return
+    left = hurry["end"] - now
+    if left <= 0:
+        hurry_off()
+        return
+    if hurry["dim"]:
+        backlight_on()
+        hurry["dim"] = False
+        hurry["next"] = now + 80 + left * 85 // 1000
+    else:
+        v = S["backlight"] // 5
+        leds_fill(v, v, v)
+        hurry["dim"] = True
+        hurry["next"] = now + 70
+
+
 def start_flash(now, colour):
+    hurry_off()
     v = min(LED_MAX, max(40, S["backlight"] * 2))       # brighter than the backlight, so it reads
     c = FLASH_COLOURS.get(colour, (1, 1, 1))
     flash["rgb"] = (v * c[0], v * c[1], v * c[2])
@@ -711,6 +747,7 @@ def wheel(h, v):
 
 
 def start_win(now):
+    hurry_off()
     flash["win"] = now + WIN_MS
     flash["left"], flash["on"], flash["next"] = 0, False, now
 
@@ -854,8 +891,10 @@ def handle(line, now):
             say("MOTOR:ERROR:Wukong is off")
     elif cmd == "LED":
         if parts[1] == "ON":
+            hurry["end"] = 0
             backlight_on()
         elif parts[1] == "OFF":
+            hurry["end"] = 0
             leds_fill(0, 0, 0)
         elif parts[1] == "RGB":
             leds_fill(int(parts[2]), int(parts[3]), int(parts[4]))
@@ -863,6 +902,9 @@ def handle(line, now):
             start_flash(now, parts[2] if len(parts) > 2 else "G")
         elif parts[1] == "WIN":
             start_win(now)
+        elif parts[1] == "HURRY":
+            if not flashing():
+                hurry["end"], hurry["dim"], hurry["next"] = now + min(int(parts[2]), 30000), False, now
         say("LED:OK:" + parts[1])
     elif cmd == "BELL":
         ring(int(parts[-1]) if len(parts) > 1 and parts[-1].isdigit() else 1)
@@ -995,6 +1037,7 @@ while True:
         tick(now)
         bell_tick(now)
         flash_tick(now)
+        hurry_tick(now)
         if now >= next_buttons:                   # every 20 ms: a bouncing switch can't double-press
             next_buttons = now + 20
             buttons(now)
