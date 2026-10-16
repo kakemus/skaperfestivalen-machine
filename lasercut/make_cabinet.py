@@ -460,7 +460,25 @@ def build():
     for s in sheets:
         s.write()
     hex_recut()
+    button_recut()
     return sheets
+
+
+def button_recut():
+    """One button hole on its own (2026-10-16), to cut again INTO the panels already
+    cut: the kerf offset made the holes too small and they're hard to carve. Put
+    the front (or the doubler) back in the laser, centre the head on an old hole
+    and cut this circle there — once per hole, kerf offset OFF. The circle is
+    in the middle of the page, so the job origin can be set to its centre."""
+    d = BUTTON_D + 0.5          # a little room, since the old hole may sit slightly off
+    w = d + 2 * M + 4
+    c = w / 2
+    parts = [circle(c, c, d)]   # nothing blue: it would be engraved onto the finished front
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}mm" height="{w}mm" viewBox="0 0 {w} {w}">\n'
+           f'<!-- one {d:g} mm button hole, centred on the page; cut over each old hole with kerf offset OFF -->\n'
+           + "\n".join(parts) + "\n</svg>\n")
+    with open(os.path.join(HERE, "cabinet_9_button_hole_recut.svg"), "w") as f:
+        f.write(svg)
 
 
 def hex_recut():
