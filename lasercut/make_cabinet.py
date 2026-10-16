@@ -459,7 +459,26 @@ def build():
 
     for s in sheets:
         s.write()
+    hex_recut()
     return sheets
+
+
+def hex_recut():
+    """A small extra file (2026-10-16): just the 4 hexagon squares of the corner
+    blocks, to cut again. On sheet 2 the laser software's kerf offset shrank the
+    hexagons so the M3 nuts didn't fit — cut this one with kerf offset OFF."""
+    w, h = 4 * BLOCK + 3 * G + 2 * M, BLOCK + 2 * M + 8
+    parts = []
+    for i in range(4):
+        x = M + i * (BLOCK + G)
+        parts.append(rect(x, M, BLOCK, BLOCK))
+        parts.append(hexagon(x + BLOCK / 2, M + BLOCK / 2, M3_NUT_AF))
+    parts.append(text(M, M + BLOCK + 6, "4 NUT SQUARES - KERF OFFSET OFF", 4))
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}mm" height="{h}mm" viewBox="0 0 {w} {h}">\n'
+           f'<!-- 3 mm MDF: the 4 hexagon squares of the corner blocks again; cut with kerf offset OFF -->\n'
+           f'{rect(0, 0, w, h, style=MARK)}\n' + "\n".join(parts) + "\n</svg>\n")
+    with open(os.path.join(HERE, "cabinet_8_nut_squares_recut_3mm.svg"), "w") as f:
+        f.write(svg)
 
 
 if __name__ == "__main__":
