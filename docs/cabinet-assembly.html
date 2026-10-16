@@ -89,7 +89,7 @@ const PARTS = {
   right: [B(X - T, 0, 0, X, Y, Z)],
   front: [B(0, 0, 0, X, Y, T)],
   doubler: [B(60, 35, T, 320, 115, 2 * T)],
-  divider: [B(DIV, T, T, DIV + 2, 18, Z), B(DIV, 135, T, DIV + 2, Y - T, Z), B(DIV, 18, T, DIV + 2, 135, 18), B(DIV, 18, Z - 15, DIV + 2, 135, Z)],
+  divider: [B(DIV, T, T, DIV + 2, 18, Z), B(DIV, 135, T, DIV + 2, Y - T, Z), B(DIV, 18, 2 * T, DIV + 2, 135, 18), B(DIV, 18, Z - 15, DIV + 2, 135, Z)],
   cshelf: [B(T, CS - T, T, DIV, CS, Z)],
   pshelf: [B(DIV + 2, PS - T, T, X - T, PS, Z)],
   top: [B(0, Y - T, 0, OP.x, Y, Z), B(OP.x + OP.w, Y - T, 0, X, Y, Z), B(OP.x, Y - T, 0, OP.x + OP.w, Y, OP.z), B(OP.x, Y - T, OP.z + OP.d, OP.x + OP.w, Y, Z)],
@@ -110,6 +110,11 @@ const DECALS = [
   // front, outside face (z = 0) and inside face (z = 3): cassette opening, button holes
   ["front", "z", -0.2, rectP(14, CS + 4, 129, CS + 212)], ["front", "z", T + 0.2, rectP(14, CS + 4, 129, CS + 212)],
   ["front", "z", -0.2, ring(120, 75, 13.75)], ["front", "z", -0.2, ring(260, 75, 13.75)],
+  // the doubler's holes, seen from inside the box
+  ["doubler", "z", 2 * T + 0.2, ring(120, 75, 13.75)], ["doubler", "z", 2 * T + 0.2, ring(260, 75, 13.75)],
+  // the back panel, outside: 4 bolt holes at the corner blocks, the round cable hole
+  ...[[T + 10, T + 10], [X - T - 10, T + 10], [T + 10, Y - T - 10], [X - T - 10, Y - T - 10]].map(([x, y]) => ["back", "z", Z + T + 0.2, ring(x, y, 2.5, 10)]),
+  ["back", "z", Z + T + 0.2, ring(40, 45, 15)],
   // the top's opening seen from above (dark if nothing fills it)
   ["top", "y", Y + 0.2, rectP(OP.x, OP.z, OP.x + OP.w, OP.z + OP.d)],
   // the lid's cut-outs (paper mouth, lever)
@@ -140,28 +145,79 @@ function facesOf(b) {
     { n: [0, 0, 1], q: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], shade: "dark" },
   ];
 }
+// outline of a part on paper (convex hull of its projected corners)
+function hull(pts) {
+  const p = pts.map(q => [q[0], q[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = list => { const h = []; for (const q of list) { while (h.length > 1 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop(); h.push(q); } h.pop(); return h; };
+  return half(p).concat(half([...p].reverse()));
+}
+// do two convex outlines overlap by more than half a pixel? (separating axes)
+function overlap(a, b) {
+  for (const poly of [a, b]) for (let i = 0; i < poly.length; i++) {
+    const [x0, y0] = poly[i], [x1, y1] = poly[(i + 1) % poly.length], nx = y0 - y1, ny = x1 - x0, len = Math.hypot(nx, ny);
+    if (len < 1e-9) continue;
+    const pa = a.map(q => (q[0] * nx + q[1] * ny) / len), pb = b.map(q => (q[0] * nx + q[1] * ny) / len);
+    if (Math.max(...pa) <= Math.min(...pb) + .5 || Math.max(...pb) <= Math.min(...pa) + .5) return false;
+  }
+  return true;
+}
 function render(viewName, parts, hl, labels = []) {
   const cam = camera(VIEWS[viewName]);
   const dir = n => { const a = cam([X / 2 + n[0], Y / 2 + n[1], Z / 2 + n[2]]), o = cam([X / 2, Y / 2, Z / 2]); return a[2] - o[2]; };
-  const polys = [];
-  for (const name of parts) for (const b of PARTS[name]) for (const f of facesOf(b)) {
-    if (dir(f.n) >= 0) continue;                                  // facing away
-    const pts = f.q.map(cam);
-    const depth = pts.reduce((s, p) => s + p[2], 0) / 4;
-    const kind = hl.includes(name) ? "new" : "mdf";
-    polys.push({ pts, depth, fill: `var(--${kind}-${f.shade})` });
+  // Every box (and every flat decal, as a box of zero thickness) is one item; items
+  // are drawn back to front by a separating plane between each overlapping pair —
+  // sorting single faces by their middles drew walls over things in front of them.
+  const items = [];
+  for (const name of parts) for (const b of PARTS[name]) {
+    const kind = hl.includes(name) ? "new" : "mdf", polys = [];
+    for (const f of facesOf(b)) if (dir(f.n) < 0) polys.push({ pts: f.q.map(cam), fill: `var(--${kind}-${f.shade})` });
+    items.push({ box: b, polys });
   }
   for (const [name, axis, v, poly] of DECALS) {
     if (!parts.includes(name)) continue;
     const pts3 = poly.map(([a, b]) => axis === "z" ? [a, b, v] : axis === "y" ? [a, v, b] : [v, b, a]);
     const n = axis === "z" ? [0, 0, v < 1 ? -1 : 1] : axis === "y" ? [0, 1, 0] : [1, 0, 0];
     if (dir(n) >= 0) continue;
-    const pts = pts3.map(cam);
-    const depth = pts.reduce((s, p) => s + p[2], 0) / pts.length - 0.6;
     const filled = name === "top" && parts.includes("printer");
-    polys.push({ pts, depth, fill: filled ? "var(--mdf-dark)" : "var(--hole)" });
+    const box = [0, 1, 2].map(k => Math.min(...pts3.map(p => p[k]))).concat([0, 1, 2].map(k => Math.max(...pts3.map(p => p[k]))));
+    items.push({ box, polys: [{ pts: pts3.map(cam), fill: filled ? "var(--mdf-dark)" : "var(--hole)" }] });
   }
-  polys.sort((a, b) => b.depth - a.depth);
+  const axes = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(dir);         // > 0: going +axis goes away from the eye
+  for (const it of items) {
+    const c = [];
+    for (const x of [0, 3]) for (const y of [1, 4]) for (const z of [2, 5]) c.push(cam([it.box[x], it.box[y], it.box[z]]));
+    it.hull = hull(c);
+    it.depth = c.reduce((s, p) => s + p[2], 0) / 8;
+    it.after = [];                                                  // items that must be drawn before this one
+  }
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+    const a = items[i], b = items[j];
+    if (!overlap(a.hull, b.hull)) continue;                         // don't overlap on paper: no order needed
+    // the axis they overlap least on separates them (≤ 0: apart; a few mm: two
+    // panels meeting at a finger joint, which the model draws overlapping)
+    let k = -1, best = 6;
+    for (let m = 0; m < 3; m++) {
+      if (Math.abs(axes[m]) < 1e-9) continue;
+      const ov = Math.min(a.box[m + 3], b.box[m + 3]) - Math.max(a.box[m], b.box[m]);
+      // a tie (two 3 mm panels at a corner): the axis nearest the line of sight
+      if (ov < best - 1e-6 || (ov < best + 1e-6 && k >= 0 && Math.abs(axes[m]) > Math.abs(axes[k]))) { best = ov; k = m; }
+    }
+    if (k < 0) continue;
+    const [lo, hi] = a.box[k] + a.box[k + 3] <= b.box[k] + b.box[k + 3] ? [a, b] : [b, a];
+    if (axes[k] > 0) lo.after.push(hi); else hi.after.push(lo);    // the farther one first
+  }
+  const order = [], state = new Map();
+  const visit = it => {
+    if (state.get(it) === 2) return;
+    if (state.get(it) === 1) return;                                // a cycle: leave it to the depth order
+    state.set(it, 1);
+    for (const o of it.after.sort((p, q) => q.depth - p.depth)) visit(o);
+    state.set(it, 2);
+    order.push(it);
+  };
+  [...items].sort((p, q) => q.depth - p.depth).forEach(visit);
+  const polys = order.flatMap(it => it.polys);
   // frame on the whole model, so the box doesn't jump between steps
   const all = Object.values(PARTS).flat().flatMap(b => facesOf(b).flatMap(f => f.q)).map(cam);
   const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
@@ -184,7 +240,7 @@ const blockDrawing = `<svg viewBox="0 0 420 220" role="img">
   <text x="40" y="170">1 · hole</text><text x="160" y="170">2 · hexagon + M3 nut</text><text x="300" y="170">3 · hole</text>
   <text x="40" y="200">back panel side → → → inside of the box</text>
 </svg>`;
-const wedgeDrawing = `<svg viewBox="0 0 420 170" role="img">
+const wedgeDrawing = `<svg viewBox="-30 0 450 170" role="img">
   <polygon points="30,120 330,120 30,66" fill="var(--new-side)" stroke="var(--ink)" stroke-opacity=".4"/>
   <polygon points="44,108 344,108 44,54" fill="var(--new-top)" stroke="var(--ink)" stroke-opacity=".4"/>
   <line class="lead" x1="20" y1="66" x2="20" y2="120"/><text x="12" y="98" text-anchor="end">25</text>
@@ -202,7 +258,7 @@ const STEPS = [
   { title: "Printer wedges", fig: wedgeDrawing, html: `
     <p>Sheet 6 has 4 long triangles. Glue them together in pairs, so you have <b>2 wedges, 6 mm thick</b>.</p>
     <p>They lift the front of the printer by 25 mm, so its sloping top ends up level. They go in at step 10.</p>` },
-  { title: "Button doubler behind the front", view: "front", parts: ["front", "doubler"], hl: ["doubler"], labels: [{ at: [120, 75, 6], text: "JA", dx: -40, dy: 50 }, { at: [260, 75, 6], text: "NEI", dx: 40, dy: 50 }], html: `
+  { title: "Button doubler behind the front", view: "back", parts: ["front", "doubler"], hl: ["doubler"], noFront: true, caption: "the front panel seen from inside the box — JA's hole is on the right here", labels: [{ at: [120, 75, 2 * T], text: "JA", dx: 40, dy: 50 }, { at: [260, 75, 2 * T], text: "NEI", dx: -40, dy: 50 }], html: `
     <p>Glue the long strip with two holes (sheet 2) to the <b>inside</b> of the front, so its holes sit exactly behind the button holes. It doubles the front to 6 mm where people press.</p>
     <p>An arcade button through both layers is the easiest way to line them up while the glue sets.</p>` },
   { title: "Dry-fit everything first", wide: true, html: `
@@ -228,7 +284,7 @@ const STEPS = [
     <ol><li>Glue the two wedges onto the printer shelf on the blue strips, <b>high end at the front</b>.</li>
     <li>Put the printer on them from the back, its front against the front panel. Its top should come up into the top's opening and end about <b>1 mm below</b> the surface, level.</li></ol>
     <p>Leave the printer loose for now: it has to come out again for cabling.</p>` },
-  { title: "Lid", view: "top", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid"], hl: ["lid"], labels: [{ at: [PR.x + 67, Y + T, PR.z + 52], text: "paper mouth", dx: -60, dy: -40 }, { at: [PR.x + 145, Y + T, PR.z + 68], text: "lever", dx: 50, dy: -40 }], html: `
+  { title: "Lid", view: "top", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid"], hl: ["lid"], labels: [{ at: [PR.x + 67, Y + T, PR.z + 52], text: "paper mouth", dx: 70, dy: 40 }, { at: [PR.x + 145, Y + T, PR.z + 68], text: "lever", dx: -60, dy: 20 }], html: `
     <ol><li>Lay the lid (sheet 4) on the top over the printer. Check that the <b>paper mouth</b> and the <b>lever</b> show through their cut-outs.</li>
     <li>Lift it, put the <b>4 small squares</b> into the four corners of the opening, put the lid back on top of them and glue them to its underside.</li></ol>
     <p>Now the lid lifts straight off for a new paper roll, but can't slide. The finger notch is at its back edge.</p>` },
@@ -237,9 +293,9 @@ const STEPS = [
     <li><b>Bell:</b> against the right wall, behind the grille.</li>
     <li><b>Electronics:</b> the engraved marks on the bottom show where the phone, the Wukong with the micro:bit, the relay and the 9 V battery go, and the power bank under the cassette shelf. Cables pass through the open bottom of the divider.</li></ul>
     <p>Keep the micro:bit's USB plug and the Wukong's power button towards the back, so they're reachable with the back panel off.</p>` },
-  { title: "Cassette", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors"], hl: ["cassette", "motors"], labels: [{ at: [158, 330, 80], text: "motors on the right", dx: 30, dy: -40 }], html: `
+  { title: "Cassette", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "wedges", "printer", "bell", "electronics", "cassette", "motors"], hl: ["cassette", "motors"], caption: "seen from behind, with the top left out so you can see in — the motors sit against the divider", labels: [{ at: [145, 330, 80], text: "motors", dx: -40, dy: -40 }], html: `
     <p>Slide the cassette in from the back onto its shelf, <b>window first and motors on the right</b>, until it stops against the lip around the front opening. Its window and light sensor then show through the front.</p>` },
-  { title: "Back panel", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors", "blocks", "back"], hl: ["back", "blocks"], labels: [{ at: [X - T - 10, Y - T - 10, Z + T], text: "M3 bolt", dx: 30, dy: -30 }, { at: [X - 40, 45, Z + T], text: "cables out", dx: 30, dy: 30 }], html: `
+  { title: "Back panel", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors", "blocks", "back"], hl: ["back", "blocks"], caption: "seen from behind — the printer side is on the left here", labels: [{ at: [X - T - 10, Y - T - 10, Z + T], text: "M3 bolt", dx: 30, dy: -30 }, { at: [40, 45, Z + T], text: "cables out", dx: 40, dy: 30 }], html: `
     <ol><li>Glue the <b>corner blocks</b> into the four back corners, flush with the back edges, nut side towards the inside.</li>
     <li>Screw the back panel on with <b>4 M3 bolts (10–20 mm)</b> into the blocks. Cables go out through the round hole at the bottom right.</li></ol>` },
 ];
@@ -262,9 +318,9 @@ host.style.cssText = "display:grid;gap:22px";
 let html = `<section class="step wide"><div class="text"><div class="num">Before you start</div><h2>What you should have</h2>${PARTS_TABLE}</div></section>`;
 STEPS.forEach((s, i) => {
   // back views get a FRONT marker: seen from behind, left and right swap
-  const marks = s.view && s.view !== "front" ? [{ at: [X / 2, Y, 0], text: "FRONT", dx: -10, dy: -24 }] : [];
+  const marks = s.view && s.view !== "front" && !s.noFront ? [{ at: [X / 2, Y, 0], text: "FRONT", dx: -10, dy: -24 }] : [];
   const fig = s.fig || (s.view ? render(s.view, s.parts, s.hl, [...marks, ...(s.labels || [])]) +
-    `<figcaption>${s.view === "front" ? "seen from the front" : s.view === "top" ? "seen from above and behind" : "seen from behind, through the open back — the printer side is on the left here"}</figcaption>` : "");
+    `<figcaption>${s.caption ? s.caption : s.view === "front" ? "seen from the front" : s.view === "top" ? "seen from above and behind" : "seen from behind, through the open back — the printer side is on the left here"}</figcaption>` : "");
   html += `<section class="step${s.wide || !fig ? " wide" : ""}">` +
     (fig ? `<figure>${fig}</figure>` : "") +
     `<div class="text"><div class="num">Step ${i + 1}</div><h2>${s.title}</h2>${s.html}</div></section>`;
