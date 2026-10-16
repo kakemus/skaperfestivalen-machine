@@ -43,6 +43,8 @@
 #   pos is -1 while the board doesn't know where it is (after switching on).
 #
 # START: a quick press of YES + NO together (or A + B) = COIN:1, like a coin.
+# CALIBRATE: hold the micro:bit's own A + B for 3 s (not the arcade buttons, so
+# visitors can't): auto-calibrate, then find START.
 # SERVICE MODE: hold YES + NO (or A + B) for 5 s, again to leave. The display
 # shows S. Hold YES = wind up, hold NO = wind down, coin = find START. Presses
 # aren't sent to the game meanwhile.
@@ -634,6 +636,7 @@ def calibrated(now):
     lo, hi = task["lo"], task["hi"]
     task = None
     if hi - lo < 20:
+        queued[0] = None                               # no find-START after a failed calibration
         say("CAL:FAIL:no mark seen (paper %d, darkest %d) - is the sensor on the marks?" % (hi, lo))
         return
     S["level"] = (hi + lo) // 2
@@ -884,6 +887,8 @@ both_used = False  # this hold already toggled service: wait for a release
 # So a lone press waits CHORD_MS for the other before it counts as an answer —
 # otherwise starting a game would also answer with whichever was pressed first.
 CHORD_MS = 150
+CAL_HOLD_MS = 3000
+ab_since = [0]        # when the micro:bit's own A + B started being held together
 pending = [None, 0]   # the lone press waiting: "yes"/"no", when
 chord = [False]       # both went down together: decided when both are released
 
@@ -893,6 +898,17 @@ def buttons(now):
     yes = pin8.read_digital() == 0 or button_a.is_pressed()
     no = pin12.read_digital() == 0 or button_b.is_pressed()
     coin = pin13.read_digital() == 0
+    if button_a.is_pressed() and button_b.is_pressed():
+        if not ab_since[0]:
+            ab_since[0] = now
+        elif not both_used and now - ab_since[0] >= CAL_HOLD_MS:
+            both_used = True                          # no coin, no service mode from this hold
+            if not task:
+                start_calibrate(now)
+                if task and task["kind"] == "cal":
+                    queued[0] = "BELT:HOME"           # finish() runs it after calibrating
+    else:
+        ab_since[0] = 0
     if yes and no:
         if not both_since:
             both_since = now
