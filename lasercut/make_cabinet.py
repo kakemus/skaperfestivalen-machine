@@ -336,15 +336,18 @@ def divider():
 
 def lid():
     lx, lz, lw, ld = LID
-    s = [rect(0, 0, lw, ld, r=3)]
+    # outline with a half-circle finger notch bitten out of the back edge — a whole
+    # circle on the edge also cut into whatever lay next to the lid on the sheet
+    # (the bottom panel, 2026-10-16)
+    c, r = lw / 2, 13
+    s = [f'<path d="M0,0 H{lw:.3f} V{ld:.3f} H{c + r:.3f} A{r},{r} 0 0 0 {c - r:.3f},{ld:.3f} H0 Z" {CUT}/>']
     mx0 = PR_X + MOUTH_X - CUT_MARGIN - lx
     mz0 = PR_Z + MOUTH_FROM_FRONT - CUT_MARGIN - lz
     s.append(rect(mx0, mz0, MOUTH_W + 2 * CUT_MARGIN, MOUTH_D + 2 * CUT_MARGIN, r=2))
     lever_x = PR_X + PR_W - LEVER_FROM_RIGHT - LEVER_W
     s.append(rect(lever_x - CUT_MARGIN - lx, PR_Z + LEVER_FROM_FRONT - CUT_MARGIN - lz,
                   LEVER_W + 2 * CUT_MARGIN, LEVER_D + 2 * CUT_MARGIN, r=2))
-    s.append(circle(lw / 2, ld, 26))                               # finger notch at the back edge
-    s.append(text(6, ld - 8, "LID — lies on the top; cleats underside drop into the opening", 4.5))
+    s.append(text(6, ld - 20, "LID — lies on the top; cleats underside drop into the opening", 4.5))
     s.append(text(mx0 + 4, mz0 + 10, "paper", 5))
     return s, lw, ld, 0, 0
 
