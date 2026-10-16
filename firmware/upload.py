@@ -30,18 +30,26 @@ import serial
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIECE_BYTES = 4500          # largest piece the board has to parse at once
+# The loader keeps its own variables inside a function: the pieces run in the
+# module's globals, and with the short names from strip.py --rename a global
+# loop counter `n` got overwritten by the program's own `n` (a sad face:
+# "unsupported types for __iadd__: 'dict', 'int'", 2026-10-16). Names with
+# underscores are never produced by the renamer.
 LOADER = (
-    "import gc\n"
-    "n = 0\n"
-    "while True:\n"
-    "    try:\n"
-    "        src = open('belt%d.py' % n).read()\n"
-    "    except OSError:\n"
-    "        break\n"
-    "    gc.collect()\n"
-    "    exec(src, globals())\n"     # the last piece is the main loop and never returns
-    "    src = None\n"
-    "    n += 1\n"
+    "def __load():\n"
+    "    import gc\n"
+    "    g = globals()\n"
+    "    i = 0\n"
+    "    while True:\n"
+    "        try:\n"
+    "            s = open('belt%d.py' % i).read()\n"
+    "        except OSError:\n"
+    "            break\n"
+    "        gc.collect()\n"
+    "        exec(s, g)\n"            # the last piece is the main loop and never returns
+    "        s = None\n"
+    "        i += 1\n"
+    "__load()\n"
     "from microbit import display\n"
     "display.scroll('NO BELT - run upload.py')\n"
 )
@@ -51,9 +59,10 @@ def pieces():
     """machine.py, comment-stripped, cut at top-level statements into pieces."""
     import ast
     tmp = os.path.join(HERE, ".packed.py")
-    subprocess.run([sys.executable, os.path.join(HERE, "strip.py"), os.path.join(HERE, "machine.py"), tmp], check=True)
+    subprocess.run([sys.executable, os.path.join(HERE, "strip.py"), os.path.join(HERE, "machine.py"), tmp, "--rename"], check=True)
     src = open(tmp).read()
     os.remove(tmp)
+    os.replace(tmp + ".names", os.path.join(HERE, "names.txt"))   # short name = original, to decode board errors
     lines = src.split("\n")
     body = ast.parse(src).body
     out, start, size = [], 0, 0
@@ -88,11 +97,20 @@ class Board:
     def raw_mode(self):
         # Stop whatever runs, enter the raw REPL. No soft reset: that would run
         # main.py again — which is exactly what crashes when the firmware is broken.
-        self.p.write(b"\r\x03\x03")
-        time.sleep(0.3)
-        self.p.reset_input_buffer()
-        self.p.write(b"\x01")
-        self.read_until(b"raw REPL; CTRL-B to exit\r\n>")
+        # The running firmware doesn't always catch the first Ctrl-C, so try a few times.
+        for attempt in range(5):
+            self.p.write(b"\r\x03\x03")
+            time.sleep(0.3)
+            self.p.write(b"\x03")
+            time.sleep(0.2)
+            self.p.reset_input_buffer()
+            self.p.write(b"\x01")
+            try:
+                self.read_until(b"raw REPL; CTRL-B to exit\r\n>", 2)
+                return
+            except RuntimeError:
+                time.sleep(0.5)
+        raise RuntimeError("the micro:bit didn't stop to receive files — unplug it, plug it back in and try again")
 
     def run(self, code):
         """Run code in the raw REPL. The board answers OK, the output, \\x04,
@@ -121,16 +139,23 @@ def main():
     parts = pieces()
     board = Board()
     board.raw_mode()
-    files = board.run("import os;print(os.listdir())")
-    if "--loader" in sys.argv or "belt0.py" not in files:
-        board.put("main.py", LOADER.encode())
-        print("main.py (loader) written")
-    for name in eval(files):                         # old pieces / leftovers from other attempts
-        if name.startswith("belt"):
-            board.run("import os;os.remove(%r)" % name)
+    # Clear EVERYTHING first, keeping a copy of settings.txt to put back at the end:
+    # deleting only the old pieces left the board's tiny file store (~16 KB)
+    # fragmented, and the next update ran out of space ("OSError: 28", 2026-10-16).
+    files = eval(board.run("import os;print(os.listdir())"))
+    settings = None
+    if "settings.txt" in files:
+        settings = board.run("print(open('settings.txt').read())").strip("\r\n")
+    for name in files:
+        board.run("import os;os.remove(%r)" % name)
+    board.put("main.py", LOADER.encode())
+    print("main.py (loader) written")
     for n, text in enumerate(parts):
         board.put("belt%d.py" % n, text.encode())
         print("belt%d.py written: %d bytes" % (n, len(text)))
+    if settings:
+        board.put("settings.txt", settings.replace("\r\n", "\n").encode())
+        print("settings.txt put back")
     print("files on the board:", board.run("import os;print(os.listdir())").strip())
     board.restart()
     print("restarted — the firmware is starting")

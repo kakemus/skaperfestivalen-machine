@@ -356,3 +356,13 @@ removed; dragging a hex wipes the board's files incl. settings.txt — then run
 must be closed (one program per serial port).
 **If memory gets tight again** (the maker, 2026-10-15): drop the backlight colour picker /
 cr/cg/cb + gamma — a fixed slightly warm white is fine; keep the red and green flashes.
+**Board file store is ~16 KB (2026-10-16).** The trace version hit `OSError: 28` (no space) during
+upload. Now: `strip.py --rename` packs with only needed spaces and renames the program's own names
+to 1–2 letters (never micro:bit/builtin names; the tree must equal the original's with the same
+renaming; `firmware/names.txt` maps short → original to decode board errors) — 17.6 → 12.5 KB.
+`upload.py` deletes ALL files first (deleting only old pieces left the store fragmented and the
+2nd update ran out of space), keeps settings.txt's contents and writes it back last, and retries
+Ctrl-C (the running firmware doesn't always stop on the first). The loader keeps its variables in
+a function (`__load`): with short names the program's own `n` overwrote a global loop counter →
+sad face. Test the packed firmware with the REAL loader + piece files in the simulator, not just
+the pieces exec'd in sequence (that missed the loader clash). After two uploads: 13.1 KB used.
