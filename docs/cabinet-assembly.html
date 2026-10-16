@@ -1,0 +1,273 @@
+<meta charset="utf-8">
+<title>Arcade Cabinet Assembly</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a workshop sheet — one column of numbered steps; each step pairs a drawing (left, wide screens) with short instructions. */
+:root {
+  --bg: #eef1f1;          /* cool light workshop grey */
+  --card: #ffffff;
+  --ink: #1b2326;
+  --muted: #5a676c;
+  --rule: #cfd6d8;
+  --accent: #2456d6;      /* the laser files' engrave-blue: "this is the part to fit now" */
+  --warn: #c2361b;        /* the files' cut-red: careful */
+  --mdf-top: #d8bd93;     /* MDF faces, lit from above */
+  --mdf-side: #bf9f72;
+  --mdf-dark: #a3845a;
+  --hole: #3a3330;
+  --new-top: #6f93ff;
+  --new-side: #4a73ec;
+  --new-dark: #2f57cf;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a1c; --card: #1d2528; --ink: #e5ebec; --muted: #9aa8ad; --rule: #2f3a3e;
+  --accent: #7d9dff; --warn: #ff7a5c; --mdf-top: #a98d66; --mdf-side: #8f7553; --mdf-dark: #775f41;
+  --hole: #0d0f10; --new-top: #7d9dff; --new-side: #5a7ff0; --new-dark: #4062d6; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a1c; --card: #1d2528; --ink: #e5ebec; --muted: #9aa8ad; --rule: #2f3a3e;
+  --accent: #7d9dff; --warn: #ff7a5c; --mdf-top: #a98d66; --mdf-side: #8f7553; --mdf-dark: #775f41;
+  --hole: #0d0f10; --new-top: #7d9dff; --new-side: #5a7ff0; --new-dark: #4062d6; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 17px/1.55 var(--body); padding-inline: 16px; padding-block: 24px 64px; }
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 22px; }
+header { display: grid; gap: 6px; padding-block: 8px 4px; }
+h1 { font: 700 clamp(34px, 6vw, 54px)/1 var(--display); letter-spacing: .01em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 62ch; margin: 0; }
+.specs { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 14px var(--mono); color: var(--muted); margin-top: 4px; }
+.specs b { color: var(--ink); font-weight: 500; }
+section.step { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+section.step.wide { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 760px) { section.step { grid-template-columns: minmax(0, 1fr); } }
+.num { font: 700 15px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+h2 { font: 700 28px/1.1 var(--display); text-transform: uppercase; margin: 2px 0 10px; text-wrap: balance; }
+.text { min-width: 0; }
+.text p, .text li { margin: 0 0 8px; max-width: 62ch; }
+.text ol, .text ul { padding-left: 1.2em; margin: 0 0 8px; }
+.note { border-left: 3px solid var(--warn); padding: 4px 0 4px 12px; color: var(--ink); margin: 10px 0 0; border-radius: 0; }
+.note b { color: var(--warn); }
+figure { margin: 0; min-width: 0; }
+figure svg { width: 100%; height: auto; display: block; }
+figcaption { font: 13px var(--mono); color: var(--muted); margin-top: 6px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 10px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font: 700 13px var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+td.mono { font-family: var(--mono); font-size: 14px; white-space: nowrap; }
+.tag { display: inline-block; font: 500 12px var(--mono); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--rule); color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 14px; color: var(--muted); }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+svg text { font-family: var(--mono); font-size: 13px; fill: var(--ink); paint-order: stroke; stroke: var(--card); stroke-width: 4px; stroke-linejoin: round; }
+svg .lead { stroke: var(--ink); stroke-width: 1; fill: none; }
+</style>
+
+<main>
+  <header>
+    <h1>Arcade Cabinet Assembly</h1>
+    <p class="lede">Putting together the laser-cut box for the machine: the cassette, the printer, the buttons, the bell and the electronics. The drawings are made from the measurements in the cutting files; the part you fit in each step is shown in blue.</p>
+    <div class="specs"><span>outer <b>380 × 384 × 260 mm</b></span><span><b>3 mm</b> MDF · divider <b>2 mm</b></span><span>files: <b>lasercut/cabinet_1…7</b></span></div>
+    <div class="legend"><span><i class="sw" style="background:var(--new-side)"></i>fit now</span><span><i class="sw" style="background:var(--mdf-side)"></i>already in place</span></div>
+  </header>
+
+  <div id="steps"></div>
+</main>
+
+<script>
+// ---------- the model, in mm, from lasercut/make_cabinet.py ----------
+// x from the outer left, y up from the outer bottom, z from the outer front.
+const T = 3, X = 380, Y = 384, Z = 257;
+const DIV = 162, CS = 150, PS = 233;           // divider x, cassette shelf top, printer shelf top
+const PR = { x: 170, w: 190, z: 11, d: 140 };  // printer
+const OP = { x: 168, z: 9, w: 194, d: 144 };   // opening in the top
+const B = (x0, y0, z0, x1, y1, z1) => [x0, y0, z0, x1, y1, z1];
+const PARTS = {
+  bottom: [B(0, 0, 0, X, T, Z)],
+  left: [B(0, 0, 0, T, Y, Z)],
+  right: [B(X - T, 0, 0, X, Y, Z)],
+  front: [B(0, 0, 0, X, Y, T)],
+  doubler: [B(60, 35, T, 320, 115, 2 * T)],
+  divider: [B(DIV, T, T, DIV + 2, 18, Z), B(DIV, 135, T, DIV + 2, Y - T, Z), B(DIV, 18, T, DIV + 2, 135, 18), B(DIV, 18, Z - 15, DIV + 2, 135, Z)],
+  cshelf: [B(T, CS - T, T, DIV, CS, Z)],
+  pshelf: [B(DIV + 2, PS - T, T, X - T, PS, Z)],
+  top: [B(0, Y - T, 0, OP.x, Y, Z), B(OP.x + OP.w, Y - T, 0, X, Y, Z), B(OP.x, Y - T, 0, OP.x + OP.w, Y, OP.z), B(OP.x, Y - T, OP.z + OP.d, OP.x + OP.w, Y, Z)],
+  blocks: [B(T, T, Z - 9, T + 20, T + 20, Z), B(X - T - 20, T, Z - 9, X - T, T + 20, Z), B(T, Y - T - 20, Z - 9, T + 20, Y - T, Z), B(X - T - 20, Y - T - 20, Z - 9, X - T, Y - T, Z)],
+  wedges: [B(PR.x + 8, PS, PR.z, PR.x + 14, PS + 18, PR.z + PR.d), B(PR.x + PR.w - 14, PS, PR.z, PR.x + PR.w - 8, PS + 18, PR.z + PR.d)],
+  printer: [B(PR.x, PS + 18, PR.z, PR.x + PR.w, Y - 1, PR.z + PR.d)],
+  lid: [B(155, Y, 2, 375, Y + T, 172)],
+  bell: [B(X - T - 45, T, 90, X - T, 133, 170)],
+  electronics: [B(172, T, 80, 247, 11, 240), B(257, T, 200, 317, 108, 240), B(257, T, 150, 282, 23, 185)],
+  cassette: [B(10, CS, T, 133, CS + 216, 98)],
+  motors: [B(133, 180, 20, 158, 202, 80), B(133, 320, 20, 158, 342, 80)],
+  back: [B(0, 0, Z, X, Y, Z + T)],
+};
+// Flat details drawn on a face: [part they belong to, plane axis, value, polygon in the other two axes]
+const ring = (cx, cy, r, n = 20) => Array.from({ length: n }, (_, i) => [cx + r * Math.cos(2 * Math.PI * i / n), cy + r * Math.sin(2 * Math.PI * i / n)]);
+const rectP = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+const DECALS = [
+  // front, outside face (z = 0) and inside face (z = 3): cassette opening, button holes
+  ["front", "z", -0.2, rectP(14, CS + 4, 129, CS + 212)], ["front", "z", T + 0.2, rectP(14, CS + 4, 129, CS + 212)],
+  ["front", "z", -0.2, ring(120, 75, 13.75)], ["front", "z", -0.2, ring(260, 75, 13.75)],
+  // the top's opening seen from above (dark if nothing fills it)
+  ["top", "y", Y + 0.2, rectP(OP.x, OP.z, OP.x + OP.w, OP.z + OP.d)],
+  // the lid's cut-outs (paper mouth, lever)
+  ["lid", "y", Y + T + 0.2, rectP(PR.x + 15, PR.z + 33, PR.x + 119, PR.z + 72)], ["lid", "y", Y + T + 0.2, rectP(PR.x + 121, PR.z + 56, PR.x + 170, PR.z + 80)],
+  // bell grille on the right side (outside face)
+  ...Array.from({ length: 10 }, (_, i) => ["right", "x", X + 0.2, rectP(75, 140 - 6 - i * 12 - 2.5, 185, 140 - 6 - i * 12 + 2.5)]),  // [z, y] pairs
+];
+
+// ---------- a small orthographic renderer: boxes → shaded SVG faces ----------
+const VIEWS = { back: { yaw: 158, pitch: -27 }, front: { yaw: 28, pitch: -24 }, top: { yaw: 158, pitch: -62 } };
+function camera(v) {
+  const t = v.yaw * Math.PI / 180, p = v.pitch * Math.PI / 180, ct = Math.cos(t), st = Math.sin(t), cp = Math.cos(p), sp = Math.sin(p);
+  return ([x, y, z]) => {
+    x -= X / 2; z -= Z / 2; y -= Y / 2;
+    const x1 = x * ct - z * st, z1 = x * st + z * ct;
+    const y2 = y * cp - z1 * sp, d = y * sp + z1 * cp;
+    return [x1, -y2, d];
+  };
+}
+function facesOf(b) {
+  const [x0, y0, z0, x1, y1, z1] = b;
+  return [
+    { n: [0, 1, 0], q: [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]], shade: "top" },
+    { n: [0, -1, 0], q: [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], shade: "dark" },
+    { n: [-1, 0, 0], q: [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], shade: "side" },
+    { n: [1, 0, 0], q: [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], shade: "side" },
+    { n: [0, 0, -1], q: [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0]], shade: "dark" },
+    { n: [0, 0, 1], q: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], shade: "dark" },
+  ];
+}
+function render(viewName, parts, hl, labels = []) {
+  const cam = camera(VIEWS[viewName]);
+  const dir = n => { const a = cam([X / 2 + n[0], Y / 2 + n[1], Z / 2 + n[2]]), o = cam([X / 2, Y / 2, Z / 2]); return a[2] - o[2]; };
+  const polys = [];
+  for (const name of parts) for (const b of PARTS[name]) for (const f of facesOf(b)) {
+    if (dir(f.n) >= 0) continue;                                  // facing away
+    const pts = f.q.map(cam);
+    const depth = pts.reduce((s, p) => s + p[2], 0) / 4;
+    const kind = hl.includes(name) ? "new" : "mdf";
+    polys.push({ pts, depth, fill: `var(--${kind}-${f.shade})` });
+  }
+  for (const [name, axis, v, poly] of DECALS) {
+    if (!parts.includes(name)) continue;
+    const pts3 = poly.map(([a, b]) => axis === "z" ? [a, b, v] : axis === "y" ? [a, v, b] : [v, b, a]);
+    const n = axis === "z" ? [0, 0, v < 1 ? -1 : 1] : axis === "y" ? [0, 1, 0] : [1, 0, 0];
+    if (dir(n) >= 0) continue;
+    const pts = pts3.map(cam);
+    const depth = pts.reduce((s, p) => s + p[2], 0) / pts.length - 0.6;
+    const filled = name === "top" && parts.includes("printer");
+    polys.push({ pts, depth, fill: filled ? "var(--mdf-dark)" : "var(--hole)" });
+  }
+  polys.sort((a, b) => b.depth - a.depth);
+  // frame on the whole model, so the box doesn't jump between steps
+  const all = Object.values(PARTS).flat().flatMap(b => facesOf(b).flatMap(f => f.q)).map(cam);
+  const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const pad = 40, minX = Math.min(...xs) - pad, minY = Math.min(...ys) - pad, w = Math.max(...xs) - minX + pad, h = Math.max(...ys) - minY + pad;
+  let svg = `<svg viewBox="${minX.toFixed(0)} ${minY.toFixed(0)} ${w.toFixed(0)} ${h.toFixed(0)}" role="img">`;
+  for (const p of polys) svg += `<polygon points="${p.pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")}" fill="${p.fill}" stroke="var(--ink)" stroke-opacity=".35" stroke-width=".8" stroke-linejoin="round"/>`;
+  for (const l of labels) {
+    const [ax, ay] = cam(l.at), tx = ax + (l.dx || 0), ty = ay + (l.dy || 0);
+    svg += `<line class="lead" x1="${ax.toFixed(1)}" y1="${ay.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${ty.toFixed(1)}"/><circle cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="2.5" fill="var(--ink)"/>`;
+    svg += `<text x="${(tx + (l.dx < 0 ? -4 : 4)).toFixed(1)}" y="${(ty + 4).toFixed(1)}" text-anchor="${l.dx < 0 ? "end" : "start"}">${l.text}</text>`;
+  }
+  return svg + "</svg>";
+}
+
+// small flat drawings for the sub-assemblies
+const blockDrawing = `<svg viewBox="0 0 420 220" role="img">
+  ${[0, 1, 2].map(i => { const x = 40 + i * 120, y = 70 - i * 18; return `<polygon points="${x},${y + 60} ${x + 80},${y + 60} ${x + 110},${y + 30} ${x + 30},${y + 30}" fill="var(--${i === 1 ? "new" : "mdf"}-top)" stroke="var(--ink)" stroke-opacity=".4"/>
+    <polygon points="${x},${y + 60} ${x + 80},${y + 60} ${x + 80},${y + 72} ${x},${y + 72}" fill="var(--${i === 1 ? "new" : "mdf"}-side)" stroke="var(--ink)" stroke-opacity=".4"/>
+    ${i === 1 ? `<polygon points="${x + 47},${y + 38} ${x + 63},${y + 38} ${x + 70},${y + 45} ${x + 63},${y + 52} ${x + 47},${y + 52} ${x + 40},${y + 45}" fill="var(--hole)"/>` : `<ellipse cx="${x + 55}" cy="${y + 45}" rx="7" ry="4" fill="var(--hole)"/>`}`; }).join("")}
+  <text x="40" y="170">1 · hole</text><text x="160" y="170">2 · hexagon + M3 nut</text><text x="300" y="170">3 · hole</text>
+  <text x="40" y="200">back panel side → → → inside of the box</text>
+</svg>`;
+const wedgeDrawing = `<svg viewBox="0 0 420 170" role="img">
+  <polygon points="30,120 330,120 30,66" fill="var(--new-side)" stroke="var(--ink)" stroke-opacity=".4"/>
+  <polygon points="44,108 344,108 44,54" fill="var(--new-top)" stroke="var(--ink)" stroke-opacity=".4"/>
+  <line class="lead" x1="20" y1="66" x2="20" y2="120"/><text x="12" y="98" text-anchor="end">25</text>
+  <text x="30" y="148">glue two together = one 6 mm wedge · make 2</text>
+  <text x="40" y="44">high end → FRONT of the printer</text>
+</svg>`;
+
+// ---------- the steps ----------
+const STEPS = [
+  { title: "Corner blocks for the back panel", fig: blockDrawing, html: `
+    <p>Sheet 2 has 12 small squares: 8 with a round hole, 4 with a hexagon. Each corner block is three of them.</p>
+    <ol><li>Press an <b>M3 nut</b> into a hexagon square. It should sit flush.</li>
+    <li>Glue a round-hole square on each side of it, holes lined up. Push an M3 bolt through while the glue sets, so the holes stay aligned, then take the bolt out.</li>
+    <li>Make <b>4</b>.</li></ol>` },
+  { title: "Printer wedges", fig: wedgeDrawing, html: `
+    <p>Sheet 6 has 4 long triangles. Glue them together in pairs, so you have <b>2 wedges, 6 mm thick</b>.</p>
+    <p>They lift the front of the printer by 25 mm, so its sloping top ends up level. They go in at step 10.</p>` },
+  { title: "Button doubler behind the front", view: "front", parts: ["front", "doubler"], hl: ["doubler"], labels: [{ at: [120, 75, 6], text: "JA", dx: -40, dy: 50 }, { at: [260, 75, 6], text: "NEI", dx: 40, dy: 50 }], html: `
+    <p>Glue the long strip with two holes (sheet 2) to the <b>inside</b> of the front, so its holes sit exactly behind the button holes. It doubles the front to 6 mm where people press.</p>
+    <p>An arcade button through both layers is the easiest way to line them up while the glue sets.</p>` },
+  { title: "Dry-fit everything first", wide: true, html: `
+    <p>Before any glue on the box itself, put steps 5–8 together <b>without glue</b> and check that everything slides in. The divider and the shelves have to go in before the top, and the top locks them, so it's much easier to discover a tight tab now. Then take it apart again and glue in the same order.</p>
+    <p class="note"><b>Square:</b> after gluing the shell, measure both diagonals of the open back. They should be the same; push the box until they are, before the glue sets.</p>` },
+  { title: "The shell: bottom, sides, front", view: "back", parts: ["bottom", "left", "right", "front", "doubler"], hl: ["bottom", "left", "right", "front"], labels: [{ at: [X, 200, Z], text: "right side: bell grille, slots at 233 mm", dx: 30, dy: -30 }, { at: [0, 150, Z], text: "left side: slots at 150 mm", dx: -30, dy: 40 }], html: `
+    <p>Glue the bottom, the two sides and the front together with their finger joints. The back stays open.</p>
+    <ul><li><b>Left side:</b> its two slots sit low (150 mm up). They carry the cassette shelf.</li>
+    <li><b>Right side:</b> the one with the <b>bell grille</b>; its slots sit higher (233 mm up), for the printer shelf.</li>
+    <li>On both sides, the edge marked <b>front</b> goes against the front panel.</li></ul>` },
+  { title: "Divider wall", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider"], hl: ["divider"], labels: [{ at: [DIV, 250, Z], text: "2 mm divider", dx: 20, dy: -60 }], html: `
+    <p>The <b>2 mm</b> divider stands upright 162 mm from the left wall, its two bottom tabs in the bottom panel's slots. It's open at the bottom: that's the bay for the electronics.</p>
+    <ul><li>The front edge, with the small <b>notch</b> near the bottom, goes against the front panel; the notch makes room for the button doubler.</li>
+    <li>Its lower slots (150 mm) face the cassette side, the higher ones (233 mm) the printer side.</li></ul>` },
+  { title: "Cassette shelf", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf"], hl: ["cshelf"], labels: [{ at: [80, CS, Z], text: "top at 150 mm", dx: -20, dy: 40 }], html: `
+    <p>The cassette shelf (sheet 1) goes in on the <b>left</b>: its tabs into the left wall's slots and the divider's lower slots. Its front edge touches the front panel.</p>` },
+  { title: "Printer shelf", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf"], hl: ["pshelf"], labels: [{ at: [270, PS, Z], text: "top at 233 mm", dx: 30, dy: 40 }], html: `
+    <p>The printer shelf (sheet 6) goes in on the <b>right</b>: tabs into the divider's higher slots and the right wall's slots. The blue rectangle on it shows where the printer stands, the two blue strips where the wedges go.</p>` },
+  { title: "Top", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top"], hl: ["top"], labels: [{ at: [OP.x + OP.w / 2, Y, OP.z + OP.d], text: "opening above the printer", dx: 40, dy: -40 }], html: `
+    <p>The top (sheet 5) goes on last, the divider's two top tabs through its slots. The big opening sits over the printer column, towards the front.</p>
+    <p class="note"><b>Careful:</b> next to the divider's slots there's only a 4 mm strip of MDF before the opening. Fit the top gently, and don't lift it by that edge.</p>` },
+  { title: "Wedges, then the printer", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer"], hl: ["wedges", "printer"], labels: [{ at: [PR.x + PR.w, PS + 9, PR.z + PR.d], text: "wedges: high end at the front", dx: 40, dy: 50 }], html: `
+    <ol><li>Glue the two wedges onto the printer shelf on the blue strips, <b>high end at the front</b>.</li>
+    <li>Put the printer on them from the back, its front against the front panel. Its top should come up into the top's opening and end about <b>1 mm below</b> the surface, level.</li></ol>
+    <p>Leave the printer loose for now: it has to come out again for cabling.</p>` },
+  { title: "Lid", view: "top", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid"], hl: ["lid"], labels: [{ at: [PR.x + 67, Y + T, PR.z + 52], text: "paper mouth", dx: -60, dy: -40 }, { at: [PR.x + 145, Y + T, PR.z + 68], text: "lever", dx: 50, dy: -40 }], html: `
+    <ol><li>Lay the lid (sheet 4) on the top over the printer. Check that the <b>paper mouth</b> and the <b>lever</b> show through their cut-outs.</li>
+    <li>Lift it, put the <b>4 small squares</b> into the four corners of the opening, put the lid back on top of them and glue them to its underside.</li></ol>
+    <p>Now the lid lifts straight off for a new paper roll, but can't slide. The finger notch is at its back edge.</p>` },
+  { title: "Bay: bell, buttons, electronics", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics"], hl: ["bell", "electronics"], labels: [{ at: [X - T - 22, 133, 170], text: "bell behind the grille", dx: 40, dy: -30 }, { at: [287, 108, 240], text: "Wukong + micro:bit", dx: 20, dy: 60 }], html: `
+    <ul><li><b>Buttons:</b> JA (green) in the left hole, NEI (red) in the right one, from the outside.</li>
+    <li><b>Bell:</b> against the right wall, behind the grille.</li>
+    <li><b>Electronics:</b> the engraved marks on the bottom show where the phone, the Wukong with the micro:bit, the relay and the 9 V battery go, and the power bank under the cassette shelf. Cables pass through the open bottom of the divider.</li></ul>
+    <p>Keep the micro:bit's USB plug and the Wukong's power button towards the back, so they're reachable with the back panel off.</p>` },
+  { title: "Cassette", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors"], hl: ["cassette", "motors"], labels: [{ at: [158, 330, 80], text: "motors on the right", dx: 30, dy: -40 }], html: `
+    <p>Slide the cassette in from the back onto its shelf, <b>window first and motors on the right</b>, until it stops against the lip around the front opening. Its window and light sensor then show through the front.</p>` },
+  { title: "Back panel", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors", "blocks", "back"], hl: ["back", "blocks"], labels: [{ at: [X - T - 10, Y - T - 10, Z + T], text: "M3 bolt", dx: 30, dy: -30 }, { at: [X - 40, 45, Z + T], text: "cables out", dx: 30, dy: 30 }], html: `
+    <ol><li>Glue the <b>corner blocks</b> into the four back corners, flush with the back edges, nut side towards the inside.</li>
+    <li>Screw the back panel on with <b>4 M3 bolts (10–20 mm)</b> into the blocks. Cables go out through the round hole at the bottom right.</li></ol>` },
+];
+
+const PARTS_TABLE = `
+  <div class="tablewrap"><table>
+    <tr><th>Sheet</th><th>Parts</th><th>Size (mm)</th></tr>
+    <tr><td class="mono">1 · 3 mm</td><td>Front (cassette opening, 2 button holes) · cassette shelf</td><td class="mono">380 × 384 · 159 × 254</td></tr>
+    <tr><td class="mono">2 · 3 mm</td><td>Back panel · button doubler · joint test · 12 corner-block squares</td><td class="mono">380 × 384 · 260 × 80</td></tr>
+    <tr><td class="mono">3 · 3 mm</td><td>Left side · right side (bell grille)</td><td class="mono">257 × 384 each</td></tr>
+    <tr><td class="mono">4 · 3 mm</td><td>Bottom (placement marks) · lid · 4 lid cleats</td><td class="mono">380 × 257 · 220 × 170 · 12 × 12</td></tr>
+    <tr><td class="mono">5 · 3 mm</td><td>Top (opening above the printer)</td><td class="mono">380 × 257</td></tr>
+    <tr><td class="mono">6 · 3 mm</td><td>Printer shelf · 4 wedges</td><td class="mono">213 × 254 · 140 × 25</td></tr>
+    <tr><td class="mono">7 · 2 mm</td><td>Divider wall</td><td class="mono">254 × 378</td></tr>
+  </table></div>
+  <p style="margin-top:10px"><span class="tag">also</span> 4 × M3 bolt (10–20 mm) + 4 × M3 nut · wood glue · tape or clamps to hold joints while the glue sets</p>`;
+
+const host = document.getElementById("steps");
+host.style.cssText = "display:grid;gap:22px";
+let html = `<section class="step wide"><div class="text"><div class="num">Before you start</div><h2>What you should have</h2>${PARTS_TABLE}</div></section>`;
+STEPS.forEach((s, i) => {
+  // back views get a FRONT marker: seen from behind, left and right swap
+  const marks = s.view && s.view !== "front" ? [{ at: [X / 2, Y, 0], text: "FRONT", dx: -10, dy: -24 }] : [];
+  const fig = s.fig || (s.view ? render(s.view, s.parts, s.hl, [...marks, ...(s.labels || [])]) +
+    `<figcaption>${s.view === "front" ? "seen from the front" : s.view === "top" ? "seen from above and behind" : "seen from behind, through the open back — the printer side is on the left here"}</figcaption>` : "");
+  html += `<section class="step${s.wide || !fig ? " wide" : ""}">` +
+    (fig ? `<figure>${fig}</figure>` : "") +
+    `<div class="text"><div class="num">Step ${i + 1}</div><h2>${s.title}</h2>${s.html}</div></section>`;
+});
+host.innerHTML = html;
+</script>
