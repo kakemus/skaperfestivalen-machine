@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="210.0mm" height="93.0mm" viewBox="0 0 210.0 93.0">
+<!-- 3 mm MDF: joint + button-hole tests for sheets 10 and 11. Red = cut, green = cut (holes), blue = engrave -->
+<rect x="0.000" y="0.000" width="210.000" height="93.000" rx="0" fill="none" stroke="#0000ff" stroke-width="0.1"/>
+<g transform="translate(3.000,3.000)"><polygon points="0.000,0.000 48.000,0.000 48.000,30.000 32.000,30.000 32.000,27.000 16.000,27.000 16.000,30.000 0.000,30.000 0.000,0.000" fill="none" stroke="#ff0000" stroke-width="0.1"/><text x="3.00" y="10.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">TEST A</text></g>
+<g transform="translate(55.000,3.000)"><polygon points="0.000,3.000 16.000,3.000 16.000,0.000 32.000,0.000 32.000,3.000 48.000,3.000 48.000,30.000 0.000,30.000 0.000,3.000" fill="none" stroke="#ff0000" stroke-width="0.1"/><text x="3.00" y="22.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">TEST B</text></g>
+<g transform="translate(107.000,3.000)"><polygon points="0.000,0.000 40.000,0.000 40.000,5.000 43.000,5.000 43.000,25.000 40.000,25.000 40.000,30.000 0.000,30.000" fill="none" stroke="#ff0000" stroke-width="0.1"/><text x="3.00" y="10.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">TAB</text></g>
+<g transform="translate(159.000,3.000)"><polygon points="0.000,0.000 40.000,0.000 40.000,5.000 37.000,5.000 37.000,25.000 40.000,25.000 40.000,30.000 0.000,30.000" fill="none" stroke="#ff0000" stroke-width="0.1"/><text x="3.00" y="10.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">NOTCH</text></g>
+<g transform="translate(3.000,40.000)"><rect x="0.000" y="0.000" width="50.000" height="50.000" rx="0" fill="none" stroke="#ff0000" stroke-width="0.1"/><circle cx="25.000" cy="25.000" r="15.000" fill="none" stroke="#00a000" stroke-width="0.1"/><text x="3.00" y="47.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">BUTTON 30</text></g>
+<text x="57.00" y="57.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">Cut with the same settings as the real sheets.</text>
+<text x="57.00" y="64.00" font-size="4" fill="#0000ff" font-family="Helvetica, Arial, sans-serif">A+B and TAB into NOTCH: firm by hand. Button: drops in, flange covers the hole.</text>
+</svg>

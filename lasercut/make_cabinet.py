@@ -464,7 +464,34 @@ def build():
     hex_recut()
     button_recut()
     front_mirrored_sheet()
+    test_sheet()
     return sheets
+
+
+def test_sheet():
+    """Test pieces for the new front + console (2026-10-19), cut with the same laser
+    settings as the real sheets: the box's finger joint (TEST A + B, as on sheet 2),
+    the console's tab-in-notch joint (TAB + NOTCH: the tab should press in and sit
+    flush), and one button hole (BUTTON: a 30 mm hole, green like the real ones)."""
+    w, h = 4 * 48 + 3 * G + 2 * M, 30 + 2 * M + 3 + 50 + G
+    parts = []
+    small = small_parts()
+    def put(body, x, y):
+        parts.append(f'<g transform="translate({x:.3f},{y:.3f})">{"".join(body)}</g>')
+    put(small[-2][0], M, M)                                   # TEST A (fingers)
+    put(small[-1][0], M + 48 + G, M)                          # TEST B
+    tab = poly(tabbed(40, 30, right=[15], out_r=T))           # a plate with one tab, like the console's
+    put([tab, text(3, 10, "TAB", 4)], M + 2 * (48 + G), M)
+    notch = poly([(0, 0), (40, 0), (40, 5), (40 - T, 5), (40 - T, 25), (40, 25), (40, 30), (0, 30)])
+    put([notch, text(3, 10, "NOTCH", 4)], M + 3 * (48 + G), M)
+    put([rect(0, 0, 50, 50), circle(25, 25, BUTTON_D_NEW, style=NO_KERF), text(3, 47, "BUTTON 30", 4)], M, M + 30 + G + 3)
+    parts.append(text(M + 50 + G, M + 30 + G + 20, "Cut with the same settings as the real sheets.", 4))
+    parts.append(text(M + 50 + G, M + 30 + G + 27, "A+B and TAB into NOTCH: firm by hand. Button: drops in, flange covers the hole.", 4))
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{w}mm" height="{h}mm" viewBox="0 0 {w} {h}">\n'
+           f'<!-- 3 mm MDF: joint + button-hole tests for sheets 10 and 11. Red = cut, green = cut (holes), blue = engrave -->\n'
+           f'{rect(0, 0, w, h, style=MARK)}\n' + "\n".join(parts) + "\n</svg>\n")
+    with open(os.path.join(HERE, "cabinet_12_tests_3mm.svg"), "w") as f:
+        f.write(svg)
 
 
 # ---------- the new front (2026-10-19) ----------
