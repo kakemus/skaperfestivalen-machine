@@ -463,7 +463,53 @@ def build():
         s.write()
     hex_recut()
     button_recut()
+    front_mirrored_sheet()
     return sheets
+
+
+# ---------- the new front (2026-10-19) ----------
+# The box was built as a mirror image of the drawings (every panel the other way
+# round): printer column on the LEFT seen from the front, cassette on the RIGHT,
+# bell grille in the left wall. The front and the doubler were then stolen, so
+# they're cut again to fit the box as built. The cassette itself isn't mirrored
+# (its motors still stick out of its right side), so in the right-hand column it
+# sits against the divider with its motors towards the right wall — as in the
+# maker's photo. The window is placed for that; the column leaves ~10 mm of play
+# beside the motors, so push the cassette against the divider.
+CAS_X_BUILT = X - DIV_X + 1          # cassette's left side: 1 mm right of the mirrored divider (216..218)
+BUTTON_D_NEW = 28.0                  # 27.5 came out too small; 28 fits the buttons with a little room
+NO_KERF = 'fill="none" stroke="#00a000" stroke-width="0.1"'   # green = cut with kerf offset OFF
+
+
+def front_built():
+    s = [poly(outline(X, Y, ("F", "F", "F", "F")))]
+    x0, x1 = CAS_X_BUILT + LIP, CAS_X_BUILT + CAS_W - LIP
+    s.append(rect(x0, v_front(CAS_SHELF + CAS_H - LIP), x1 - x0, CAS_H - 2 * LIP, style=NO_KERF, r=2))
+    for bx in BUTTONS_X:
+        s.append(circle(bx, v_front(BUTTON_Y), BUTTON_D_NEW, style=NO_KERF))
+    dx, dy, dw, dh = DOUBLER
+    s.append(rect(dx, v_front(dy + dh), dw, dh, style=MARK))
+    s.append(text(T + 6, Y - 10, "FRONT (for the mirrored build) — this face out. Blue box: glue the doubler behind."))
+    s.append(text(x0 + 4, v_front(CAS_SHELF + CAS_H - LIP) + 10, "cassette window", 5))
+    return s, X, Y, 0, 0
+
+
+def doubler_built():
+    dx, dy, dw, dh = DOUBLER
+    s = [rect(0, 0, dw, dh)]
+    for bx in BUTTONS_X:
+        s.append(circle(bx - dx, (dy + dh) - BUTTON_Y, BUTTON_D_NEW, style=NO_KERF))
+    s.append(text(4, dh - 5, "BUTTON DOUBLER — glue behind the front", 5))
+    return s, dw, dh, 0, 0
+
+
+def front_mirrored_sheet():
+    assert CAS_X_BUILT + CAS_W + CAS_MOTORS < X - T - 2, "cassette + motors don't fit beside the divider"
+    sh = Sheet("cabinet_10_front_doubler_built_3mm.svg",
+               "3 mm MDF: new front + doubler for the box as built (mirrored). Red = cut with kerf offset, green = cut with kerf offset OFF")
+    sh.add(front_built(), M, (SHEET_H - Y) / 2)
+    sh.add(doubler_built(), M + X + G, M, rotate=True)
+    sh.write()
 
 
 def button_recut():
