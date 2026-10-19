@@ -477,7 +477,7 @@ def build():
 # maker's photo. The window is placed for that; the column leaves ~10 mm of play
 # beside the motors, so push the cassette against the divider.
 CAS_X_BUILT = X - DIV_X + 1          # cassette's left side: 1 mm right of the mirrored divider (216..218)
-BUTTON_D_NEW = 28.0                  # 27.5 came out too small; 28 fits the buttons with a little room
+BUTTON_D_NEW = 30.0                  # 27.5 came out too small; 30 to be sure the buttons fit (the nut and flange cover it)
 # The front's window frames only the cassette's own paper window (make_cassette.py:
 # window 39.7–103.7 mm from the cassette's left side, 63–153 mm down from its top —
 # matches the maker's photo within ~2 mm), so the light sensor, its tape and the
