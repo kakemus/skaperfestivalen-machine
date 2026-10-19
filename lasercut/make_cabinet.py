@@ -489,37 +489,118 @@ WIN_INSET = 2.0
 NO_KERF = 'fill="none" stroke="#00a000" stroke-width="0.1"'   # green = cut with kerf offset OFF
 
 
+# The button console (2026-10-19, the maker's choice: 20°, full width): a wedge
+# glued to the bottom of the front, its sloping top tilted up towards the player
+# with the two buttons in it. Side view (u = forward from the console's front
+# edge, up = height):
+#
+#            sloped top (+ doubler under it, round the buttons)
+#   CON_H_FRONT ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│ CON_H_BACK
+#              │ front strip   back wall│ ← glued flat against the box's front
+#              └────────────────────────┘
+#              ←──────── CON_D ────────→
+# Two side pieces (plain, same shape — the second one is turned over) carry
+# notches for tabs on the top, the front strip and the back wall; the back wall
+# gives a big glue face against the front, and a cable hole through both takes
+# the button wires into the bay. Open underneath: it stands on the table.
+import math
+CON_ANGLE = 20.0
+CON_D = 80.0                          # how far it sticks out
+CON_H_FRONT = 50.0                    # height of the sloped top's front edge
+_tan, _cos, _sin = (f(math.radians(CON_ANGLE)) for f in (math.tan, math.cos, math.sin))
+CON_H_BACK = CON_H_FRONT + CON_D * _tan
+CON_W = X - 2 * T                     # top, strip and back wall sit between the two sides
+CON_TOP_L = (CON_D - T * _sin) / _cos   # top's length along the slope: its square-cut back
+                                        # end leans back, so its lower corner just meets the front
+CON_TOP_TABS = (22.0, 62.0)           # along the slope from the front edge
+CON_BUTTON_V = CON_TOP_L / 2          # buttons in the middle of the slope
+CON_STRIP_H = CON_H_FRONT - T / _cos - 0.5          # front strip: just under the top
+CON_WALL_H = CON_H_FRONT + (CON_D - T) * _tan - T / _cos - 0.5   # back wall: just under the top
+CON_CABLE = (X / 2, 35.0, 40.0)       # cable hole through the back wall + front: x, height, diameter
+CON_DOUBLER = (60.0, 14.0, 260.0, 56.0)   # x (box), v along the slope, w, length
+
+
 def front_built():
     s = [poly(outline(X, Y, ("F", "F", "F", "F")))]
     x0, x1 = CAS_X_BUILT + CAS_WIN_X[0] + WIN_INSET, CAS_X_BUILT + CAS_WIN_X[1] - WIN_INSET
     top = CAS_SHELF + CAS_H - CAS_WIN_DOWN[0] - WIN_INSET            # window top, from the outer bottom
     h = CAS_WIN_DOWN[1] - CAS_WIN_DOWN[0] - 2 * WIN_INSET
     s.append(rect(x0, v_front(top), x1 - x0, h, style=NO_KERF, r=2))
-    for bx in BUTTONS_X:
-        s.append(circle(bx, v_front(BUTTON_Y), BUTTON_D_NEW, style=NO_KERF))
-    dx, dy, dw, dh = DOUBLER
-    s.append(rect(dx, v_front(dy + dh), dw, dh, style=MARK))
-    s.append(text(T + 6, Y - 10, "FRONT (for the mirrored build) — this face out. Blue box: glue the doubler behind."))
+    cx, cy, cd = CON_CABLE
+    s.append(circle(cx, v_front(cy), cd, style=NO_KERF))
+    s.append(rect(T, v_front(CON_WALL_H), CON_W, CON_WALL_H, style=MARK))   # where the console's back wall goes
+    s.append(text(T + 6, v_front(CON_WALL_H) - 4, "button console here (glue its back wall on this box)", 5))
+    s.append(text(T + 6, 14, "FRONT (for the mirrored build) — this face out."))
     s.append(text(x0, v_front(top) - 3, "window", 5))
     return s, X, Y, 0, 0
 
 
-def doubler_built():
-    dx, dy, dw, dh = DOUBLER
-    s = [rect(0, 0, dw, dh)]
+def console_side():
+    """In side view, u forward from the front edge (left in the drawing), up = height."""
+    def P(sv, depth=0.0):             # a point on the sloped edge, sv along it, depth into the piece
+        return (sv * _cos + depth * _sin, CON_H_FRONT + sv * _sin - depth * _cos)
+    pts = [(0, 0), (CON_D, 0)]
+    wall_mid = CON_WALL_H / 2           # back-wall tab notch in the back edge
+    pts += [(CON_D, wall_mid - TAB_L / 2), (CON_D - T, wall_mid - TAB_L / 2), (CON_D - T, wall_mid + TAB_L / 2), (CON_D, wall_mid + TAB_L / 2)]
+    pts.append((CON_D, CON_H_BACK))
+    for c in sorted(CON_TOP_TABS, reverse=True):      # top's tab notches, back to front
+        pts += [P(c + TAB_L / 2), P(c + TAB_L / 2, T), P(c - TAB_L / 2, T), P(c - TAB_L / 2)]
+    pts.append((0, CON_H_FRONT))
+    strip_mid = CON_STRIP_H / 2
+    pts += [(0, strip_mid + TAB_L / 2), (T, strip_mid + TAB_L / 2), (T, strip_mid - TAB_L / 2), (0, strip_mid - TAB_L / 2)]
+    svg_pts = [(u, CON_H_BACK - up) for u, up in pts]
+    return [poly(svg_pts)], CON_D, CON_H_BACK, 0, 0
+
+
+def console_top():
+    pts = tabbed(CON_W, CON_TOP_L, left=list(CON_TOP_TABS), right=list(CON_TOP_TABS))
+    s = [poly(pts)]
     for bx in BUTTONS_X:
-        s.append(circle(bx - dx, (dy + dh) - BUTTON_Y, BUTTON_D_NEW, style=NO_KERF))
-    s.append(text(4, dh - 5, "BUTTON DOUBLER — glue behind the front", 5))
-    return s, dw, dh, 0, 0
+        s.append(circle(bx - T, CON_BUTTON_V, BUTTON_D_NEW, style=NO_KERF))
+    return s, CON_W, CON_TOP_L, T, 0
+
+
+def console_doubler():
+    dx, dv, dw, dl = CON_DOUBLER
+    s = [rect(0, 0, dw, dl)]
+    for bx in BUTTONS_X:
+        s.append(circle(bx - dx, CON_BUTTON_V - dv, BUTTON_D_NEW, style=NO_KERF))
+    s.append(text(4, dl - 4, "DOUBLER — under the console top, holes lined up", 4))
+    return s, dw, dl, 0, 0
+
+
+def console_strip():
+    return [poly(tabbed(CON_W, CON_STRIP_H, left=[CON_STRIP_H / 2], right=[CON_STRIP_H / 2]))], CON_W, CON_STRIP_H, T, 0
+
+
+def console_wall():
+    s = [poly(tabbed(CON_W, CON_WALL_H, left=[CON_WALL_H / 2], right=[CON_WALL_H / 2]))]
+    cx, cy, cd = CON_CABLE
+    s.append(circle(cx - T, CON_WALL_H - cy, cd, style=NO_KERF))
+    return s, CON_W, CON_WALL_H, T, 0
 
 
 def front_mirrored_sheet():
     assert CAS_X_BUILT + CAS_W + CAS_MOTORS < X - T - 2, "cassette + motors don't fit beside the divider"
-    sh = Sheet("cabinet_10_front_doubler_built_3mm.svg",
-               "3 mm MDF: new front + doubler for the box as built (mirrored). Red = cut with kerf offset, green = cut with kerf offset OFF")
+    assert CON_TOP_TABS[-1] + TAB_L / 2 < CON_TOP_L - 3 and CON_TOP_TABS[0] - TAB_L / 2 > 3, "console top tabs off its ends"
+    dx, dv, dw, dl = CON_DOUBLER
+    assert dv > T / _sin * 0 + 8 and dv + dl < CON_TOP_L - 8, "doubler runs into the strip or the back wall"
+    assert CON_CABLE[1] + CON_CABLE[2] / 2 < CON_WALL_H - 5, "cable hole too high for the back wall"
+    sh = Sheet("cabinet_10_front_built_3mm.svg",
+               "3 mm MDF: new front + console top + front strip, for the box as built (mirrored). Red = cut with kerf offset, green = kerf offset OFF")
     sh.add(front_built(), M, (SHEET_H - Y) / 2)
-    sh.add(doubler_built(), M + X + G, M, rotate=True)
+    x = M + X + G
+    x, _ = sh.add(console_top(), x, M, rotate=True)
+    sh.add(console_strip(), x + G, M, rotate=True)
     sh.write()
+    sh = Sheet("cabinet_11_console_3mm.svg",
+               "3 mm MDF: button console back wall + 2 sides + doubler. Red = cut with kerf offset, green = kerf offset OFF")
+    _, y = sh.add(console_wall(), M, M)
+    _, y2 = sh.add(console_doubler(), M, y + G)
+    sh.add(console_side(), M + CON_W + 2 * T + G, M)
+    sh.add(console_side(), M + CON_W + 2 * T + G, M + CON_H_BACK + G)
+    sh.write()
+    print(f"console: {CON_ANGLE:g}°, {CON_D:g} deep, {CON_H_FRONT:g} → {CON_H_BACK:.1f} high; top {CON_TOP_L:.1f} along the slope")
 
 
 def button_recut():
