@@ -67,8 +67,8 @@ svg .lead { stroke: var(--ink); stroke-width: 1; fill: none; }
 <main>
   <header>
     <h1>Arcade Cabinet Assembly</h1>
-    <p class="lede">Putting together the laser-cut box for the machine: the cassette, the printer, the buttons, the bell and the electronics. The drawings are made from the measurements in the cutting files; the part you fit in each step is shown in blue.</p>
-    <div class="specs"><span>outer <b>380 × 384 × 260 mm</b></span><span><b>3 mm</b> MDF · divider <b>2 mm</b></span><span>files: <b>lasercut/cabinet_1…7</b></span></div>
+    <p class="lede">Putting together the laser-cut box for the machine: the cassette, the printer, the button console, the bell and the electronics. The drawings show the box the way it was actually built, a mirror image of the cutting files: printer on the left, cassette on the right, seen from the front. The part you fit in each step is shown in blue.</p>
+    <div class="specs"><span>outer <b>380 × 384 × 260 mm</b> + console <b>80 mm</b></span><span><b>3 mm</b> MDF · divider <b>2 mm</b></span><span>files: <b>lasercut/cabinet_1…12</b></span></div>
     <div class="legend"><span><i class="sw" style="background:var(--new-side)"></i>fit now</span><span><i class="sw" style="background:var(--mdf-side)"></i>already in place</span></div>
   </header>
 
@@ -77,18 +77,46 @@ svg .lead { stroke: var(--ink); stroke-width: 1; fill: none; }
 
 <script>
 // ---------- the model, in mm, from lasercut/make_cabinet.py ----------
-// x from the outer left, y up from the outer bottom, z from the outer front.
+// x from the outer left AS DRAWN IN THE FILES, y up from the outer bottom, z from
+// the outer front (negative = in front of the box: the button console).
+// The box was built as a mirror image of the files (2026-10-19), so the camera
+// mirrors everything (MIRROR below): on screen it looks like the real box —
+// printer on the left, cassette on the right, seen from the front. Only the
+// cassette isn't mirrored in reality, so it's given here where it ends up.
+const MIRROR = true;
 const T = 3, X = 380, Y = 384, Z = 257;
 const DIV = 162, CS = 150, PS = 233;           // divider x, cassette shelf top, printer shelf top
 const PR = { x: 170, w: 190, z: 11, d: 140 };  // printer
 const OP = { x: 168, z: 9, w: 194, d: 144 };   // opening in the top
 const B = (x0, y0, z0, x1, y1, z1) => [x0, y0, z0, x1, y1, z1];
+// the console (lasercut/make_cabinet.py, CON_*): 20°, 80 deep, 50 → 79 mm high
+const CC = Math.cos(20 * Math.PI / 180), CSN = Math.sin(20 * Math.PI / 180);
+const CON = { d: 80, hf: 50, hb: 50 + 80 * Math.tan(20 * Math.PI / 180), strip: 46.3, wall: 74.3, len: (80 - T * CSN) / CC, bv: 42 };
+const slope = v => [-CON.d + v * CC, CON.hf + v * CSN];            // [z, y] on the console top's upper face
+const under = ([z, y], k = 1) => [z + k * T * CSN, y - k * T * CC]; // k plate thicknesses below the slope
+// a straight prism: a [z, y] outline swept along x from x0 to x1
+function prism(profile, x0, x1) {
+  const cz = profile.reduce((a, p) => a + p[0], 0) / profile.length, cy = profile.reduce((a, p) => a + p[1], 0) / profile.length;
+  const faces = [{ n: [-1, 0, 0], q: profile.map(([z, y]) => [x0, y, z]) }, { n: [1, 0, 0], q: profile.map(([z, y]) => [x1, y, z]) }];
+  profile.forEach((p, i) => {
+    const q = profile[(i + 1) % profile.length];
+    let nz = q[1] - p[1], ny = -(q[0] - p[0]);
+    const len = Math.hypot(nz, ny); nz /= len; ny /= len;
+    if (nz * ((p[0] + q[0]) / 2 - cz) + ny * ((p[1] + q[1]) / 2 - cy) < 0) { nz = -nz; ny = -ny; }
+    faces.push({ n: [0, ny, nz], q: [[x0, p[1], p[0]], [x1, p[1], p[0]], [x1, q[1], q[0]], [x0, q[1], q[0]]] });
+  });
+  for (const f of faces) f.shade = f.n[1] > 0.5 ? "top" : Math.abs(f.n[0]) > 0.5 ? "side" : "dark";
+  const zs = profile.map(p => p[0]), ys = profile.map(p => p[1]);
+  return { faces, box: [x0, Math.min(...ys), Math.min(...zs), x1, Math.max(...ys), Math.max(...zs)] };
+}
+const conSide = [[-CON.d, 0], [0, 0], [0, CON.hb], [-CON.d, CON.hf]];
+const conTop = [slope(0), slope(CON.len), under(slope(CON.len)), under(slope(0))];
+const conDoubler = [under(slope(14)), under(slope(70)), under(slope(70), 2), under(slope(14), 2)];
 const PARTS = {
   bottom: [B(0, 0, 0, X, T, Z)],
   left: [B(0, 0, 0, T, Y, Z)],
   right: [B(X - T, 0, 0, X, Y, Z)],
   front: [B(0, 0, 0, X, Y, T)],
-  doubler: [B(60, 35, T, 320, 115, 2 * T)],
   divider: [B(DIV, T, T, DIV + 2, 18, Z), B(DIV, 135, T, DIV + 2, Y - T, Z), B(DIV, 18, 2 * T, DIV + 2, 135, 18), B(DIV, 18, Z - 15, DIV + 2, 135, Z)],
   cshelf: [B(T, CS - T, T, DIV, CS, Z)],
   pshelf: [B(DIV + 2, PS - T, T, X - T, PS, Z)],
@@ -99,19 +127,27 @@ const PARTS = {
   lid: [B(155, Y, 2, 375, Y + T, 172)],
   bell: [B(X - T - 45, T, 90, X - T, 133, 170)],
   electronics: [B(172, T, 80, 247, 11, 240), B(257, T, 200, 317, 108, 240), B(257, T, 150, 282, 23, 185)],
-  cassette: [B(10, CS, T, 133, CS + 216, 98)],
-  motors: [B(133, 180, 20, 158, 202, 80), B(133, 320, 20, 158, 342, 80)],
+  // as it really sits (drawn mirrored like the rest): against the divider, motors towards the outer wall
+  cassette: [B(38, CS, T, 161, CS + 216, 98)],
+  motors: [B(13, 180, 20, 38, 202, 80), B(13, 320, 20, 38, 342, 80)],
   back: [B(0, 0, Z, X, Y, Z + T)],
+  conSides: [prism(conSide, 0, T), prism(conSide, X - T, X)],
+  conStrip: [B(T, 0, -CON.d, X - T, CON.strip, -CON.d + T)],
+  conWall: [B(T, 0, -T, X - T, CON.wall, 0)],
+  conTop: [prism(conTop, T, X - T)],
+  conDoubler: [prism(conDoubler, 60, 320)],
 };
+const CONSOLE = ["conSides", "conStrip", "conWall", "conTop", "conDoubler"];
+const solidOf = b => Array.isArray(b) ? { faces: facesOf(b), box: b } : b;
 // Flat details drawn on a face: [part they belong to, plane axis, value, polygon in the other two axes]
 const ring = (cx, cy, r, n = 20) => Array.from({ length: n }, (_, i) => [cx + r * Math.cos(2 * Math.PI * i / n), cy + r * Math.sin(2 * Math.PI * i / n)]);
 const rectP = (a0, b0, a1, b1) => [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+// the new front's window, in the files' x (as built: 260.7–320.7 from the left, seen from the front)
+const WIN = [X - 320.7, 215, X - 260.7, 301];
 const DECALS = [
-  // front, outside face (z = 0) and inside face (z = 3): cassette opening, button holes
-  ["front", "z", -0.2, rectP(14, CS + 4, 129, CS + 212)], ["front", "z", T + 0.2, rectP(14, CS + 4, 129, CS + 212)],
-  ["front", "z", -0.2, ring(120, 75, 13.75)], ["front", "z", -0.2, ring(260, 75, 13.75)],
-  // the doubler's holes, seen from inside the box
-  ["doubler", "z", 2 * T + 0.2, ring(120, 75, 13.75)], ["doubler", "z", 2 * T + 0.2, ring(260, 75, 13.75)],
+  // front, outside face (z = 0) and inside face (z = 3): the window; the console's cable hole
+  ["front", "z", -0.2, rectP(...WIN)], ["front", "z", T + 0.2, rectP(...WIN)],
+  ["front", "z", T + 0.2, ring(X / 2, 35, 20)],
   // the back panel, outside: 4 bolt holes at the corner blocks, the round cable hole
   ...[[T + 10, T + 10], [X - T - 10, T + 10], [T + 10, Y - T - 10], [X - T - 10, Y - T - 10]].map(([x, y]) => ["back", "z", Z + T + 0.2, ring(x, y, 2.5, 10)]),
   ["back", "z", Z + T + 0.2, ring(40, 45, 15)],
@@ -119,9 +155,14 @@ const DECALS = [
   ["top", "y", Y + 0.2, rectP(OP.x, OP.z, OP.x + OP.w, OP.z + OP.d)],
   // the lid's cut-outs (paper mouth, lever)
   ["lid", "y", Y + T + 0.2, rectP(PR.x + 15, PR.z + 33, PR.x + 119, PR.z + 72)], ["lid", "y", Y + T + 0.2, rectP(PR.x + 121, PR.z + 56, PR.x + 170, PR.z + 80)],
-  // bell grille on the right side (outside face)
+  // bell grille in the side wall (outside face)
   ...Array.from({ length: 10 }, (_, i) => ["right", "x", X + 0.2, rectP(75, 140 - 6 - i * 12 - 2.5, 185, 140 - 6 - i * 12 + 2.5)]),  // [z, y] pairs
 ];
+// details on the sloped console top: drawn together with it (they lie on its upper face)
+const ON_TOP = [120, 260].map(bx => {
+  const [z, y] = slope(CON.bv), nz = -CSN * 0.3, ny = CC * 0.3;
+  return Array.from({ length: 24 }, (_, i) => { const t = 2 * Math.PI * i / 24, a = 15 * Math.cos(t), v = 15 * Math.sin(t); return [bx + a, y + v * CSN + ny, z + v * CC + nz]; });
+});
 
 // ---------- a small orthographic renderer: boxes → shaded SVG faces ----------
 const VIEWS = { back: { yaw: 158, pitch: -27 }, front: { yaw: 28, pitch: -24 }, top: { yaw: 158, pitch: -62 } };
@@ -131,7 +172,7 @@ function camera(v) {
     x -= X / 2; z -= Z / 2; y -= Y / 2;
     const x1 = x * ct - z * st, z1 = x * st + z * ct;
     const y2 = y * cp - z1 * sp, d = y * sp + z1 * cp;
-    return [x1, -y2, d];
+    return [MIRROR ? -x1 : x1, -y2, d];        // mirror the picture, not the viewpoint
   };
 }
 function facesOf(b) {
@@ -170,14 +211,15 @@ function render(viewName, parts, hl, labels = []) {
   // sorting single faces by their middles drew walls over things in front of them.
   const items = [];
   for (const name of parts) for (const b of PARTS[name]) {
-    const kind = hl.includes(name) ? "new" : "mdf", polys = [];
-    for (const f of facesOf(b)) if (dir(f.n) < 0) polys.push({ pts: f.q.map(cam), fill: `var(--${kind}-${f.shade})` });
-    items.push({ box: b, polys });
+    const kind = hl.includes(name) ? "new" : "mdf", polys = [], sol = solidOf(b);
+    for (const f of sol.faces) if (dir(f.n) < 0) polys.push({ pts: f.q.map(cam), fill: `var(--${kind}-${f.shade})` });
+    if (name === "conTop" && dir([0, CC, -CSN]) < 0) for (const h of ON_TOP) polys.push({ pts: h.map(cam), fill: "var(--hole)" });
+    items.push({ box: sol.box, polys });
   }
   for (const [name, axis, v, poly] of DECALS) {
     if (!parts.includes(name)) continue;
     const pts3 = poly.map(([a, b]) => axis === "z" ? [a, b, v] : axis === "y" ? [a, v, b] : [v, b, a]);
-    const n = axis === "z" ? [0, 0, v < 1 ? -1 : 1] : axis === "y" ? [0, 1, 0] : [1, 0, 0];
+    const n = axis === "z" ? [0, 0, v < 1 ? -1 : 1] : axis === "y" ? [0, 1, 0] : [v < 1 ? -1 : 1, 0, 0];
     if (dir(n) >= 0) continue;
     const filled = name === "top" && parts.includes("printer");
     const box = [0, 1, 2].map(k => Math.min(...pts3.map(p => p[k]))).concat([0, 1, 2].map(k => Math.max(...pts3.map(p => p[k]))));
@@ -219,7 +261,7 @@ function render(viewName, parts, hl, labels = []) {
   [...items].sort((p, q) => q.depth - p.depth).forEach(visit);
   const polys = order.flatMap(it => it.polys);
   // frame on the whole model, so the box doesn't jump between steps
-  const all = Object.values(PARTS).flat().flatMap(b => facesOf(b).flatMap(f => f.q)).map(cam);
+  const all = Object.values(PARTS).flat().flatMap(b => solidOf(b).faces.flatMap(f => f.q)).map(cam);
   const xs = all.map(p => p[0]), ys = all.map(p => p[1]);
   const pad = 40, minX = Math.min(...xs) - pad, minY = Math.min(...ys) - pad, w = Math.max(...xs) - minX + pad, h = Math.max(...ys) - minY + pad;
   let svg = `<svg viewBox="${minX.toFixed(0)} ${minY.toFixed(0)} ${w.toFixed(0)} ${h.toFixed(0)}" role="img">`;
@@ -249,69 +291,79 @@ const wedgeDrawing = `<svg viewBox="-30 0 450 170" role="img">
 </svg>`;
 
 // ---------- the steps ----------
+// Part lists: what is in place in each step (the console goes on the front in step 3).
+const SHELL = ["bottom", "left", "right", "front", ...CONSOLE];
+const UP_TO = (...more) => [...SHELL, ...more];
 const STEPS = [
   { title: "Corner blocks for the back panel", fig: blockDrawing, html: `
-    <p>Sheet 2 has 12 small squares: 8 with a round hole, 4 with a hexagon. Each corner block is three of them.</p>
-    <ol><li>Press an <b>M3 nut</b> into a hexagon square. It should sit flush.</li>
+    <p>Sheet 2 has 12 small squares: 8 with a round hole, 4 with a hexagon. Each corner block is three of them. (If the hexagons were too tight, use the 4 squares from sheet 8.)</p>
+    <ol><li>Press an <b>M3 nut</b> into a hexagon square.</li>
     <li>Glue a round-hole square on each side of it, holes lined up. Push an M3 bolt through while the glue sets, so the holes stay aligned, then take the bolt out.</li>
     <li>Make <b>4</b>.</li></ol>` },
   { title: "Printer wedges", fig: wedgeDrawing, html: `
     <p>Sheet 6 has 4 long triangles. Glue them together in pairs, so you have <b>2 wedges, 6 mm thick</b>.</p>
     <p>They lift the front of the printer by 25 mm, so its sloping top ends up level. They go in at step 10.</p>` },
-  { title: "Button doubler behind the front", view: "back", parts: ["front", "doubler"], hl: ["doubler"], noFront: true, caption: "the front panel seen from inside the box — JA's hole is on the right here", labels: [{ at: [120, 75, 2 * T], text: "JA", dx: 40, dy: 50 }, { at: [260, 75, 2 * T], text: "NEI", dx: -40, dy: 50 }], html: `
-    <p>Glue the long strip with two holes (sheet 2) to the <b>inside</b> of the front, so its holes sit exactly behind the button holes. It doubles the front to 6 mm where people press.</p>
-    <p>An arcade button through both layers is the easiest way to line them up while the glue sets.</p>` },
+  { title: "Button console on the front", view: "front", parts: ["front", ...CONSOLE], hl: CONSOLE, labels: [{ at: [260, 64.6, -40.6], text: "JA", dx: -30, dy: -60 }, { at: [120, 64.6, -40.6], text: "NEI", dx: 30, dy: -60 }, { at: [T, 25, -40], text: "console, top at 20°", dx: 30, dy: 50 }], html: `
+    <p>Sheets 10 and 11. Cut the <b>test sheet 12</b> first and check that the joints and the button hole fit.</p>
+    <ol><li>Push the sloping <b>top</b>, the low <b>front strip</b> and the <b>back wall</b> into the notches of the two <b>side pieces</b> and glue. The two sides are the same shape; turn one over for the other side.</li>
+    <li>Glue the <b>doubler</b> under the top, holes lined up: a button through both layers holds them while the glue sets.</li>
+    <li>Glue the console's back wall onto the <b>blue box</b> engraved on the front, bottom edges flush, cable holes lined up.</li></ol>
+    <p>Seen from the front: <b>JA</b> (green) on the left, <b>NEI</b> (red) on the right. The buttons go in at step 12.</p>` },
   { title: "Dry-fit everything first", wide: true, html: `
     <p>Before any glue on the box itself, put steps 5–8 together <b>without glue</b> and check that everything slides in. The divider and the shelves have to go in before the top, and the top locks them, so it's much easier to discover a tight tab now. Then take it apart again and glue in the same order.</p>
     <p class="note"><b>Square:</b> after gluing the shell, measure both diagonals of the open back. They should be the same; push the box until they are, before the glue sets.</p>` },
-  { title: "The shell: bottom, sides, front", view: "back", parts: ["bottom", "left", "right", "front", "doubler"], hl: ["bottom", "left", "right", "front"], labels: [{ at: [X, 200, Z], text: "right side: bell grille, slots at 233 mm", dx: 30, dy: -30 }, { at: [0, 150, Z], text: "left side: slots at 150 mm", dx: -30, dy: 40 }], html: `
-    <p>Glue the bottom, the two sides and the front together with their finger joints. The back stays open.</p>
-    <ul><li><b>Left side:</b> its two slots sit low (150 mm up). They carry the cassette shelf.</li>
-    <li><b>Right side:</b> the one with the <b>bell grille</b>; its slots sit higher (233 mm up), for the printer shelf.</li>
-    <li>On both sides, the edge marked <b>front</b> goes against the front panel.</li></ul>` },
-  { title: "Divider wall", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider"], hl: ["divider"], labels: [{ at: [DIV, 250, Z], text: "2 mm divider", dx: 20, dy: -60 }], html: `
-    <p>The <b>2 mm</b> divider stands upright 162 mm from the left wall, its two bottom tabs in the bottom panel's slots. It's open at the bottom: that's the bay for the electronics.</p>
-    <ul><li>The front edge, with the small <b>notch</b> near the bottom, goes against the front panel; the notch makes room for the button doubler.</li>
-    <li>Its lower slots (150 mm) face the cassette side, the higher ones (233 mm) the printer side.</li></ul>` },
-  { title: "Cassette shelf", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf"], hl: ["cshelf"], labels: [{ at: [80, CS, Z], text: "top at 150 mm", dx: -20, dy: 40 }], html: `
-    <p>The cassette shelf (sheet 1) goes in on the <b>left</b>: its tabs into the left wall's slots and the divider's lower slots. Its front edge touches the front panel.</p>` },
-  { title: "Printer shelf", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf"], hl: ["pshelf"], labels: [{ at: [270, PS, Z], text: "top at 233 mm", dx: 30, dy: 40 }], html: `
-    <p>The printer shelf (sheet 6) goes in on the <b>right</b>: tabs into the divider's higher slots and the right wall's slots. The blue rectangle on it shows where the printer stands, the two blue strips where the wedges go.</p>` },
-  { title: "Top", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top"], hl: ["top"], labels: [{ at: [OP.x + OP.w / 2, Y, OP.z + OP.d], text: "opening above the printer", dx: 40, dy: -40 }], html: `
+  { title: "The shell: bottom, sides, front", view: "back", parts: SHELL, hl: ["bottom", "left", "right", "front"], labels: [{ at: [X, 200, Z], text: "left side: bell grille, slots at 233 mm", dx: -30, dy: -30 }, { at: [0, 150, Z], text: "right side: slots at 150 mm", dx: 30, dy: 40 }], html: `
+    <p>Glue the bottom, the two sides and the front (with its console) together with their finger joints. The back stays open.</p>
+    <ul><li><b>Left side</b> (seen from the front): the one with the <b>bell grille</b>; its slots sit high (233 mm up), for the printer shelf.</li>
+    <li><b>Right side:</b> its two slots sit low (150 mm up). They carry the cassette shelf.</li></ul>` },
+  { title: "Divider wall", view: "back", parts: UP_TO("divider"), hl: ["divider"], labels: [{ at: [DIV, 250, Z], text: "2 mm divider", dx: -20, dy: -60 }], html: `
+    <p>The <b>2 mm</b> divider stands upright 162 mm from the right wall, its two bottom tabs in the bottom panel's slots. It's open at the bottom: that's the bay for the electronics.</p>
+    <ul><li>Its lower slots (150 mm) face the cassette side, the higher ones (233 mm) the printer side.</li>
+    <li>The small notch near the bottom of its front edge was for a part that isn't used any more; it does no harm.</li></ul>` },
+  { title: "Cassette shelf", view: "back", parts: UP_TO("divider", "cshelf"), hl: ["cshelf"], labels: [{ at: [80, CS, Z], text: "top at 150 mm", dx: 20, dy: 40 }], html: `
+    <p>The cassette shelf (sheet 1) goes in on the <b>right</b>: its tabs into the right wall's slots and the divider's lower slots. Its front edge touches the front panel.</p>` },
+  { title: "Printer shelf", view: "back", parts: UP_TO("divider", "cshelf", "pshelf"), hl: ["pshelf"], labels: [{ at: [270, PS, Z], text: "top at 233 mm", dx: -30, dy: 40 }], html: `
+    <p>The printer shelf (sheet 6) goes in on the <b>left</b>: tabs into the divider's higher slots and the left wall's slots. The engraved rectangle on it shows where the printer stands, the two strips where the wedges go.</p>` },
+  { title: "Top", view: "back", parts: UP_TO("divider", "cshelf", "pshelf", "top"), hl: ["top"], labels: [{ at: [OP.x + OP.w / 2, Y, OP.z + OP.d], text: "opening above the printer", dx: 50, dy: -50 }], html: `
     <p>The top (sheet 5) goes on last, the divider's two top tabs through its slots. The big opening sits over the printer column, towards the front.</p>
     <p class="note"><b>Careful:</b> next to the divider's slots there's only a 4 mm strip of MDF before the opening. Fit the top gently, and don't lift it by that edge.</p>` },
-  { title: "Wedges, then the printer", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer"], hl: ["wedges", "printer"], labels: [{ at: [PR.x + PR.w, PS + 9, PR.z + PR.d], text: "wedges: high end at the front", dx: 40, dy: 50 }], html: `
-    <ol><li>Glue the two wedges onto the printer shelf on the blue strips, <b>high end at the front</b>.</li>
+  { title: "Wedges, then the printer", view: "back", parts: UP_TO("divider", "cshelf", "pshelf", "top", "wedges", "printer"), hl: ["wedges", "printer"], labels: [{ at: [PR.x + PR.w, PS + 9, PR.z + PR.d], text: "wedges: high end at the front", dx: -40, dy: 50 }], html: `
+    <ol><li>Glue the two wedges onto the printer shelf on their engraved strips, <b>high end at the front</b>.</li>
     <li>Put the printer on them from the back, its front against the front panel. Its top should come up into the top's opening and end about <b>1 mm below</b> the surface, level.</li></ol>
     <p>Leave the printer loose for now: it has to come out again for cabling.</p>` },
-  { title: "Lid", view: "top", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid"], hl: ["lid"], labels: [{ at: [PR.x + 67, Y + T, PR.z + 52], text: "paper mouth", dx: 70, dy: 40 }, { at: [PR.x + 145, Y + T, PR.z + 68], text: "lever", dx: -60, dy: 20 }], html: `
+  { title: "Lid", view: "top", parts: UP_TO("divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid"), hl: ["lid"], labels: [{ at: [PR.x + 67, Y + T, PR.z + 52], text: "paper mouth", dx: -70, dy: 40 }, { at: [PR.x + 145, Y + T, PR.z + 68], text: "lever", dx: 60, dy: 20 }], html: `
     <ol><li>Lay the lid (sheet 4) on the top over the printer. Check that the <b>paper mouth</b> and the <b>lever</b> show through their cut-outs.</li>
     <li>Lift it, put the <b>4 small squares</b> into the four corners of the opening, put the lid back on top of them and glue them to its underside.</li></ol>
     <p>Now the lid lifts straight off for a new paper roll, but can't slide. The finger notch is at its back edge.</p>` },
-  { title: "Bay: bell, buttons, electronics", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics"], hl: ["bell", "electronics"], labels: [{ at: [X - T - 22, 133, 170], text: "bell behind the grille", dx: 40, dy: -30 }, { at: [287, 108, 240], text: "Wukong + micro:bit", dx: 20, dy: 60 }], html: `
-    <ul><li><b>Buttons:</b> JA (green) in the left hole, NEI (red) in the right one, from the outside.</li>
-    <li><b>Bell:</b> against the right wall, behind the grille.</li>
-    <li><b>Electronics:</b> the engraved marks on the bottom show where the phone, the Wukong with the micro:bit, the relay and the 9 V battery go, and the power bank under the cassette shelf. Cables pass through the open bottom of the divider.</li></ul>
+  { title: "Bay: bell, buttons, electronics", view: "back", parts: UP_TO("divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics"), hl: ["bell", "electronics"], labels: [{ at: [X - T - 22, 133, 170], text: "bell behind the grille", dx: -40, dy: -30 }, { at: [287, 108, 240], text: "Wukong + micro:bit", dx: -20, dy: 60 }], html: `
+    <ul><li><b>Buttons:</b> into the console from above, JA (green) on the left, NEI (red) on the right, seen from the front. Their wires go through the cable hole behind the console into the bay.</li>
+    <li><b>Bell:</b> against the left wall, behind the grille.</li>
+    <li><b>Electronics:</b> the phone, the Wukong with the micro:bit, the relay and the 9 V battery in the bay, the power bank under the cassette shelf. Cables pass through the open bottom of the divider, and through holes you drill in the shelves behind the printer and the cassette. (The bottom's engraved placement marks may have ended up underneath, since the box was built mirrored; then place things by eye.)</li></ul>
     <p>Keep the micro:bit's USB plug and the Wukong's power button towards the back, so they're reachable with the back panel off.</p>` },
-  { title: "Cassette", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "wedges", "printer", "bell", "electronics", "cassette", "motors"], hl: ["cassette", "motors"], caption: "seen from behind, with the top left out so you can see in — the motors sit against the divider", labels: [{ at: [145, 330, 80], text: "motors", dx: -40, dy: -40 }], html: `
-    <p>Slide the cassette in from the back onto its shelf, <b>window first and motors on the right</b>, until it stops against the lip around the front opening. Its window and light sensor then show through the front.</p>` },
-  { title: "Back panel", view: "back", parts: ["bottom", "left", "right", "front", "doubler", "divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors", "blocks", "back"], hl: ["back", "blocks"], caption: "seen from behind — the printer side is on the left here", labels: [{ at: [X - T - 10, Y - T - 10, Z + T], text: "M3 bolt", dx: 30, dy: -30 }, { at: [40, 45, Z + T], text: "cables out", dx: 40, dy: 30 }], html: `
+  { title: "Cassette", view: "back", parts: UP_TO("divider", "cshelf", "pshelf", "wedges", "printer", "bell", "electronics", "cassette", "motors"), hl: ["cassette", "motors"], caption: "seen from behind, with the top left out so you can see in — the cassette sits against the divider", labels: [{ at: [25, 330, 80], text: "motors", dx: 40, dy: -40 }], html: `
+    <p>Slide the cassette in from the back onto its shelf, window first, <b>pushed against the divider</b> with its <b>motors towards the right wall</b>, until it stops against the front. Its paper window then lines up with the small window in the front; the light sensor stays hidden.</p>
+    <p>If it drifts sideways, glue a small block of scrap on the shelf beside it, low down under the motors.</p>` },
+  { title: "Back panel", view: "back", parts: UP_TO("divider", "cshelf", "pshelf", "top", "wedges", "printer", "lid", "bell", "electronics", "cassette", "motors", "blocks", "back"), hl: ["back", "blocks"], caption: "seen from behind — the printer side is on the right here", labels: [{ at: [X - T - 10, Y - T - 10, Z + T], text: "M3 bolt", dx: -30, dy: -30 }, { at: [40, 45, Z + T], text: "cables out", dx: -40, dy: 30 }], html: `
     <ol><li>Glue the <b>corner blocks</b> into the four back corners, flush with the back edges, nut side towards the inside.</li>
-    <li>Screw the back panel on with <b>4 M3 bolts (10–20 mm)</b> into the blocks. Cables go out through the round hole at the bottom right.</li></ol>` },
+    <li>Screw the back panel on with <b>4 M3 bolts (10–20 mm)</b> into the blocks. Cables go out through the round hole at the bottom.</li></ol>` },
 ];
 
 const PARTS_TABLE = `
   <div class="tablewrap"><table>
     <tr><th>Sheet</th><th>Parts</th><th>Size (mm)</th></tr>
-    <tr><td class="mono">1 · 3 mm</td><td>Front (cassette opening, 2 button holes) · cassette shelf</td><td class="mono">380 × 384 · 159 × 254</td></tr>
-    <tr><td class="mono">2 · 3 mm</td><td>Back panel · button doubler · joint test · 12 corner-block squares</td><td class="mono">380 × 384 · 260 × 80</td></tr>
-    <tr><td class="mono">3 · 3 mm</td><td>Left side · right side (bell grille)</td><td class="mono">257 × 384 each</td></tr>
+    <tr><td class="mono">1 · 3 mm</td><td>Cassette shelf · <s>front</s> (replaced by sheet 10)</td><td class="mono">159 × 254</td></tr>
+    <tr><td class="mono">2 · 3 mm</td><td>Back panel · 12 corner-block squares · joint test · <s>button doubler</s> (not used now)</td><td class="mono">380 × 384</td></tr>
+    <tr><td class="mono">3 · 3 mm</td><td>Left side (bell grille) · right side</td><td class="mono">257 × 384 each</td></tr>
     <tr><td class="mono">4 · 3 mm</td><td>Bottom (placement marks) · lid · 4 lid cleats</td><td class="mono">380 × 257 · 220 × 170 · 12 × 12</td></tr>
     <tr><td class="mono">5 · 3 mm</td><td>Top (opening above the printer)</td><td class="mono">380 × 257</td></tr>
     <tr><td class="mono">6 · 3 mm</td><td>Printer shelf · 4 wedges</td><td class="mono">213 × 254 · 140 × 25</td></tr>
     <tr><td class="mono">7 · 2 mm</td><td>Divider wall</td><td class="mono">254 × 378</td></tr>
+    <tr><td class="mono">8 · 3 mm</td><td>4 nut squares, roomier hexagons (if sheet 2's were too tight)</td><td class="mono">20 × 20</td></tr>
+    <tr><td class="mono">10 · 3 mm</td><td>New front (small window, cable hole) · console top · console front strip</td><td class="mono">380 × 384 · 374 × 84 · 374 × 46</td></tr>
+    <tr><td class="mono">11 · 3 mm</td><td>Console back wall · 2 console sides · console doubler</td><td class="mono">374 × 74 · 80 × 79 · 260 × 56</td></tr>
+    <tr><td class="mono">12 · 3 mm</td><td>Test pieces: finger joint, tab + notch, 30 mm button hole — cut first</td><td class="mono">210 × 93</td></tr>
   </table></div>
-  <p style="margin-top:10px"><span class="tag">also</span> 4 × M3 bolt (10–20 mm) + 4 × M3 nut · wood glue · tape or clamps to hold joints while the glue sets</p>`;
+  <p style="margin-top:10px"><span class="tag">also</span> 4 × M3 bolt (10–20 mm) + 4 × M3 nut · wood glue · tape or clamps to hold joints while the glue sets · a 25 mm drill for cable holes in the shelves</p>`;
 
 const host = document.getElementById("steps");
 host.style.cssText = "display:grid;gap:22px";
@@ -320,7 +372,7 @@ STEPS.forEach((s, i) => {
   // back views get a FRONT marker: seen from behind, left and right swap
   const marks = s.view && s.view !== "front" && !s.noFront ? [{ at: [X / 2, Y, 0], text: "FRONT", dx: -10, dy: -24 }] : [];
   const fig = s.fig || (s.view ? render(s.view, s.parts, s.hl, [...marks, ...(s.labels || [])]) +
-    `<figcaption>${s.caption ? s.caption : s.view === "front" ? "seen from the front" : s.view === "top" ? "seen from above and behind" : "seen from behind, through the open back — the printer side is on the left here"}</figcaption>` : "");
+    `<figcaption>${s.caption ? s.caption : s.view === "front" ? "seen from the front" : s.view === "top" ? "seen from above and behind" : "seen from behind, through the open back — the printer side is on the right here"}</figcaption>` : "");
   html += `<section class="step${s.wide || !fig ? " wide" : ""}">` +
     (fig ? `<figure>${fig}</figure>` : "") +
     `<div class="text"><div class="num">Step ${i + 1}</div><h2>${s.title}</h2>${s.html}</div></section>`;
