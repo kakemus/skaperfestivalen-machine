@@ -478,19 +478,29 @@ def build():
 # beside the motors, so push the cassette against the divider.
 CAS_X_BUILT = X - DIV_X + 1          # cassette's left side: 1 mm right of the mirrored divider (216..218)
 BUTTON_D_NEW = 28.0                  # 27.5 came out too small; 28 fits the buttons with a little room
+# The front's window frames only the cassette's own paper window (make_cassette.py:
+# window 39.7–103.7 mm from the cassette's left side, 63–153 mm down from its top —
+# matches the maker's photo within ~2 mm), so the light sensor, its tape and the
+# marks stay hidden; WIN_INSET smaller on every side so a slightly-off cassette
+# doesn't show the window's edges. (2026-10-19, on request; was the whole cassette front.)
+CAS_WIN_X = (39.7, 103.7)
+CAS_WIN_DOWN = (63.0, 153.0)
+WIN_INSET = 2.0
 NO_KERF = 'fill="none" stroke="#00a000" stroke-width="0.1"'   # green = cut with kerf offset OFF
 
 
 def front_built():
     s = [poly(outline(X, Y, ("F", "F", "F", "F")))]
-    x0, x1 = CAS_X_BUILT + LIP, CAS_X_BUILT + CAS_W - LIP
-    s.append(rect(x0, v_front(CAS_SHELF + CAS_H - LIP), x1 - x0, CAS_H - 2 * LIP, style=NO_KERF, r=2))
+    x0, x1 = CAS_X_BUILT + CAS_WIN_X[0] + WIN_INSET, CAS_X_BUILT + CAS_WIN_X[1] - WIN_INSET
+    top = CAS_SHELF + CAS_H - CAS_WIN_DOWN[0] - WIN_INSET            # window top, from the outer bottom
+    h = CAS_WIN_DOWN[1] - CAS_WIN_DOWN[0] - 2 * WIN_INSET
+    s.append(rect(x0, v_front(top), x1 - x0, h, style=NO_KERF, r=2))
     for bx in BUTTONS_X:
         s.append(circle(bx, v_front(BUTTON_Y), BUTTON_D_NEW, style=NO_KERF))
     dx, dy, dw, dh = DOUBLER
     s.append(rect(dx, v_front(dy + dh), dw, dh, style=MARK))
     s.append(text(T + 6, Y - 10, "FRONT (for the mirrored build) — this face out. Blue box: glue the doubler behind."))
-    s.append(text(x0 + 4, v_front(CAS_SHELF + CAS_H - LIP) + 10, "cassette window", 5))
+    s.append(text(x0, v_front(top) - 3, "window", 5))
     return s, X, Y, 0, 0
 
 
