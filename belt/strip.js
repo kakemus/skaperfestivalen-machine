@@ -23,7 +23,7 @@ export const DEFAULT_STRIP = {
 
 // A screen can instead carry its own content (cfg.screens[i], e.g. Kvitteringsspillet's
 // questions, game/kvitteringTegning.js): { head, box, price, lines, answers, foot } —
-// all optional strings (lines: an array), laid out inside the part of the screen
+// all optional strings (lines: an array; image: a ready canvas, instead of the box), laid out inside the part of the screen
 // that shows through the window (screens/README.md: 63 × 90 mm from 72, 40 px; the
 // cabinet's front window is 2 mm smaller again, so a little margin inside that).
 const WIN = { x: 92, y: 60, w: 464, h: 680 };
@@ -145,7 +145,10 @@ function drawScreen(ctx, sc, top) {
     ctx.fillStyle = "#000";
     bottom -= 90;
   }
-  if (sc.box) {
+  if (sc.image) {                                    // a ready black-and-white picture (game/kvitteringTegning.js)
+    ctx.drawImage(sc.image, x0 + (w - sc.image.width) / 2, y);
+    y += sc.image.height + 10;
+  } else if (sc.box) {
     const bh = 210;
     ctx.lineWidth = 4;
     ctx.strokeRect(x0 + 40, y, w - 80, bh);

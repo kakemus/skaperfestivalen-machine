@@ -16,7 +16,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 c";
+const VERSION = "phone 2026-10-20 d";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -74,8 +74,11 @@ function runTimer(seconds, from = 1) {
 // ---------- belt + game ----------
 const belt = createBelt({ canvas: document.createElement("canvas"), send: line => controller.send(line) });
 // one screen per question (START = question 1), so the strip has questions − 1 levels above START
-const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, MANUS.sporsmal.length - 1), screens: tegning.skjermer(MANUS) });
+// the pictures load in the background; until then (or if one is missing) its screen shows a text box
+let bilder = {};
+const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, MANUS.sporsmal.length - 1), screens: tegning.skjermer(MANUS, bilder) });
 belt.setStrip(drawStrip(stripCfg()), stripCfg());
+tegning.lastBilder(MANUS).then(b => { bilder = b; belt.setStrip(drawStrip(stripCfg()), stripCfg()); });
 
 const print = (label, build) => printer.print({ label, build }).catch(e => log("Print failed: " + e.message));
 

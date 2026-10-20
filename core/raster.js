@@ -128,7 +128,7 @@ export function adjustBrightnessContrast(canvas, { brightness = 1, contrast = 1 
   return canvas;
 }
 
-function ditherFloydSteinberg(ctx, x, y, w, h) {
+export function ditherFloydSteinberg(ctx, x, y, w, h) {
   const imgData = ctx.getImageData(x, y, w, h);
   const d = imgData.data;
   const gray = new Float32Array(w * h);
