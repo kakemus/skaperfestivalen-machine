@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 n";
+const VERSION = "phone 2026-10-20 o";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -172,9 +172,14 @@ on("controller:error", ({ message }) => log("micro:bit: " + message));
 // The cause isn't known yet, so: a PING every 5 s; two unanswered in a row → log what's still
 // coming from it, reset it the way its button does (a serial break), and put the game back
 // on START (the board lost its place). The log then shows how often, and what came before.
-let pingSent = 0, lastPong = Date.now(), lastHb = 0, misses = 0, resetting = false;
+// Only ONE automatic reset until the board answers again: on 2026-10-20 it didn't come back
+// after one, and a reset every 15 s kept it from ever starting (and overrode its own button).
+let pingSent = 0, lastPong = Date.now(), lastHb = 0, misses = 0, resetting = false, autoResetUsed = false;
 on("controller:raw", ({ line }) => {
-  if (line === "PONG") { lastPong = Date.now(); misses = 0; }
+  if (line === "PONG") {
+    if (misses || autoResetUsed) pill("sMicrobit", "connected", true);
+    lastPong = Date.now(); misses = 0; autoResetUsed = false;
+  }
   if (line.startsWith("HB:")) lastHb = Date.now();
 });
 on("controller:connected", () => { lastPong = Date.now(); misses = 0; pingSent = 0; });
@@ -186,13 +191,14 @@ every(5000, async () => {
     log(`micro:bit didn't answer (${misses}) — last heartbeat ${hb}`);
     pill("sMicrobit", "not answering", false);
   }
-  if (misses >= 2) {
+  if (misses === 2 && autoResetUsed) log("micro:bit still not answering after its reset — unplug its USB cable and plug it back in");
+  if (misses >= 2 && !autoResetUsed) {
     misses = 0;
+    autoResetUsed = true;
     resetting = true;
     log("micro:bit: resetting it (like its reset button)");
     if (await controller.resetBoard()) {
       await new Promise(r => after(4000, r));                  // it starts up again
-      pill("sMicrobit", "connected", true);
       controller.send(`SET:screens:${MANUS.sporsmal.length}`);
       log("micro:bit reset — the game goes back to START");
       game.reset();

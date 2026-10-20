@@ -90,7 +90,10 @@ class UsbSerialPort {
   async sendBreak(ms = 100) {
     const d = this.device, comm = d.configuration?.interfaces.find(i => i.alternates[0].interfaceClass === 2);
     if (!comm) throw new Error("no serial control interface");
-    await d.controlTransferOut({ requestType: "class", recipient: "interface", request: 0x23, value: ms, index: comm.interfaceNumber });
+    const brk = value => d.controlTransferOut({ requestType: "class", recipient: "interface", request: 0x23, value, index: comm.interfaceNumber });
+    await brk(ms);
+    await new Promise(r => setTimeout(r, ms + 50));
+    await brk(0);          // and end it for sure: a break left on could hold the board in reset (2026-10-20)
   }
 
   async close() {
