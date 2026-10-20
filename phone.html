@@ -42,6 +42,10 @@
   #panel h2 { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin: 18px 0 8px; }
   #panel button { width: 100%; background: #2a2a35; color: #fff; border: 1px solid #444; border-radius: 8px; padding: 13px; font-size: 16px; font-weight: 700; margin-top: 8px; }
   #panel button.on { background: #2f6b3d; border-color: #7dffa0; }
+  #panel button.stop { background: #c62828; border-color: #ff6b6b; }
+  #panel .hold { touch-action: none; -webkit-user-select: none; user-select: none; }
+  #panel details { margin-top: 22px; border-top: 1px solid #333; padding-top: 10px; }
+  #panel summary { font-size: 13px; color: #999; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; padding: 6px 0; }
   #panel .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } #panel .two button { margin-top: 0; }
   #panel .three { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 8px; } #panel .three button { margin-top: 0; }
   #panel label { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; }
@@ -72,37 +76,46 @@
 <div id="otherTab" hidden>The machine is already open in another tab — close that one.</div>
 
 <div id="panel" hidden>
-  <button id="close" style="margin-top:0">Close ✕</button>
+  <!-- most used first; rarely used things are in "More" at the bottom (2026-10-20) -->
+  <div class="two"><button id="close" style="margin-top:0">Close ✕</button><button id="stop" class="stop" style="margin-top:0">■ STOP</button></div>
 
-  <h2>Connections</h2>
-  <div class="pill"><span>Printer</span><b id="sPrinter" class="dim">–</b></div>
+  <div class="pill" style="margin-top:10px"><span>Printer</span><b id="sPrinter" class="dim">–</b></div>
   <div class="pill"><span>micro:bit</span><b id="sMicrobit" class="dim">–</b></div>
   <div class="pill"><span>Belt position</span><b id="sPos" class="dim">–</b></div>
   <div class="two" style="margin-top:8px"><button id="connectPrinter">Connect printer</button><button id="connectMicrobit">Connect micro:bit</button></div>
-  <p class="dim" style="margin-top:6px">Only needed once — after that the phone reconnects by itself when they're plugged in.</p>
 
-  <h2>Test</h2>
-  <div class="two"><button id="tYes">JA</button><button id="tNo">NEI</button></div>
-  <div class="two" style="margin-top:8px"><button id="tStep">Step up</button><button id="tHome">Find START</button></div>
+  <h2>Belt</h2>
+  <div class="two"><button id="tStep">▲ Step up</button><button id="tDown">▼ Step down</button></div>
+  <div class="two" style="margin-top:8px"><button id="holdUp" class="hold">⇧ Hold: wind up</button><button id="holdDown" class="hold">⇩ Hold: wind down</button></div>
+  <div class="two" style="margin-top:8px"><button id="tHome">⏮ Find START</button><button id="tCal">Auto-calibrate</button></div>
+  <p class="dim" style="margin-top:6px">Auto-calibrate: put the paper on START first; it runs up 1½ screens, measures, then finds START again.
+    After moving the belt by hand, press Reset game.</p>
+
+  <h2>Game</h2>
+  <button id="tReset" style="margin-top:0">Reset game (find START)</button>
+  <div class="two" style="margin-top:8px"><button id="tYes">JA</button><button id="tNo">NEI</button></div>
   <div class="two" style="margin-top:8px"><button id="tPrint">Test print</button><button id="tCut">Cut</button></div>
   <div class="two" style="margin-top:8px"><button id="tBell">Ring bell</button><button id="tWin">Win light</button></div>
-  <button id="tReset">Reset game (find START)</button>
-  <button id="beltPage">Belt setup &amp; calibration →</button>
-
-  <h2>Game: Kvitteringsspillet</h2>
-  <p class="dim">Aksel's script (game/manus.js): one question per screen on the scroll, the answers on the receipt.
-    A life is 60 seconds = 67 years, counted only while the player chooses; the light flickers faster in the last 10 s.
-    JA = a question's first answer, NEI = its second.</p>
-  <div class="two" style="margin-top:8px"><button id="previewStrip">Preview strip</button><button id="printStrip">Print strip</button></div>
-  <p class="dim" style="margin-top:6px" id="stripInfo"></p>
-  <img id="stripImg" hidden alt="The scroll" style="width:100%;margin-top:8px;background:#fff;border-radius:6px">
-  <p class="dim" style="margin-top:12px">Push to your phone when someone wins (optional): an ntfy topic name — subscribe to the same name in the ntfy app or at ntfy.sh/app. Needs internet.</p>
-  <div class="two"><input id="ntfy" placeholder="secret-topic-name" style="padding:10px;font-size:16px;background:#000;color:#fff;border:1px solid #444;border-radius:6px"><button id="ntfyTest" style="margin-top:0">Test push</button></div>
 
   <h2>Log</h2>
   <button id="sendLog" style="margin-top:0">Send log to the Mac</button>
   <pre id="log"></pre>
-  <p class="dim" style="margin-top:10px" id="version"></p>
+
+  <h2>Strip</h2>
+  <div class="two"><button id="previewStrip" style="margin-top:0">Preview strip</button><button id="printStrip" style="margin-top:0">Print strip</button></div>
+  <p class="dim" style="margin-top:6px" id="stripInfo"></p>
+  <img id="stripImg" hidden alt="The scroll" style="width:100%;margin-top:8px;background:#fff;border-radius:6px">
+
+  <details>
+    <summary>More</summary>
+    <p class="dim" style="margin-top:8px">Kvitteringsspillet, Aksel's script (game/manus.js): one question per screen on the scroll, the answers on the receipt.
+      A life is 60 seconds = 67 years, counted only while the player chooses; the light flickers faster in the last 10 s.
+      JA = a question's first answer, NEI = its second.</p>
+    <p class="dim" style="margin-top:12px">Push to your phone when someone wins (optional): an ntfy topic name — subscribe to the same name in the ntfy app or at ntfy.sh/app. Needs internet.</p>
+    <div class="two"><input id="ntfy" placeholder="secret-topic-name" style="padding:10px;font-size:16px;background:#000;color:#fff;border:1px solid #444;border-radius:6px"><button id="ntfyTest" style="margin-top:0">Test push</button></div>
+    <button id="beltPage">All belt settings (light sensor, motors, bell, backlight, repeat test) →</button>
+    <p class="dim" style="margin-top:10px" id="version"></p>
+  </details>
 </div>
 <script type="module" src="phone.js"></script>
 </body>

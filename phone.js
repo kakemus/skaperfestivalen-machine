@@ -16,7 +16,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 kvittering b";
+const VERSION = "phone 2026-10-20 c";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -192,8 +192,39 @@ $("connectPrinter").onclick = () => printer.connect();
 $("connectMicrobit").onclick = () => controller.connect();
 $("tYes").onclick = () => game.answer(true);
 $("tNo").onclick = () => game.answer(false);
-$("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
-$("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit connected");
+// the belt by hand (the same commands as the belt setup page). The game doesn't know about
+// these moves — after them, Reset game puts the belt and the game back on START together.
+const toBoard = line => controller.send(line) || (log("No micro:bit connected"), false);
+$("tStep").onclick = () => toBoard("BELT:STEP");
+$("tDown").onclick = () => toBoard("BELT:BACK:1");
+$("tHome").onclick = () => toBoard("BELT:HOME");
+$("tCal").onclick = () => toBoard("CALIBRATE") && log("Auto-calibrating — the belt runs up, measures and finds START again");
+// hold-to-run: HOLD:±1 every 250 ms while pressed (the board stops by itself 600 ms
+// after the last one, so a lost connection can't leave it running), HOLD:0 on release
+let holdTimer = null, holdDir = 0;
+function holdEnd() {
+  if (!holdDir) return;
+  cancel(holdTimer);
+  holdTimer = null;
+  holdDir = 0;
+  document.querySelectorAll("#panel .hold.on").forEach(b => b.classList.remove("on"));
+  controller.send("HOLD:0");
+}
+for (const [id, dir] of [["holdUp", 1], ["holdDown", -1]]) {
+  const btn = $(id);
+  btn.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    btn.setPointerCapture?.(e.pointerId);
+    if (holdDir || !toBoard(`HOLD:${dir}`)) return;
+    holdDir = dir;
+    btn.classList.add("on");
+    holdTimer = every(250, () => controller.send(`HOLD:${dir}`));
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) btn.addEventListener(ev, holdEnd);
+}
+window.addEventListener("blur", holdEnd);
+document.addEventListener("visibilitychange", () => { if (document.hidden) holdEnd(); });
+$("stop").onclick = () => { holdEnd(); toBoard("STOP") && log("STOP sent"); };
 $("tPrint").onclick = () => print("Test", () => tegning.linjer(["1. Ja -------------------- 0 år", "Barnetrygd               1900 kr", "", "TESTUTSKRIFT"]));
 $("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
