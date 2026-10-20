@@ -116,7 +116,7 @@
     <div class="papir-rull" id="papirRull"><div class="papir" id="papir"></div></div>
     <div class="skriver-bunn">
       <span id="saldo"></span>
-      <label><input type="checkbox" id="rask"> Rask skriver og belte</label>
+      <label><input type="checkbox" id="rask"> Rask utskrift (for testing)</label>
     </div>
   </section>
 </main>
@@ -126,8 +126,9 @@
 </details>
 
 <script type="module">
-import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS } from "./game/kvittering.js";
+import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS } from "./game/kvittering.js";
 import { ding } from "./game/sound.js";
+import { MANUS } from "./game/manus.js";
 
 const $ = id => document.getElementById(id);
 const rask = () => $("rask").checked;
@@ -188,6 +189,8 @@ function lys(klasse, ms) {
 }
 
 // ---------- the printer ----------
+// The game hands over one line at a time and waits its reading time itself;
+// the printer just puts the line on the paper, a few characters at a time.
 let gammel = false;   // the last receipt was cut: the next print starts a fresh one
 async function skriv(lines) {
   const papir = $("papir");
@@ -196,9 +199,14 @@ async function skriv(lines) {
     gammel = false;
   }
   for (const l of lines) {
-    papir.appendChild(tekstEl("div", l || " "));
+    const el = papir.appendChild(tekstEl("div", " "));
     $("papirRull").scrollTop = $("papirRull").scrollHeight;
-    await pause(rask() ? 8 : 45);
+    if (!l) continue;
+    for (let i = 3; i < l.length && !rask(); i += 3) {
+      el.textContent = l.slice(0, i);
+      await pause(25);
+    }
+    el.textContent = l;
   }
 }
 async function kutt() {
@@ -218,15 +226,17 @@ function logg(t) {
 }
 
 let pauseSlutt = 0;
-const game = createKvitteringGame({
+let game = null;
+game = createKvitteringGame({
   now: () => performance.now(),
+  linjeMs: () => rask() ? 60 : LINJE_MS,
   after: (ms, fn) => setTimeout(fn, ms),
   cancel: id => clearTimeout(id),
   belt: {
     step: () => flyttTil(pos + 1, rask() ? 200 : 1600),
     rewind: () => flyttTil(0, rask() ? 200 : Math.max(800, pos * 450)),
   },
-  print: (label, lines) => skriv(lines),
+  print: (label, lines) => { visSaldo(); return skriv(lines); },
   cut: kutt,
   bell(n) { ding(n); logg(`Bjelle × ${n}`); },
   flash(riktig) { lys(riktig ? "gronn" : "rod", 900); },
@@ -238,13 +248,19 @@ const game = createKvitteringGame({
     $("jaTekst").textContent = state === "deciding" && valg[0] && !/^ja$/i.test(valg[0]) ? valg[0] : "";
     $("neiTekst").textContent = state === "deciding" && valg[1] && !/^nei$/i.test(valg[1]) ? valg[1] : "";
     if (state === "deciding") { visSporsmal(nr, sporsmal); if (!$("lys").className.includes("skynd")) lys(); }
+    // the belt moves on while the answer prints: the next question must already be on the strip
+    if (state === "answering" && MANUS.sporsmal[nr + 1]) visSporsmal(nr + 1, MANUS.sporsmal[nr + 1]);
     if (state === "starting") visStor("START", "Beltet spoles til start …");
     if (state === "over") visStor(spill.tapt ? "SLUTT" : "DU KLARTE DET!", "Kvitteringen skrives ut …");
     if (state === "pause") pauseSlutt = performance.now() + PAUSE_ETTER_SLUTT_MS;
     if (state === "attract") { skjermer.slice(1).forEach(el => el.remove()); skjermer.length = 1; }
-    $("saldo").textContent = state === "attract" ? "" : `Venner: ${spill.venner.length} · Kroner: ${spill.kroner}`;
+    visSaldo();
   },
 });
+function visSaldo() {
+  const s = game?.spill;
+  $("saldo").textContent = !s || game.state === "attract" ? "" : `Venner: ${s.venner.length} · Kroner: ${s.kroner}`;
+}
 
 // ---------- the life clock and the status line, drawn every frame ----------
 function tegn() {
@@ -258,8 +274,8 @@ function tegn() {
     attract: "Venter på en spiller.",
     starting: "Starter …",
     deciding: "Klokka går. Velg JA eller NEI.",
-    answering: "Maskinen skriver og flytter beltet. Klokka står stille.",
-    over: "Spillet er over.",
+    answering: "Kvitteringen skrives ut. Klokka står stille mens du leser.",
+    over: "Spillet er over. Sluttkvitteringen skrives ut.",
     pause: `Ta kvitteringen! Ny runde om ${Math.max(0, Math.ceil((pauseSlutt - performance.now()) / 1000))} s.`,
     resetting: "Tilbake til start …",
   }[game.state] || game.state;

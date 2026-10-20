@@ -14,7 +14,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 import { MANUS } from "../game/manus.js";
 import * as ny from "../game/kvitteringMotor.js";
-import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS } from "../game/kvittering.js";
+import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS } from "../game/kvittering.js";
 
 const rot = fileURLToPath(new URL("..", import.meta.url));
 const html = readFileSync(rot + "kvitteringsspillet/kvitteringsspillet.html", "utf8");
@@ -151,8 +151,10 @@ function lagMaskin({ skriverHenger = false } = {}) {
       await tom();
     },
     utskrift: [], kutt: 0, steg: 0, spoling: 0, tilstander: [], logg: [],
+    tider: [],
     print(label, lines) {
       m.utskrift.push(...lines);
+      for (const l of lines) m.tider.push({ l, t });
       return skriverHenger ? new Promise(() => {}) : new Promise(r => m.after(300 + lines.length * 20, r));
     },
     cut() { m.kutt++; m.utskrift.push("✂"); return new Promise(r => m.after(200, r)); },
@@ -203,6 +205,25 @@ await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", 
   assert.equal(spill.alder, 6);                          // … men livet gikk ikke imens
   assert.equal(spill.igjenMs, LIVSTID_MS - 6000);
 });
+await sjekkAsync("kvitteringen skrives linje for linje, 2 s per tekstlinje, og livet står stille imens", async () => {
+  const m = lagMaskin(), spill = createKvitteringGame(m);
+  spill.start();
+  await tilSvar(m, spill);
+  await m.gå(3000); spill.answer(true);
+  const fra = m.tider.length;
+  await m.gå(10);
+  while (spill.state !== "deciding") {
+    assert.equal(spill.alder, 3, "alderen endret seg mens kvitteringen ble skrevet");
+    await m.gå(100);
+  }
+  const linjer = m.tider.slice(fra);
+  assert.ok(linjer.length >= 5, "for få linjer");
+  for (let i = 1; i < linjer.length; i++) {
+    const ms = linjer[i].t - linjer[i - 1].t, forrige = linjer[i - 1].l;
+    assert.equal(ms, forrige ? LINJE_MS : LINJE_MS / 4, `"${forrige}" fikk ${ms} ms`);
+  }
+  assert.ok(LIVSTID_MS - 3000 - spill.igjenMs < 100, `${spill.igjenMs} ms igjen`);   // < 100 ms inn i neste spørsmål
+});
 await sjekkAsync("ingen svar: etter 60 s er tiden ute, «Du ble 67 år», kutt og tilbake til start", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   spill.start();
@@ -211,8 +232,8 @@ await sjekkAsync("ingen svar: etter 60 s er tiden ute, «Du ble 67 år», kutt o
   assert.equal(spill.state, "deciding");
   await m.gå(200);
   assert.equal(spill.state, "over");
+  await m.gå(20000);                         // sluttkvitteringen skrives, linje for linje
   assert.ok(m.utskrift.includes("Tiden er ute. Du ble 67 år."), m.utskrift.slice(-8).join("\n"));
-  await m.gå(2000);
   assert.equal(m.kutt, 1);
   await m.gå(PAUSE_ETTER_SLUTT_MS + 1000);
   assert.equal(spill.state, "attract");
@@ -247,14 +268,17 @@ await sjekkAsync("spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og e
   assert.ok(m.utskrift.includes("Vil du ha kvitteringen?"));
   assert.ok(m.utskrift.includes("DU KLARTE DET!"));
 });
-await sjekkAsync("en skriver som henger stopper ikke spillet", async () => {
+await sjekkAsync("en skriver som henger stopper ikke spillet, og venter bare én gang på den", async () => {
   const m = lagMaskin({ skriverHenger: true }), spill = createKvitteringGame(m);
   spill.start();
-  await m.gå(25000);
+  await m.gå(25000);                         // 20 s venting på skriveren, så videre
   assert.equal(spill.state, "deciding");
+  const fra = m.now();
   spill.answer(true);
-  await m.gå(25000);
+  await tilSvar(m, spill);
   assert.equal(spill.state, "deciding");
+  assert.ok(m.now() - fra < 30000, `svaret tok ${m.now() - fra} ms med en skriver som henger`);
+  assert.equal(m.logg.filter(l => l === "Skriveren svarer ikke").length, 1);
 });
 await sjekkAsync("en hel festivaldag (10 timer) med tilfeldige trykk: hvert spill ender, kuttes én gang og starter på nytt", async () => {
   let frø = 42;
@@ -269,9 +293,9 @@ await sjekkAsync("en hel festivaldag (10 timer) med tilfeldige trykk: hvert spil
     else if (r < 0.951) spill.reset();
     await m.gå(Math.floor(tilfeldig() * 4000));
     if (spill.state !== "attract") lengst = Math.max(lengst, m.now() - startTid);
-    assert.ok(m.now() - startTid < 4 * 60 * 1000 || spill.state === "attract", `et spill har vart ${m.now() - startTid} ms (${spill.state})`);
+    assert.ok(m.now() - startTid < 10 * 60 * 1000 || spill.state === "attract", `et spill har vart ${m.now() - startTid} ms (${spill.state})`);
   }
-  assert.ok(spillTotalt > 200, "bare " + spillTotalt + " spill");
+  assert.ok(spillTotalt > 100, "bare " + spillTotalt + " spill");
   assert.ok(m.kutt <= spillTotalt && m.kutt >= spillTotalt * 0.9, `${m.kutt} kutt for ${spillTotalt} spill`);
   console.log(`       ${spillTotalt} spill, ${m.kutt} kutt, lengste spill ${Math.round(lengst / 1000)} s`);
 });
