@@ -21,6 +21,13 @@ export const DEFAULT_STRIP = {
   titles: "START\nNIVÅ 1\nNIVÅ 2\nNIVÅ 3\nNIVÅ 4\nNIVÅ 5\nNIVÅ 6\nNIVÅ 7\nNIVÅ 8\nNIVÅ 9\nDU VANT!",
 };
 
+// A screen can instead carry its own content (cfg.screens[i], e.g. Kvitteringsspillet's
+// questions, game/kvitteringTegning.js): { head, box, price, lines, answers, foot } —
+// all optional strings (lines: an array), laid out inside the part of the screen
+// that shows through the window (screens/README.md: 63 × 90 mm from 72, 40 px; the
+// cabinet's front window is 2 mm smaller again, so a little margin inside that).
+const WIN = { x: 92, y: 60, w: 464, h: 680 };
+
 export function stripLayout(cfg) {
   const screen = mmToDots(cfg.screenMm), leader = mmToDots(cfg.leaderMm);
   const count = cfg.levels + 1;
@@ -66,6 +73,11 @@ export function drawStrip(cfg) {
     const h = i === 0 ? markH * 3 : markH;
     ctx.fillRect(0, mid - markH / 2, markW, h);
 
+    if (cfg.screens && cfg.screens[i]) {
+      drawScreen(ctx, cfg.screens[i], top);
+      continue;
+    }
+
     // frame
     ctx.lineWidth = 4;
     ctx.strokeRect(left, top + 10, w, L.screen - 20);
@@ -109,6 +121,65 @@ export function drawStrip(cfg) {
   ctx.font = font(28);
   for (const y of [(glue + L.leader) / 2, L.height - (glue + L.leader) / 2]) ctx.fillText("↑ OPP ↑", cx, y);
   return c;
+}
+
+/** One screen with its own content (see WIN above), top to bottom: a small head line,
+ *  a framed box (a picture's stand-in), its price, the question in big letters, the
+ *  answers, and a small foot line. The question is set as big as fits what's left. */
+function drawScreen(ctx, sc, top) {
+  const x0 = WIN.x, w = WIN.w, cx = x0 + w / 2;
+  let y = top + WIN.y, bottom = top + WIN.y + WIN.h;
+  ctx.textBaseline = "top";
+  const line = (text, size, opts) => { fitSize(ctx, text, w, size, opts); ctx.fillText(text, cx, y); y += Math.round(size * 1.2); };
+  if (sc.head) { line(sc.head, 26, { weight: "bold" }); y += 8; }
+  if (sc.foot) {
+    fitSize(ctx, sc.foot, w, 24, { weight: "normal" });
+    ctx.fillText(sc.foot, cx, bottom - 26);
+    bottom -= 40;
+  }
+  if (sc.answers) {
+    ctx.fillRect(x0, bottom - 74, w, 74);              // the answers, reversed out of a black band
+    ctx.fillStyle = "#fff";
+    fitSize(ctx, sc.answers, w - 24, 46, { weight: "900" });
+    ctx.fillText(sc.answers, cx, bottom - 37 - 23);
+    ctx.fillStyle = "#000";
+    bottom -= 90;
+  }
+  if (sc.box) {
+    const bh = 210;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x0 + 40, y, w - 80, bh);
+    const words = wrapLines(ctx, `[ ${sc.box} ]`, w - 110, 34);
+    const lh = 40, y0 = y + bh / 2 - words.length * lh / 2;
+    words.forEach((l, k) => ctx.fillText(l, cx, y0 + k * lh));
+    y += bh + 12;
+  }
+  if (sc.price) line(sc.price, 52, { weight: "900" });
+  // the question: largest size at which all of it fits between y and bottom
+  const text = (sc.lines || []).join("\n");
+  let size = 64, wrapped;
+  for (;;) {
+    wrapped = text.split("\n").flatMap(p => wrapLines(ctx, p, w, size, "bold"));
+    if (size <= 20 || wrapped.length * size * 1.18 <= bottom - y - 10) break;
+    size -= 2;
+  }
+  const lh = Math.round(size * 1.18);
+  let ty = y + (bottom - y - wrapped.length * lh) / 2;
+  ctx.font = font(size, { weight: "bold" });
+  for (const l of wrapped) { ctx.fillText(l, cx, ty); ty += lh; }
+  ctx.textBaseline = "middle";
+}
+
+function wrapLines(ctx, text, width, size, weight = "bold") {
+  ctx.font = font(size, { weight });
+  const out = [];
+  let cur = "";
+  for (const word of String(text).split(" ")) {
+    const next = cur ? cur + " " + word : word;
+    if (cur && ctx.measureText(next).width > width) { out.push(cur); cur = word; } else cur = next;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 export const stripLengthCm = cfg => stripLayout(cfg).height / DOTS_PER_MM / 10;
