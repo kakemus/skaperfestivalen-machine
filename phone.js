@@ -1,33 +1,32 @@
 // The phone version of the machine (phone.html): the printer and the micro:bit
-// on the phone's USB port, a hidden operator panel. Since 2026-10-16 it runs the
-// maker's life simulator (game/life.js): the printed receipt is the only screen
-// visitors see — the phone's own screen just mirrors the state for the operator.
+// on the phone's USB port, a hidden operator panel. Since 2026-10-20 it runs
+// Kvitteringsspillet, Aksel's script (game/kvittering.js; before that the life
+// simulator, game/life.js): the scroll shows the question, the printed receipt is
+// the answer — the phone's own screen just mirrors the state for the operator.
 // (The Mac page, main.js, still runs the old quiz.) Must keep working on Chrome 87.
 import { on } from "./core/eventBus.js";
 import * as printer from "./core/printer.js";
 import * as controller from "./core/controller.js";
 import { whenInCharge } from "./core/singleTab.js";
 import { after, every, cancel } from "./core/clock.js";
-import { createLifeGame } from "./game/life.js";
-import { DEFAULT_CARDS, FINAL_TEXT, parseCards, kroner } from "./game/cards.js";
-import * as receipt from "./game/receipt.js";
+import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
+import { MANUS } from "./game/manus.js";
+import * as tegning from "./game/kvitteringTegning.js";
 import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
-import { DEFAULT_STRIP, drawStrip } from "./belt/strip.js";
+import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-16 c";
+const VERSION = "phone 2026-10-20 kvittering";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
 const settings = (() => {
-  // cards / finalText: null = the defaults in game/cards.js; ntfyTopic: "" = no push notification
-  const d = { answerSeconds: 30, cards: null, finalText: null, ntfyTopic: "" };
+  // ntfyTopic: "" = no push notification. (Older keys from the life game — answerSeconds,
+  // cards, finalText — may still be stored; nothing reads them now.)
+  const d = { ntfyTopic: "" };
   try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
-const cardText = () => settings.cards ?? DEFAULT_CARDS;
-const cards = () => parseCards(cardText());
-const finalText = () => settings.finalText ?? FINAL_TEXT;
 
 // ---------- log ----------
 const lines = [];
@@ -60,11 +59,12 @@ function showLevels(level) {
   const n = belt.last;
   $("levels").innerHTML = Array.from({ length: n }, (_, i) => `<b class="${i < level ? "on" : ""}"></b>`).join("");
 }
-function runTimer(seconds) {
+/** The bar runs out over `seconds`, starting `from` full (the life left). */
+function runTimer(seconds, from = 1) {
   const bar = $("timer"), fill = bar.firstElementChild;
   bar.style.visibility = seconds ? "visible" : "hidden";
   fill.style.transition = "none";
-  fill.style.transform = "scaleX(1)";
+  fill.style.transform = `scaleX(${from})`;
   if (!seconds) return;
   void fill.offsetWidth;                                // restart the transition
   fill.style.transition = `transform ${seconds}s linear`;
@@ -72,7 +72,7 @@ function runTimer(seconds) {
 }
 
 // attract mode: a few lines taking turns until a coin comes
-const ATTRACT = ["TRYKK JA + NEI FOR Å STARTE", "KJØP DEG OPP I LIVET", "IKKE NØL"];
+const ATTRACT = ["TRYKK JA + NEI FOR Å STARTE", "HELE LIVET PÅ EN KVITTERING", "60 SEKUNDER. 67 ÅR."];
 let attractTimer = null, attractI = 0;
 function attract(on) {
   if (attractTimer) { cancel(attractTimer); attractTimer = null; }
@@ -88,12 +88,9 @@ function attract(on) {
 
 // ---------- belt + game ----------
 const belt = createBelt({ canvas: document.createElement("canvas"), send: line => controller.send(line) });
-// one screen per card (START = card 1), so the strip has cards − 1 levels above START
-function setStrip() {
-  const cfg = { ...DEFAULT_STRIP, levels: Math.max(1, cards().length - 1) };
-  belt.setStrip(drawStrip(cfg), cfg);
-}
-setStrip();
+// one screen per question (START = question 1), so the strip has questions − 1 levels above START
+const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, MANUS.sporsmal.length - 1), screens: tegning.skjermer(MANUS) });
+belt.setStrip(drawStrip(stripCfg()), stripCfg());
 
 const print = (label, build) => printer.print({ label, build }).catch(e => log("Print failed: " + e.message));
 
@@ -104,34 +101,47 @@ function notify(text) {
     .then(() => log("Push sent"), e => log("Push failed (no internet?): " + e.message));
 }
 
-const game = createLifeGame({
-  cards,
-  seconds: () => settings.answerSeconds,
-  finalText,
+const game = createKvitteringGame({
+  now: () => performance.now(),
+  after,
+  cancel,
   belt,
-  print,
-  cut: () => printer.cut().catch(e => log("Cut: " + e.message)),
+  // the game hands over one text line at a time; the start's title gets the big top
+  // (which has its own rule under it, so the start's "=====" line is left out)
+  print(label, lines) {
+    if (label === "Start") return lines[0] && lines[0][0] !== "=" ? print(label, () => tegning.topp(lines[0])) : Promise.resolve();
+    return print(label, () => tegning.linjer(lines));
+  },
+  // feed the end past the blade (it sits above the print head), then cut
+  cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
   flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
   celebrate() { controller.send("LED:WIN"); },
-  notify,
   idle() { runTimer(0); showLevels(0); attract(true); },
   log,
-  onState({ state, level, debt, card }) {
-    showLevels(level);
-    runTimer(state === "deciding" ? settings.answerSeconds : 0);
+  onState({ state, nr, sporsmal, spill, alder, igjenMs, valg }) {
+    showLevels(nr);
+    runTimer(state === "deciding" ? igjenMs / 1000 : 0, igjenMs / LIVSTID_MS);
+    if (state === "over" && !spill.tapt) notify("Noen klarte Kvitteringsspillet!");
     if (state === "attract") return;
     attract(false);
-    // the phone's screen is only for the operator: what the scroll shows and what's right
-    const what = { starting: "NYTT SPILL", deciding: card ? `NIVÅ ${level + 1}: ${card.title} · ${kroner(card.price)} KR` : "",
-      climbing: "KJØPT!", lost: "TAPT", won: "JACKPOT!", resetting: "TILBAKE TIL START" }[state] || state;
-    shown = [what + (state === "deciding" ? `\n(${card && card.buy ? "JA" : "NEI"} · GJELD ${kroner(debt)})` : ""), {}];
+    // the phone's screen is only for the operator: what the scroll shows, the age, the balance
+    const status = `${alder} ÅR · ${spill.kroner} KR · ${spill.venner.length} VENNER`;
+    const what = {
+      starting: "NYTT SPILL",
+      deciding: sporsmal ? `${sporsmal.nr}. ${sporsmal.tekst[sporsmal.tekst.length - 1]}\nJA = ${valg[0]} · NEI = ${valg[1] || valg[0]}` : "",
+      answering: "SKRIVER UT …",
+      over: spill.tapt ? "TAPT" : "DU KLARTE DET!",
+      pause: "TA KVITTERINGEN",
+      resetting: "TILBAKE TIL START",
+    }[state] || state;
+    shown = [what + "\n" + status, {}];
     show(...shown);
   },
 });
 // the board's Find START must know how many screens the strip has
-on("controller:connected", () => after(2500, () => controller.send(`SET:screens:${cards().length}`)));
+on("controller:connected", () => after(2500, () => controller.send(`SET:screens:${MANUS.sporsmal.length}`)));
 showLevels(0);
 attract(true);
 
@@ -140,7 +150,7 @@ on("controller:raw", ({ line }) => {
   belt.handleLine(line);
   if (line === "ANSWER:YES") game.answer(true);
   else if (line === "ANSWER:NO") game.answer(false);
-  else if (line.startsWith("COIN")) game.coin();
+  else if (line.startsWith("COIN")) game.start();
   const pos = line.match(/^(?:BELT:DONE|HB:\w+:W\d):(-?\d+)/);
   if (pos) $("sPos").textContent = pos[1] === "-1" ? "unknown" : pos[1] === "0" ? "START" : "screen " + pos[1];
   // heartbeats, live light readings and trace samples would flood the log
@@ -190,12 +200,12 @@ $("close").onclick = () => { $("panel").hidden = true; after(100, showAgain); };
 
 $("connectPrinter").onclick = () => printer.connect();
 $("connectMicrobit").onclick = () => controller.connect();
-$("tCoin").onclick = () => game.coin();
+$("tCoin").onclick = () => game.start();
 $("tYes").onclick = () => game.answer(true);
 $("tNo").onclick = () => game.answer(false);
 $("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
 $("tHome").onclick = () => controller.send("BELT:HOME") || log("No micro:bit connected");
-$("tPrint").onclick = () => print("Test", () => receipt.bought(1, cards()[0] || { title: "TEST", price: 0 }, 1234));
+$("tPrint").onclick = () => print("Test", () => tegning.linjer(["1. Ja -------------------- 0 år", "Barnetrygd               1900 kr", "", "TESTUTSKRIFT"]));
 $("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
@@ -206,21 +216,11 @@ $("tReset").onclick = () => { $("panel").hidden = true; game.reset(); };
 // same tab, so this page lets go of the micro:bit and the belt page takes it; "← Game" comes back
 $("beltPage").onclick = () => { location.href = "belt.html"; };
 
-$("answerSeconds").value = settings.answerSeconds;
-$("answerSeconds").onchange = () => { settings.answerSeconds = Math.max(5, Number($("answerSeconds").value) || 30); save(); };
-const countCards = () => {
-  const n = cards().length;
-  $("cCount").textContent = `${n} cards → ${n} screens on the strip`;
-};
-$("cards").value = cardText();
-$("cards").oninput = () => {
-  settings.cards = $("cards").value; save(); countCards(); setStrip(); showLevels(game.level);
-  controller.send(`SET:screens:${cards().length}`);
-};
-$("cReset").onclick = () => { settings.cards = null; $("cards").value = DEFAULT_CARDS; save(); countCards(); setStrip(); showLevels(0); };
-countCards();
-$("finalText").value = finalText();
-$("finalText").oninput = () => { settings.finalText = $("finalText").value; save(); };
+// the scroll: one screen per question — preview here, or print it (one long strip)
+$("stripInfo").textContent = `${MANUS.sporsmal.length} questions → ${MANUS.sporsmal.length} screens · strip ≈ ${stripLengthCm(stripCfg()).toFixed(0)} cm`;
+$("previewStrip").onclick = () => { $("stripImg").src = drawStrip(stripCfg()).toDataURL(); $("stripImg").hidden = false; };
+$("printStrip").onclick = () => printer.print({ label: "Paper strip", build: () => drawStrip(stripCfg()), slow: false })
+  .catch(e => log("Print failed: " + e.message));
 $("ntfy").value = settings.ntfyTopic;
 $("ntfy").onchange = () => { settings.ntfyTopic = $("ntfy").value.trim(); save(); };
 $("ntfyTest").onclick = () => settings.ntfyTopic ? notify("Test fra maskinen") : log("Type a topic name first");
@@ -229,7 +229,7 @@ $("ntfyTest").onclick = () => settings.ntfyTopic ? notify("Test fra maskinen") :
 window.addEventListener("keydown", e => {
   if (e.target.closest?.("input, textarea")) return;
   const k = e.key.toLowerCase();
-  if (k === "c") game.coin(); else if (k === "j") game.answer(true); else if (k === "n") game.answer(false);
+  if (k === "c") game.start(); else if (k === "j") game.answer(true); else if (k === "n") game.answer(false);
 });
 
 // ---------- offline copy (sw.js) ----------

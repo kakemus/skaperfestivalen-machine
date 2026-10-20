@@ -396,6 +396,19 @@ is printed with the age; JA = a question's first answer, NEI = its second; after
 sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
 with an on-screen machine, black and white (JA black, NEI white); the time left shows only on the
 receipt, the testing panel (D) shows kroner, venner, age, time and which answers can still win. `node tests/kvittering.test.mjs`: all 55 paths identical to the
-prototype's motor, then the game on a fake clock incl. a 10-hour day of random presses. Not wired
-into phone.js yet (it still runs game/life.js): left are the receipt drawing, the strip with one
-question per screen, and the switch in phone.js.
+prototype's motor, then the game on a fake clock incl. a 10-hour day of random presses.
+**Wired into phone.js (2026-10-20, Stener's session):** phone.js runs `createKvitteringGame` instead of
+the life game (life.js/cards.js/receipt.js stay, unused by the phone). `game/kvitteringTegning.js`
+draws the paper: `linjer()` sets the game's 32-character lines in a monospaced font sized to fit
+exactly 32 across (all-capital lines bold) with no margins, since the game prints one line per job
+and the pieces must join seamlessly; `topp()` the big title + date, `skjermer(manus)` one
+scroll screen per question. `belt/strip.js` gained `cfg.screens[i]` = { head, box, price, lines,
+answers, foot } drawn inside the window area (screens/README.md, minus the cabinet's 2 mm); without
+it the strip is drawn as before (main.js unchanged). Screen 0 = question 1 + "Start: trykk JA + NEI
+samtidig"; pictures are boxes with their description until real ones exist. The phone panel's Game
+section: Preview strip / Print strip; the old cards/seconds/final-text settings are gone. The
+"Start" label matters: its title line → `topp()`, its "=====" line is skipped (topp has a rule);
+`io.cut` feeds 15 mm past the blade first. Cache v17. Verified in Chrome with no hardware: a whole
+game by keyboard to time-up, cut, pause and back to attract, every printed piece collected and
+stitched (one seamless receipt); the strip rendered and looked at; `node tests/kvittering.test.mjs`
+all ok. Not tried on the real printer: whether 30+ separate small jobs per game print smoothly.
