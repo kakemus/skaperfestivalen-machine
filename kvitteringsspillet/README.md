@@ -47,9 +47,9 @@ tap.
 - **Gjort: spillet på maskinen, `game/kvittering.js`** (samme form som `createLifeGame(io)`):
   - Et liv er **60 sekunder = 67 år**. Klokka går bare mens spilleren velger, ikke mens maskinen
     skriver ut eller flytter beltet.
-  - Kvitteringen skrives **linje for linje, 2 sekunder per linje** (tomme linjer et halvt
-    sekund), så spillerne kan lese mens den kommer ut. Imens viser beltet neste spørsmål.
-    Et helt spill tar derfor 1–4,5 minutter. `LINJE_MS` i `game/kvittering.js`.
+  - Kvitteringen skrives **linje for linje, et halvt sekund per linje** (tomme linjer en firedel
+    av det), så spillerne kan lese mens den kommer ut. Imens viser beltet neste spørsmål.
+    `LINJE_MS` i `game/kvittering.js`. Simulatoren lager en «skhsh»-lyd for hver linje.
   - Henger skriveren, venter spillet på den én gang (20 s) og fortsetter så i lesetempo.
   - Hvert svar skrives med alderen: `3. Ja -------------------- 23 år`.
   - Er de 60 sekundene brukt opp, er spillet over: «Tiden er ute. Du ble 67 år.»
