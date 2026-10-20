@@ -155,7 +155,7 @@ function lagMaskin({ skriverHenger = false } = {}) {
     print(label, lines) {
       m.utskrift.push(...lines);
       for (const l of lines) m.tider.push({ l, t });
-      return skriverHenger ? new Promise(() => {}) : new Promise(r => m.after(300 + lines.length * 20, r));
+      return skriverHenger ? new Promise(() => {}) : new Promise(r => m.after(40 + lines.length * 10, r));
     },
     cut() { m.kutt++; m.utskrift.push("✂"); return new Promise(r => m.after(200, r)); },
     belt: {
@@ -171,7 +171,7 @@ function lagMaskin({ skriverHenger = false } = {}) {
 
 /** Spiller fram til spørsmålet venter, eller til spillet er tilbake i attract. */
 async function tilSvar(m, spill, maks = 120000) {
-  for (let i = 0; i < maks / 100 && spill.state !== "deciding" && spill.state !== "attract"; i++) await m.gå(100);
+  for (let i = 0; i < maks / 5 && spill.state !== "deciding" && spill.state !== "attract"; i++) await m.gå(5);
 }
 
 console.log("Spillet (falsk klokke og maskin)");
@@ -205,7 +205,7 @@ await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", 
   assert.equal(spill.alder, 6);                          // … men livet gikk ikke imens
   assert.equal(spill.igjenMs, LIVSTID_MS - 6000);
 });
-await sjekkAsync("kvitteringen skrives linje for linje, 2 s per tekstlinje, og livet står stille imens", async () => {
+await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje, og livet står stille imens", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   spill.start();
   await tilSvar(m, spill);

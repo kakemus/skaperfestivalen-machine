@@ -116,6 +116,7 @@
     <div class="papir-rull" id="papirRull"><div class="papir" id="papir"></div></div>
     <div class="skriver-bunn">
       <span id="saldo"></span>
+      <label><input type="checkbox" id="lyd" checked> Lyd</label>
       <label><input type="checkbox" id="rask"> Rask utskrift (for testing)</label>
     </div>
   </section>
@@ -127,11 +128,12 @@
 
 <script type="module">
 import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS } from "./game/kvittering.js";
-import { ding } from "./game/sound.js";
+import { ding, printSound } from "./game/sound.js";
 import { MANUS } from "./game/manus.js";
 
 const $ = id => document.getElementById(id);
 const rask = () => $("rask").checked;
+const lydPa = () => $("lyd").checked;
 const pause = ms => new Promise(r => setTimeout(r, ms));
 
 // ---------- the scroll: one screen per question, START = question 1 ----------
@@ -202,9 +204,10 @@ async function skriv(lines) {
     const el = papir.appendChild(tekstEl("div", " "));
     $("papirRull").scrollTop = $("papirRull").scrollHeight;
     if (!l) continue;
-    for (let i = 3; i < l.length && !rask(); i += 3) {
+    if (!rask() && lydPa()) printSound(Math.min(260, 60 + l.length * 6));
+    for (let i = 4; i < l.length && !rask(); i += 4) {
       el.textContent = l.slice(0, i);
-      await pause(25);
+      await pause(16);
     }
     el.textContent = l;
   }
@@ -238,7 +241,7 @@ game = createKvitteringGame({
   },
   print: (label, lines) => { visSaldo(); return skriv(lines); },
   cut: kutt,
-  bell(n) { ding(n); logg(`Bjelle × ${n}`); },
+  bell(n) { if (lydPa()) ding(n); logg(`Bjelle × ${n}`); },
   flash(riktig) { lys(riktig ? "gronn" : "rod", 900); },
   hurry() { lys("skynd"); },
   celebrate() { lys("regnbue", 6000); },

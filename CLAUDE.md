@@ -388,8 +388,8 @@ prototype `kvitteringsspillet/kvitteringsspillet.html`, plus `svarLinje` / `tide
 `game/manus.js` (the script; only change: question 10 "Nei" = "Vil du ha kvitteringen?") and
 `game/kvittering.js` (the game, same shape as `createLifeGame(io)`; also needs `io.now/after/cancel`
 so it runs in Node): a life is 60 s = 67 years, counted only while the player decides; the receipt
-prints line by line, `LINJE_MS` 2 s per line (blank lines ¼ of that) so players read as it comes
-out (a whole game: 1–4.5 min of printing), and a printer that doesn't answer is waited for once
+prints line by line, `LINJE_MS` 0.5 s per line (blank lines ¼ of that) so players read as it
+comes out (the simulator plays `printSound()` from game/sound.js per line), and a printer that doesn't answer is waited for once
 (20 s), then only the reading pace is kept until a print gets through; each answer
 is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
 15 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in

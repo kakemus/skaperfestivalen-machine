@@ -27,7 +27,7 @@ import * as motor from "./kvitteringMotor.js";
 export const LIVSTID_MS = 60000;          // a whole life …
 export const LEVEALDER = 67;              // … is 67 years
 export const PAUSE_ETTER_SLUTT_MS = 15000;
-export const LINJE_MS = 2000;             // per printed line of text (io.linjeMs() can change it)
+export const LINJE_MS = 500;              // per printed line of text (io.linjeMs() can change it)
 const TOM_LINJE_ANDEL = 0.25;             // a blank line is only spacing: a quarter of that
 const HURRY_MS = 10000;                   // the light flickers faster for the last 10 s of life
 const PRINT_LIMIT_MS = 20000;             // longest wait for a print or a cut
