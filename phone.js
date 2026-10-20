@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 l";
+const VERSION = "phone 2026-10-20 m";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -153,7 +153,7 @@ on("controller:raw", ({ line }) => {
   if (pos) $("sPos").textContent = pos[1] === "-1" ? "unknown" : pos[1] === "0" ? "START" : "screen " + pos[1];
   // heartbeats, live light readings and trace samples would flood the log
   // (a whole game's events got pushed out by LIGHT lines, 2026-10-16)
-  if (!/^(HB|LIGHT|T):/.test(line)) log("← " + line);
+  if (!/^(HB|LIGHT|T):/.test(line) && line !== "PONG") log("← " + line);
   lastHeard = Date.now();
 });
 let lastHeard = 0;
@@ -165,6 +165,44 @@ on("printer:printed", ({ label }) => log("Printed " + label));
 on("controller:connected", () => { pill("sMicrobit", "connected", true); log("micro:bit connected"); });
 on("controller:disconnected", () => { pill("sMicrobit", "not connected", false); log("micro:bit unplugged"); });
 on("controller:error", ({ message }) => log("micro:bit: " + message));
+
+// ---------- micro:bit watchdog ----------
+// Twice now (2026-10-20) the board went deaf mid-game: "M" on its LEDs (its idle screen),
+// connected over USB, but no reaction to any command until its reset button was pressed.
+// The cause isn't known yet, so: a PING every 5 s; two unanswered in a row → log what's still
+// coming from it, reset it the way its button does (a serial break), and put the game back
+// on START (the board lost its place). The log then shows how often, and what came before.
+let pingSent = 0, lastPong = Date.now(), lastHb = 0, misses = 0, resetting = false;
+on("controller:raw", ({ line }) => {
+  if (line === "PONG") { lastPong = Date.now(); misses = 0; }
+  if (line.startsWith("HB:")) lastHb = Date.now();
+});
+on("controller:connected", () => { lastPong = Date.now(); misses = 0; pingSent = 0; });
+every(5000, async () => {
+  if (!controller.isConnected() || resetting) return;
+  if (pingSent && lastPong < pingSent) {
+    misses++;
+    const hb = lastHb ? `${Math.round((Date.now() - lastHb) / 1000)} s ago` : "never";
+    log(`micro:bit didn't answer (${misses}) — last heartbeat ${hb}`);
+    pill("sMicrobit", "not answering", false);
+  }
+  if (misses >= 2) {
+    misses = 0;
+    resetting = true;
+    log("micro:bit: resetting it (like its reset button)");
+    if (await controller.resetBoard()) {
+      await new Promise(r => after(4000, r));                  // it starts up again
+      pill("sMicrobit", "connected", true);
+      controller.send(`SET:screens:${MANUS.sporsmal.length}`);
+      log("micro:bit reset — the game goes back to START");
+      game.reset();
+    }
+    resetting = false;
+    lastPong = Date.now();
+  }
+  pingSent = Date.now();
+  controller.send("PING");
+});
 
 // ---------- the IBM till display, through the helper in Termux (tools/termux-ibm/) ----------
 // Android's Chrome has no WebHID; the helper owns the display and listens on 127.0.0.1:8765.

@@ -144,6 +144,23 @@ export function send(line) {
   return true;
 }
 
+/** Reset the micro:bit itself, like its reset button: a serial BREAK, on which the board's
+ *  USB chip restarts it. The connection stays open. Returns false if it couldn't be sent. */
+export async function resetBoard() {
+  try {
+    if (port?.sendBreak) await port.sendBreak(100);                       // the phone (WebUSB)
+    else if (port?.setSignals) {                                         // Web Serial on a computer
+      await port.setSignals({ break: true });
+      await new Promise(r => setTimeout(r, 100));
+      await port.setSignals({ break: false });
+    } else return false;
+    return true;
+  } catch (e) {
+    emit("controller:error", { message: "Couldn't reset the micro:bit: " + e.message });
+    return false;
+  }
+}
+
 /** Drop the connection and open it again (used when a write hangs, or the board goes quiet). */
 export function reconnect() {
   generation++;
@@ -210,7 +227,8 @@ async function readLoop() {
 // up here without a matching code change.
 function handleLine(line) {
   const sep = line.indexOf(":");
-  if (sep === -1) return;
+  // no "KEY:" — PONG, or the board's own error output (a Traceback): pass it on, don't drop it
+  if (sep === -1) { emit("controller:raw", { line }); return; }
   const key = line.slice(0, sep);
   const value = line.slice(sep + 1);
 
