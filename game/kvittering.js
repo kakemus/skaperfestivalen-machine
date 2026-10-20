@@ -57,13 +57,19 @@ export function createKvitteringGame(io, manus = MANUS) {
     for (const line of lines) {
       if (!still(id)) return;
       const ms = (io.linjeMs?.() ?? LINJE_MS) * (line ? 1 : TOM_LINJE_ANDEL);
+      // the watch is cancelled as soon as the line is out — otherwise it would go off
+      // 20 s later anyway and call a working printer stuck
+      let watch = null;
+      const limit = new Promise(resolve => {
+        watch = io.after(PRINT_LIMIT_MS, () => {
+          if (!printerStuck) io.log("Skriveren svarer ikke");
+          printerStuck = true;
+          resolve();
+        });
+      });
       const printed = Promise.resolve(io.print(label, [line])).then(
         () => { printerStuck = false; },
-        e => io.log("Utskrift feilet: " + e.message));
-      const limit = wait(PRINT_LIMIT_MS).then(() => {
-        if (!printerStuck) io.log("Skriveren svarer ikke");
-        printerStuck = true;
-      });
+        e => io.log("Utskrift feilet: " + e.message)).finally(() => io.cancel(watch));
       await Promise.all([wait(ms), printerStuck ? null : Promise.race([printed, limit])]);
     }
   }

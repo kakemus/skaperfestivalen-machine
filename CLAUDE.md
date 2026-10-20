@@ -394,7 +394,8 @@ comes out (the simulator plays `printSound()` from game/sound.js per line), and 
 is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
 15 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in
 sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
-with an on-screen machine. `node tests/kvittering.test.mjs`: all 55 paths identical to the
+with an on-screen machine, black and white (JA black, NEI white); the time left shows only on the
+receipt, the testing panel (D) shows kroner, venner, age, time and which answers can still win. `node tests/kvittering.test.mjs`: all 55 paths identical to the
 prototype's motor, then the game on a fake clock incl. a 10-hour day of random presses. Not wired
 into phone.js yet (it still runs game/life.js): left are the receipt drawing, the strip with one
 question per screen, and the switch in phone.js.

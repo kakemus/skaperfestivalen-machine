@@ -8,126 +8,132 @@
   Kvitteringsspillet in the browser, with no hardware (2026-10-20). It runs the
   very same game as the machine — game/kvittering.js with Aksel's script — and
   stands in for the machine around it: the scroll window, the JA/NEI buttons,
-  the light, the bell and the receipt printer. Open with start-simulator.command
-  (ES modules need http://, not a file opened directly).
+  the light, the bell and the receipt printer. The time left is only shown on
+  the receipt (the age by each answer); the testing panel (D) shows everything.
+  Open with start-simulator.command (ES modules need http://, not a file).
 -->
 <style>
-  :root {
-    --bord: #2b2a33; --bord-lys: #3a3944; --tekst: #f4f1ea; --dempet: #a9a6b3;
-    --papir: #fbfaf6; --blekk: #23222a; --aksent: #e8b04a; --tap: #c8452f; --ok: #59b36b;
-    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  }
+  :root { --hvit: #fff; --sort: #000; --gra: #6e6e6e; --strek: #d4d4d4; --gronn: #2e9d48; --rod: #d23a2a;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
-  body { background: var(--bord); color: var(--tekst); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
-  header { padding: 14px 20px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-  header h1 { margin: 0; font-size: 20px; }
-  header p { margin: 0; color: var(--dempet); font-size: 14px; }
-  kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--dempet); border-radius: 4px; padding: 0 5px; }
-  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 24px; padding: 0 20px 20px; }
+  body { background: var(--hvit); color: var(--sort); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); }
+  body.feil-apen { grid-template-columns: 320px minmax(0, 1fr) minmax(0, 420px); }
+  button { font: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 3px solid var(--gronn); outline-offset: 3px; }
+  kbd { font-family: var(--mono); font-size: 12px; border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; }
 
-  /* the machine: scroll window, light, life clock, buttons */
-  .maskin { display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 0; }
-  .vindu { position: relative; width: 100%; max-width: 520px; height: min(430px, 52vh); overflow: hidden; border-radius: 10px;
-    background: #15141a; border: 10px solid #15141a; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  /* ---- the machine (white) ---- */
+  .maskin { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 28px 24px; min-height: 100vh; }
+  .vindu { position: relative; width: 100%; max-width: 500px; height: min(420px, 54vh); overflow: hidden; border: 3px solid var(--sort); background: var(--hvit); }
   .rull { position: absolute; inset: 0; transition: transform 1.6s ease-in-out; }
-  .rute { position: absolute; left: 0; right: 0; height: 100%; padding: 24px 26px; overflow: hidden;
-    background: radial-gradient(circle at 50% 45%, #fffaf0, #f1ddb3); color: var(--blekk); font-family: var(--mono); }
-  .rute .nr { font-size: 14px; color: #6b6875; margin-bottom: 8px; }
-  .rute .pris { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
-  .rute .bilde { border: 2px dashed #b9a98a; border-radius: 4px; min-height: 90px; display: flex; align-items: center; justify-content: center;
-    text-align: center; padding: 12px; margin-bottom: 14px; font-size: 16px; }
-  .rute .tekst p { margin: 0 0 6px; font-size: 16px; line-height: 1.4; }
-  .rute .tekst p:last-child { font-weight: 700; margin-top: 10px; }
-  .rute .knappetekst { position: absolute; left: 26px; right: 26px; bottom: 18px; display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
-  .rute.stor { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 26px; font-weight: 800; letter-spacing: .02em; padding: 30px; }
-  .rute.stor small { display: block; font-size: 15px; font-weight: 400; margin-top: 12px; }
+  .rute { position: absolute; left: 0; right: 0; height: 100%; padding: 26px 28px; overflow: hidden; background: var(--hvit); font-family: var(--mono); }
+  .rute .nr { font-size: 13px; color: var(--gra); margin-bottom: 10px; }
+  .rute .pris { font-size: 24px; font-weight: 700; margin-bottom: 14px; }
+  .rute .bilde { border: 1px dashed var(--sort); min-height: 90px; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 12px; margin-bottom: 16px; font-size: 15px; }
+  .rute .tekst p { margin: 0 0 6px; font-size: 16px; line-height: 1.45; }
+  .rute .tekst p:last-child { font-weight: 700; margin-top: 12px; }
+  .rute .knappetekst { position: absolute; left: 28px; right: 28px; bottom: 20px; display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; }
+  .rute.stor { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 26px; font-weight: 800; padding: 30px; }
+  .rute.stor small { display: block; font-size: 14px; font-weight: 400; margin-top: 12px; }
   .blink { animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: .25; } }
+  @keyframes blink { 50% { opacity: .2; } }
 
-  .lys { width: 100%; max-width: 520px; height: 10px; border-radius: 5px; background: #fff1cf; box-shadow: 0 0 14px #fff1cf88; transition: background .15s, box-shadow .15s; }
-  .lys.gronn { background: var(--ok); box-shadow: 0 0 22px var(--ok); }
-  .lys.rod { background: var(--tap); box-shadow: 0 0 22px var(--tap); }
-  .lys.regnbue { background: linear-gradient(90deg, #f55, #fb4, #ef5, #5e8, #5bf, #b6f, #f55); background-size: 200% 100%; animation: regnbue 1s linear infinite; }
+  .lys { width: 100%; max-width: 500px; height: 6px; background: var(--strek); transition: background .15s; }
+  .lys.gronn { background: var(--gronn); }
+  .lys.rod { background: var(--rod); }
+  .lys.regnbue { background: linear-gradient(90deg, #e33, #f93, #ed3, #3c6, #39f, #93f, #e33); background-size: 200% 100%; animation: regnbue 1s linear infinite; }
   @keyframes regnbue { to { background-position: 200% 0; } }
-  .lys.skynd { animation: skynd .5s steps(1) infinite; }
-  @keyframes skynd { 50% { background: #5a5040; box-shadow: none; } }
 
-  .liv { width: 100%; max-width: 520px; }
-  .liv-topp { display: flex; justify-content: space-between; font-size: 14px; color: var(--dempet); margin-bottom: 6px; }
-  .liv-topp b { color: var(--tekst); font-size: 18px; }
-  .liv-bar { height: 12px; background: #15141a; border-radius: 6px; overflow: hidden; }
-  .liv-bar i { display: block; height: 100%; width: 100%; background: var(--aksent); transform-origin: left; }
+  .knapper { display: flex; gap: 32px; }
+  .knapp { width: 116px; height: 116px; border-radius: 50%; border: 3px solid var(--sort); font-size: 24px; font-weight: 800;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: transform .05s; }
+  .knapp small { font-size: 12px; font-weight: 600; }
+  .knapp:active { transform: scale(.96); }
+  #ja { background: var(--sort); color: var(--hvit); }
+  #nei { background: var(--hvit); color: var(--sort); }
+  .status { min-height: 20px; font-size: 14px; color: var(--gra); text-align: center; }
+  .hjelp { font-size: 13px; color: var(--gra); display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .lenke { background: none; border: none; padding: 0; color: var(--sort); text-decoration: underline; font-size: 13px; }
 
-  .knapper { display: flex; gap: 28px; align-items: center; margin-top: 4px; }
-  .knapp { width: 120px; height: 120px; border-radius: 50%; border: 6px solid #15141a; font: 800 24px system-ui, sans-serif; color: #fff; cursor: pointer;
-    box-shadow: 0 6px 0 #15141a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-  .knapp small { font-size: 12px; font-weight: 600; opacity: .9; }
-  .knapp:active { transform: translateY(4px); box-shadow: 0 2px 0 #15141a; }
-  .knapp:focus-visible { outline: 3px solid var(--aksent); outline-offset: 3px; }
-  #ja { background: #2f8a45; } #nei { background: #b23b2a; }
-  .start { font: inherit; font-size: 14px; color: var(--tekst); background: transparent; border: 1px solid var(--dempet); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
-  .status { min-height: 20px; font-size: 14px; color: var(--dempet); text-align: center; }
-
-  /* the receipt printer */
-  .skriver { display: flex; flex-direction: column; min-height: 0; background: var(--bord-lys); border-radius: 10px; padding: 14px 14px 0; }
-  .spalte { height: 10px; background: #15141a; border-radius: 5px; margin: 0 6px; }
-  .papir-rull { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px; scrollbar-width: thin; }
-  .papir { background: var(--papir); color: var(--blekk); font-family: var(--mono); font-size: 12.5px; line-height: 1.5; padding: 16px 12px 24px; margin-top: -2px;
-    white-space: pre; min-height: 100%; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
-  .papir .kutt { color: #8a8794; text-align: center; border-top: 1px dashed #8a8794; margin: 10px -12px; padding-top: 2px; }
-  .papir .gammel { opacity: .45; }
-  .skriver-bunn { display: flex; justify-content: space-between; gap: 8px; padding: 10px 6px 12px; color: var(--dempet); font-size: 13px; }
+  /* ---- the receipt printer (black) ---- */
+  .skriver { background: var(--sort); color: var(--hvit); display: flex; flex-direction: column; height: 100vh; position: sticky; top: 0; padding: 24px 22px 0; }
+  .spalte { height: 6px; background: #333; margin: 0 4px; }
+  .papir-rull { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px; scrollbar-width: thin; scrollbar-color: #444 var(--sort); }
+  .papir { background: var(--hvit); color: var(--sort); font-family: var(--mono); font-size: 12.5px; line-height: 1.5;
+    padding: 16px 12px 24px; white-space: pre; min-height: 100%; }
+  .papir .kutt { color: var(--gra); text-align: center; border-top: 1px dashed var(--gra); margin: 10px -12px; padding-top: 2px; }
+  .papir .gammel { color: #9a9a9a; }
+  .skriver-bunn { display: flex; justify-content: flex-end; gap: 16px; padding: 12px 4px 16px; font-size: 13px; color: #bbb; }
   .skriver-bunn label { display: flex; gap: 6px; align-items: center; }
 
-  details { margin: 0 20px 16px; font-size: 13px; color: var(--dempet); }
-  details pre { font-family: var(--mono); font-size: 12px; max-height: 160px; overflow-y: auto; background: #15141a; padding: 8px; border-radius: 6px; }
+  /* ---- testing panel (black, closable with × or D) ---- */
+  .feil { background: var(--sort); color: var(--hvit); height: 100vh; position: sticky; top: 0; overflow-y: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.5; border-right: 1px solid #333; }
+  .feil[hidden] { display: none; }
+  .feil-topp { position: sticky; top: 0; background: var(--sort); display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px 10px; border-bottom: 1px solid #333; font-weight: 700; }
+  .feil-topp button { background: none; color: var(--hvit); border: 1px solid #666; border-radius: 4px; padding: 0 8px; font-size: 16px; }
+  .feil-innhold { padding: 12px 16px 20px; }
+  .feil dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0 0 10px; }
+  .feil dt { color: #9a9a9a; }
+  .feil dd { margin: 0; text-align: right; font-weight: 700; }
+  .feil .neg { color: #ff7a63; }
+  .feil .navn { color: #9a9a9a; max-height: 96px; overflow-y: auto; margin-bottom: 12px; }
+  .feil h3 { font-size: 12px; margin: 12px 0 4px; }
+  .feil table { width: 100%; border-collapse: collapse; }
+  .feil td { padding: 2px 0; vertical-align: top; }
+  .feil td:last-child { text-align: right; white-space: nowrap; padding-left: 8px; }
+  .feil tr.na td { font-weight: 700; text-decoration: underline; }
+  .feil tr.ferdig td { color: #9a9a9a; }
+  .feil .ok { color: #6fd885; } .feil .nei { color: #ff7a63; }
+  .feil .merk { color: #9a9a9a; margin-top: 10px; }
 
-  @media (max-width: 820px) {
-    main { grid-template-columns: 1fr; grid-template-rows: auto 60vh; padding: 0 16px 16px; }
+  @media (max-width: 900px) {
+    body, body.feil-apen { grid-template-columns: 1fr; }
+    .skriver, .feil { position: static; height: 70vh; }
+    .maskin { min-height: 0; }
     .knapp { width: 96px; height: 96px; font-size: 20px; }
-    .vindu { height: 380px; }
   }
-  @media (prefers-reduced-motion: reduce) { .rull { transition: none; } .blink, .lys.skynd, .lys.regnbue { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .rull { transition: none; } .blink, .lys.regnbue { animation: none; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Kvitteringsspillet · simulator</h1>
-  <p>Trykk <kbd>J</kbd> + <kbd>N</kbd> samtidig (eller <kbd>mellomrom</kbd>) for å starte · <kbd>J</kbd> = JA · <kbd>N</kbd> = NEI</p>
-</header>
-<main>
-  <section class="maskin" aria-label="Maskinen">
-    <div class="vindu" aria-live="polite"><div class="rull" id="rull"></div></div>
-    <div class="lys" id="lys" aria-hidden="true"></div>
-    <div class="liv">
-      <div class="liv-topp"><span>Alder <b id="alder">0 år</b></span><span id="igjen">60 s igjen av livet</span></div>
-      <div class="liv-bar"><i id="livBar"></i></div>
-    </div>
-    <div class="knapper">
-      <button class="knapp" id="ja" type="button">JA<small id="jaTekst"></small></button>
-      <button class="knapp" id="nei" type="button">NEI<small id="neiTekst"></small></button>
-    </div>
-    <div class="status" id="status"></div>
-    <button class="start" id="start" type="button">Start nytt spill</button>
-  </section>
-  <section class="skriver" aria-label="Kvitteringen">
-    <div class="spalte"></div>
-    <div class="papir-rull" id="papirRull"><div class="papir" id="papir"></div></div>
-    <div class="skriver-bunn">
-      <span id="saldo"></span>
-      <label><input type="checkbox" id="lyd" checked> Lyd</label>
-      <label><input type="checkbox" id="rask"> Rask utskrift (for testing)</label>
-    </div>
-  </section>
-</main>
-<details>
-  <summary>Logg</summary>
-  <pre id="logg"></pre>
-</details>
+<aside class="feil" id="feil" aria-label="Feiltesting" hidden>
+  <div class="feil-topp"><span>Feiltesting <span style="font-weight:400;color:#9a9a9a">(D)</span></span>
+    <button type="button" id="feilLukk" aria-label="Lukk feiltesting">×</button></div>
+  <div class="feil-innhold" id="feilInnhold"></div>
+</aside>
+
+<section class="maskin" aria-label="Maskinen">
+  <div class="vindu" aria-live="polite"><div class="rull" id="rull"></div></div>
+  <div class="lys" id="lys" aria-hidden="true"></div>
+  <div class="knapper">
+    <button class="knapp" id="ja" type="button">JA<small id="jaTekst"></small></button>
+    <button class="knapp" id="nei" type="button">NEI<small id="neiTekst"></small></button>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="hjelp">
+    <span><kbd>J</kbd> + <kbd>N</kbd> samtidig = start · <kbd>J</kbd> JA · <kbd>N</kbd> NEI</span>
+    <button class="lenke" id="start" type="button">Start</button>
+    <button class="lenke" id="feilApne" type="button">Feiltesting</button>
+  </div>
+</section>
+
+<section class="skriver" aria-label="Kvitteringen">
+  <div class="spalte"></div>
+  <div class="papir-rull" id="papirRull"><div class="papir" id="papir"></div></div>
+  <div class="skriver-bunn">
+    <label><input type="checkbox" id="lyd" checked> Lyd</label>
+    <label><input type="checkbox" id="rask"> Rask utskrift</label>
+  </div>
+</section>
 
 <script type="module">
 import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS } from "./game/kvittering.js";
+import { kopi, spillSvar, vinnerveier } from "./game/kvitteringMotor.js";
 import { ding, printSound } from "./game/sound.js";
 import { MANUS } from "./game/manus.js";
 
@@ -135,6 +141,7 @@ const $ = id => document.getElementById(id);
 const rask = () => $("rask").checked;
 const lydPa = () => $("lyd").checked;
 const pause = ms => new Promise(r => setTimeout(r, ms));
+const tekstEl = (tag, tekst, cls) => Object.assign(document.createElement(tag), { textContent: tekst, className: cls || "" });
 
 // ---------- the scroll: one screen per question, START = question 1 ----------
 let pos = 0;
@@ -155,7 +162,6 @@ const flyttTil = (i, ms) => {
   pos = i;
   return pause(ms);
 };
-const tekstEl = (tag, tekst, cls) => Object.assign(document.createElement(tag), { textContent: tekst, className: cls || "" });
 
 function visSporsmal(i, s) {
   skjerm(i, el => {
@@ -163,15 +169,15 @@ function visSporsmal(i, s) {
     const valg = Object.keys(s.svar);
     const knappetekst = valg.some(v => !/^(ja|nei)$/i.test(v))
       ? [`JA = ${valg[0]}`, valg[1] ? `NEI = ${valg[1]}` : ""] : ["", ""];
+    const tekst = Object.assign(document.createElement("div"), { className: "tekst" });
+    tekst.append(...s.tekst.map(t => tekstEl("p", t)));
+    const knapper = Object.assign(document.createElement("div"), { className: "knappetekst" });
+    knapper.append(tekstEl("span", knappetekst[0]), tekstEl("span", knappetekst[1]));
     el.replaceChildren(
       tekstEl("div", `${s.nr}.${s.tittel ? " " + s.tittel : ""}`, "nr"),
       ...(s.pris ? [tekstEl("div", `${s.pris.toLocaleString("nb-NO")} kroner`, "pris")] : []),
       ...(s.bilde ? [tekstEl("div", `[ ${s.bilde} ]`, "bilde")] : []),
-      Object.assign(document.createElement("div"), { className: "tekst" }),
-      Object.assign(document.createElement("div"), { className: "knappetekst" }),
-    );
-    el.querySelector(".tekst").replaceChildren(...s.tekst.map(t => tekstEl("p", t)));
-    el.querySelector(".knappetekst").replaceChildren(tekstEl("span", knappetekst[0]), tekstEl("span", knappetekst[1]));
+      tekst, knapper);
   });
 }
 function visStor(tekst, liten, blink) {
@@ -182,7 +188,7 @@ function visStor(tekst, liten, blink) {
   });
 }
 
-// ---------- the light ----------
+// ---------- the light (no "hurry" flicker here: the time only shows on the receipt) ----------
 let lysTimer = null;
 function lys(klasse, ms) {
   clearTimeout(lysTimer);
@@ -221,13 +227,7 @@ async function kutt() {
 }
 
 // ---------- the game, with the simulated machine as its io ----------
-const loggLinjer = [];
-function logg(t) {
-  loggLinjer.unshift(`${new Date().toLocaleTimeString()}  ${t}`);
-  loggLinjer.length = Math.min(loggLinjer.length, 200);
-  $("logg").textContent = loggLinjer.join("\n");
-}
-
+const logg = [];
 let pauseSlutt = 0;
 let game = null;
 game = createKvitteringGame({
@@ -239,61 +239,122 @@ game = createKvitteringGame({
     step: () => flyttTil(pos + 1, rask() ? 200 : 1600),
     rewind: () => flyttTil(0, rask() ? 200 : Math.max(800, pos * 450)),
   },
-  print: (label, lines) => { visSaldo(); return skriv(lines); },
+  print: (label, lines) => { oppdaterFeil(); return skriv(lines); },
   cut: kutt,
-  bell(n) { if (lydPa()) ding(n); logg(`Bjelle × ${n}`); },
+  bell(n) { if (lydPa()) ding(n); },
   flash(riktig) { lys(riktig ? "gronn" : "rod", 900); },
-  hurry() { lys("skynd"); },
   celebrate() { lys("regnbue", 6000); },
   idle() { visStor("TRYKK JA + NEI FOR Å STARTE", "", true); },
-  log: logg,
+  log(t) { logg.unshift(`${new Date().toLocaleTimeString()}  ${t}`); logg.length = Math.min(logg.length, 40); },
   onState({ state, nr, sporsmal, spill, valg }) {
     $("jaTekst").textContent = state === "deciding" && valg[0] && !/^ja$/i.test(valg[0]) ? valg[0] : "";
     $("neiTekst").textContent = state === "deciding" && valg[1] && !/^nei$/i.test(valg[1]) ? valg[1] : "";
-    if (state === "deciding") { visSporsmal(nr, sporsmal); if (!$("lys").className.includes("skynd")) lys(); }
+    if (state === "deciding") { visSporsmal(nr, sporsmal); lys(); }
     // the belt moves on while the answer prints: the next question must already be on the strip
     if (state === "answering" && MANUS.sporsmal[nr + 1]) visSporsmal(nr + 1, MANUS.sporsmal[nr + 1]);
-    if (state === "starting") visStor("START", "Beltet spoles til start …");
-    if (state === "over") visStor(spill.tapt ? "SLUTT" : "DU KLARTE DET!", "Kvitteringen skrives ut …");
+    if (state === "starting") { valgt = []; visStor("START", "Beltet spoles til start …"); }
+    if (state === "over") visStor(spill.tapt ? "SPILLET ER TAPT" : "DU KLARTE DET!", "Kvitteringen skrives ut …");
     if (state === "pause") pauseSlutt = performance.now() + PAUSE_ETTER_SLUTT_MS;
     if (state === "attract") { skjermer.slice(1).forEach(el => el.remove()); skjermer.length = 1; }
-    visSaldo();
+    oppdaterFeil();
   },
 });
-function visSaldo() {
-  const s = game?.spill;
-  $("saldo").textContent = !s || game.state === "attract" ? "" : `Venner: ${s.venner.length} · Kroner: ${s.kroner}`;
-}
 
-// ---------- the life clock and the status line, drawn every frame ----------
+// ---------- the status line ----------
 function tegn() {
-  const igjen = Math.max(0, game.igjenMs), brukt = LIVSTID_MS - igjen;
-  const alder = Math.min(LEVEALDER, Math.floor(brukt * LEVEALDER / LIVSTID_MS));
-  const iSpill = !["attract", "starting"].includes(game.state);
-  $("alder").textContent = `${iSpill ? alder : 0} år`;
-  $("igjen").textContent = iSpill ? `${Math.ceil(igjen / 1000)} s igjen av livet` : `${LIVSTID_MS / 1000} s = ${LEVEALDER} år`;
-  $("livBar").style.transform = `scaleX(${iSpill ? igjen / LIVSTID_MS : 1})`;
   $("status").textContent = {
     attract: "Venter på en spiller.",
     starting: "Starter …",
-    deciding: "Klokka går. Velg JA eller NEI.",
-    answering: "Kvitteringen skrives ut. Klokka står stille mens du leser.",
-    over: "Spillet er over. Sluttkvitteringen skrives ut.",
+    deciding: "Velg JA eller NEI.",
+    answering: "Kvitteringen skrives ut …",
+    over: "Spillet er over. Sluttkvitteringen skrives ut …",
     pause: `Ta kvitteringen! Ny runde om ${Math.max(0, Math.ceil((pauseSlutt - performance.now()) / 1000))} s.`,
     resetting: "Tilbake til start …",
   }[game.state] || game.state;
   requestAnimationFrame(tegn);
 }
 
+// ---------- testing panel: every variable, and which answers can still win ----------
+let valgt = [];   // this game's answers so far: { valg, mulig } — mulig = a win was still possible after it
+const esc = t => String(t).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function navneliste(venner) {
+  const ut = [];
+  for (const n of venner) {
+    const siste = ut[ut.length - 1];
+    if (siste && siste.navn === n) siste.antall++; else ut.push({ navn: n, antall: 1 });
+  }
+  return ut.map(x => x.antall > 1 ? `${x.navn} ×${x.antall}` : x.navn).join(", ") || "(ingen)";
+}
+function oppdaterFeil() {
+  if ($("feil").hidden || !game) return;
+  const { spill, nr, state } = game;
+  const iSpill = !["attract", "starting"].includes(state);
+  const veier = spill.tapt || nr >= MANUS.sporsmal.length ? [] : vinnerveier(MANUS, spill, nr);
+  const igjen = Math.max(0, game.igjenMs);
+  const rader = MANUS.sporsmal.map((s, i) => {
+    let svar;
+    if (i < valgt.length) {
+      const { valg, mulig } = valgt[i];
+      svar = `<span class="${mulig ? "ok" : "nei"}">${esc(valg)} ${mulig ? "✓" : "✗"}</span>`;
+    } else if (veier.length) {
+      svar = `<span class="ok">${[...new Set(veier.map(v => v[i - nr]))].map(esc).join(" / ")}</span>`;
+    } else svar = "–";
+    const klasse = i < valgt.length ? "ferdig" : i === nr && iSpill && !spill.tapt ? "na" : "";
+    return `<tr class="${klasse}"><td>${s.nr}. ${esc(s.bilde || s.tittel || s.tekst[s.tekst.length - 1])}</td><td>${svar}</td></tr>`;
+  }).join("");
+  const merk = !iSpill ? "Ikke i et spill."
+    : spill.tapt ? `Spillet er tapt (${spill.grunn}).`
+    : nr >= MANUS.sporsmal.length ? "Spillet er vunnet."
+    : veier.length ? `${veier.length} vei${veier.length === 1 ? "" : "er"} til seier herfra.`
+    : "Ingen vei til seier herfra.";
+  $("feilInnhold").innerHTML = `
+    <dl>
+      <dt>tilstand</dt><dd>${esc(state)}</dd>
+      <dt>spørsmål</dt><dd>${Math.min(nr + 1, MANUS.sporsmal.length)} av ${MANUS.sporsmal.length}</dd>
+      <dt>kroner</dt><dd class="${spill.kroner < 0 ? "neg" : ""}">${spill.kroner}</dd>
+      <dt>venner</dt><dd class="${iSpill && spill.venner.length === 0 ? "neg" : ""}">${spill.venner.length}</dd>
+      <dt>visning</dt><dd>${spill.visning ?? "begge"}</dd>
+      <dt>alder</dt><dd>${iSpill ? game.alder : 0} år</dd>
+      <dt>tid igjen</dt><dd>${(igjen / 1000).toFixed(1)} s</dd>
+      <dt>tapt</dt><dd class="${spill.tapt ? "neg" : ""}">${spill.tapt ? "ja (" + spill.grunn + ")" : "nei"}</dd>
+    </dl>
+    <div class="navn">${esc(navneliste(spill.venner))}</div>
+    <h3>Riktig svar</h3>
+    <table>${rader}</table>
+    <div class="merk">${merk}<br>✓ / ✗ = seier var mulig / umulig etter svaret.</div>
+    <h3>Logg</h3>
+    <div class="navn" style="max-height:none">${logg.slice(0, 12).map(esc).join("<br>")}</div>`;
+}
+function visFeil(vis) {
+  $("feil").hidden = !vis;
+  $("feilApne").textContent = vis ? "Lukk feiltesting" : "Feiltesting";
+  document.body.classList.toggle("feil-apen", vis);
+  try { localStorage.setItem("kvitteringsspillet.feil", vis ? "1" : "0"); } catch {}
+  oppdaterFeil();
+}
+$("feilLukk").onclick = () => visFeil(false);
+$("feilApne").onclick = () => visFeil($("feil").hidden);
+setInterval(() => { if (game.state === "deciding") oppdaterFeil(); }, 250);   // the time left ticks
+
 // ---------- buttons: JA and NEI together start a game, like on the machine ----------
 const SAMTIDIG_MS = 400;
-let sist = { ja: -1e9, nei: -1e9 };
+const sist = { ja: -1e9, nei: -1e9 };
 function trykk(knapp) {
   const t = performance.now(), annen = knapp === "ja" ? "nei" : "ja";
   sist[knapp] = t;
   if (game.state === "attract") {
     if (t - sist[annen] < SAMTIDIG_MS) game.start();
     return;
+  }
+  if (game.state === "deciding") {
+    // for the testing panel: would a win still be possible after this answer?
+    const s = MANUS.sporsmal[game.nr], valg = Object.keys(s.svar);
+    const v = valg.length === 1 ? valg[0] : valg[knapp === "ja" ? 0 : 1];
+    if (v) {
+      const k = kopi(game.spill);
+      spillSvar(k, s, v);
+      valgt.push({ valg: v, mulig: !k.tapt && vinnerveier(MANUS, k, game.nr + 1).length > 0 });
+    }
   }
   game.answer(knapp === "ja");
 }
@@ -305,9 +366,13 @@ document.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (k === "j") trykk("ja");
   else if (k === "n") trykk("nei");
+  else if (k === "d") visFeil($("feil").hidden);
   else if (k === " " || k === "c") { e.preventDefault(); game.start(); }
 });
 
+let feilApen = false;
+try { feilApen = localStorage.getItem("kvitteringsspillet.feil") === "1"; } catch {}
+visFeil(feilApen);
 visStor("TRYKK JA + NEI FOR Å STARTE", "", true);
 tegn();
 </script>
