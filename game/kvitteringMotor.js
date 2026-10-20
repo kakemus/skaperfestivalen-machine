@@ -10,7 +10,8 @@ export function nyttSpill() {
     venner: [],        // stabel: nyeste venn ligger sist i lista
     kroner: 0,
     tapt: false,
-    grunn: null,       // "kroner", "venner" eller "død" når spillet er tapt
+    grunn: null,       // "kroner", "venner", "død" eller "tid" når spillet er tapt
+    alder: 0,          // hvor gammel spilleren ble, når tiden gikk ut
     visning: null,     // "venner" eller "kroner", settes av svaret på spørsmål 2. Før det vises begge.
     sumSkrevet: false, // et "sum"-steg har skrevet totalen, så sluttLinjer hopper over sin
   };
@@ -121,6 +122,19 @@ export function spillSvar(spill, sporsmal, valg) {
   return ut;
 }
 
+/** Overskriften over et svar, med alderen til høyre: "3. Ja --------------------- 23 år" */
+export function svarLinje(nr, valg, alder) {
+  const venstre = `${nr}. ${valg} `, hoyre = ` ${alder} år`;
+  return venstre + "-".repeat(Math.max(0, BREDDE - venstre.length - hoyre.length)) + hoyre;
+}
+
+/** Livet er brukt opp før alle valgene er tatt. */
+export function tidenErUte(spill, alder) {
+  spill.tapt = true;
+  spill.grunn = "tid";
+  spill.alder = alder;
+}
+
 /** Slutten av kvitteringen. `avslutning` er teksten helt til slutt i alle spill (manus.avslutning). */
 export function sluttLinjer(spill, avslutning) {
   const ut = ["=".repeat(BREDDE)];
@@ -129,6 +143,7 @@ export function sluttLinjer(spill, avslutning) {
       kroner: "Du gikk i minus på kroner.",
       venner: "Du gikk tom for venner.",
       død: "Du døde.",
+      tid: `Tiden er ute. Du ble ${spill.alder} år.`,
     }[spill.grunn];
     ut.push("SPILLET ER TAPT", ...brytTekst(grunn));
   } else {
