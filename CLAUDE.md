@@ -383,9 +383,15 @@ with loader + settings ~15 of ~16 KB: the next firmware feature should come with
 colour picker (cr/cg/cb + gamma), as the maker allowed.
 
 **Kvitteringsspillet, Aksels manus (2026-10-20, branch `kvitteringsspill-aksels-manus`):** replaces
-the life game on this branch. So far only the logic: `game/kvitteringMotor.js` (the rules, moved
-unchanged from Aksel's prototype `kvitteringsspillet/kvitteringsspillet.html`) and `game/manus.js`
-(the script: 10 questions, steps for venner/kroner/text/death), both in sw.js + phone_server.py
-(cache v15). `node tests/kvittering.test.mjs` plays all 55 paths in the prototype's motor and the
-new one and requires identical receipts, ≤ 32 chars per line, ≤ 2 answers per question. Not wired
-into phone.js yet (it still runs game/life.js).
+the life game on this branch. `game/kvitteringMotor.js` (the rules, moved unchanged from Aksel's
+prototype `kvitteringsspillet/kvitteringsspillet.html`, plus `svarLinje` / `tidenErUte`),
+`game/manus.js` (the script; only change: question 10 "Nei" = "Vil du ha kvitteringen?") and
+`game/kvittering.js` (the game, same shape as `createLifeGame(io)`; also needs `io.now/after/cancel`
+so it runs in Node): a life is 60 s = 67 years, counted only while the player decides; each answer
+is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
+15 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in
+sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
+with an on-screen machine. `node tests/kvittering.test.mjs`: all 55 paths identical to the
+prototype's motor, then the game on a fake clock incl. a 10-hour day of random presses. Not wired
+into phone.js yet (it still runs game/life.js): left are the receipt drawing, the strip with one
+question per screen, and the switch in phone.js.

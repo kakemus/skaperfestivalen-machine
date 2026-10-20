@@ -44,11 +44,24 @@ tap.
   tomt «Nei». Det må bestemmes hvilken knapp som er hva.
 - **Gjort: motoren og manuset er ES-moduler.** `game/kvitteringMotor.js` (reglene) og
   `game/manus.js` (historien), og begge er med i offline-kopien (`sw.js`, `phone_server.py`).
-  `node tests/kvittering.test.mjs` spiller alle 55 veier gjennom spillet og sjekker at den nye
-  motoren gir nøyaktig samme kvittering som originalen i `kvitteringsspillet.html`.
-- **Ikke gjort ennå:** spillet er ikke koblet til maskinen. `phone.js` kjører fortsatt «Livet AS».
-  Det som gjenstår: `game/kvittering.js` med samme form som `createLifeGame(io)`, kvitteringene
-  tegnet for skriveren, og beltet med ett spørsmål per skjerm.
+- **Gjort: spillet på maskinen, `game/kvittering.js`** (samme form som `createLifeGame(io)`):
+  - Et liv er **60 sekunder = 67 år**. Klokka går bare mens spilleren velger, ikke mens maskinen
+    skriver ut eller flytter beltet.
+  - Hvert svar skrives med alderen: `3. Ja -------------------- 23 år`.
+  - Er de 60 sekundene brukt opp, er spillet over: «Tiden er ute. Du ble 67 år.»
+  - **JA = første svar, NEI = andre** (spørsmål 2: JA = Venner, NEI = Penger).
+  - Spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier.
+  - Etter slutt: kvitteringen kuttes, spilleren får **15 sekunder** (trykk ignoreres), beltet
+    spoles tilbake, og maskinen venter på neste spiller (JA + NEI samtidig).
+  - Alle ventinger på skriver og belte har en tidsgrense, så en skriver som henger stopper ikke
+    spillet.
+- **Simulator:** `simulator.html` (dobbeltklikk `start-simulator.command`) kjører det samme spillet
+  i nettleseren uten maskinvare: vinduet, knappene, lyset, bjella og skriveren.
+- **Tester:** `node tests/kvittering.test.mjs` spiller alle 55 veier og sjekker at motoren gir
+  samme kvittering som originalen, og kjører spillet med en falsk klokke: alder, 60 s, pausen,
+  spørsmål 10, en skriver som henger, og en hel festivaldag (10 timer) med tilfeldige trykk.
+- **Ikke gjort ennå:** `phone.js` kjører fortsatt «Livet AS». Det som gjenstår: kvitteringslinjene
+  tegnet for skriveren, beltet med ett spørsmål per skjerm, og byttet i `phone.js`.
 - **10 spørsmål = 10 skjermer** på beltet (`SET:screens:10`, som telefonen allerede sender).
 - **Bredden** er 32 tegn per linje (`BREDDE` i motoren). `game/receipt.js` tegner på 576 punkter
   (80 mm), så tekststørrelsen der avgjør hvor mange tegn som får plass.

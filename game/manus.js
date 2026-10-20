@@ -1,6 +1,7 @@
 // Aksels manus for Kvitteringsspillet: ti valg gjennom et helt liv, og alt havner på kvitteringen.
-// Hentet uendret fra kvitteringsspillet/kvitteringsspillet.html. "format" forklarer stegene;
-// reglene som utfører dem ligger i kvitteringMotor.js.
+// Hentet fra kvitteringsspillet/kvitteringsspillet.html. Eneste endring: spørsmål 10 «Nei» har fått
+// et svar (det var tomt). "format" forklarer stegene; reglene som utfører dem ligger i
+// kvitteringMotor.js, og klokka (60 sekunder = 67 år) i kvittering.js.
 export const MANUS = {
   "tittel": "Kvitteringsspillet",
   "mal": "Gjennomføre alle nivåer uten å gå i minus, i venner eller kroner.",
@@ -466,7 +467,11 @@ export const MANUS = {
             "sum": "kroner"
           }
         ],
-        "Nei": []
+        "Nei": [
+          {
+            "no": "Vil du ha kvitteringen?"
+          }
+        ]
       }
     }
   ]

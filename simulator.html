@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kvitteringsspillet · simulator</title>
+<!--
+  Kvitteringsspillet in the browser, with no hardware (2026-10-20). It runs the
+  very same game as the machine — game/kvittering.js with Aksel's script — and
+  stands in for the machine around it: the scroll window, the JA/NEI buttons,
+  the light, the bell and the receipt printer. Open with start-simulator.command
+  (ES modules need http://, not a file opened directly).
+-->
+<style>
+  :root {
+    --bord: #2b2a33; --bord-lys: #3a3944; --tekst: #f4f1ea; --dempet: #a9a6b3;
+    --papir: #fbfaf6; --blekk: #23222a; --aksent: #e8b04a; --tap: #c8452f; --ok: #59b36b;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bord); color: var(--tekst); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; display: flex; flex-direction: column; }
+  header { padding: 14px 20px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 0; color: var(--dempet); font-size: 14px; }
+  kbd { font-family: var(--mono); font-size: 12px; border: 1px solid var(--dempet); border-radius: 4px; padding: 0 5px; }
+  main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 24px; padding: 0 20px 20px; }
+
+  /* the machine: scroll window, light, life clock, buttons */
+  .maskin { display: flex; flex-direction: column; align-items: center; gap: 14px; min-height: 0; }
+  .vindu { position: relative; width: 100%; max-width: 520px; height: min(430px, 52vh); overflow: hidden; border-radius: 10px;
+    background: #15141a; border: 10px solid #15141a; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .rull { position: absolute; inset: 0; transition: transform 1.6s ease-in-out; }
+  .rute { position: absolute; left: 0; right: 0; height: 100%; padding: 24px 26px; overflow: hidden;
+    background: radial-gradient(circle at 50% 45%, #fffaf0, #f1ddb3); color: var(--blekk); font-family: var(--mono); }
+  .rute .nr { font-size: 14px; color: #6b6875; margin-bottom: 8px; }
+  .rute .pris { font-size: 24px; font-weight: 700; margin-bottom: 12px; }
+  .rute .bilde { border: 2px dashed #b9a98a; border-radius: 4px; min-height: 90px; display: flex; align-items: center; justify-content: center;
+    text-align: center; padding: 12px; margin-bottom: 14px; font-size: 16px; }
+  .rute .tekst p { margin: 0 0 6px; font-size: 16px; line-height: 1.4; }
+  .rute .tekst p:last-child { font-weight: 700; margin-top: 10px; }
+  .rute .knappetekst { position: absolute; left: 26px; right: 26px; bottom: 18px; display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; }
+  .rute.stor { display: flex; align-items: center; justify-content: center; text-align: center; font-size: 26px; font-weight: 800; letter-spacing: .02em; padding: 30px; }
+  .rute.stor small { display: block; font-size: 15px; font-weight: 400; margin-top: 12px; }
+  .blink { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+
+  .lys { width: 100%; max-width: 520px; height: 10px; border-radius: 5px; background: #fff1cf; box-shadow: 0 0 14px #fff1cf88; transition: background .15s, box-shadow .15s; }
+  .lys.gronn { background: var(--ok); box-shadow: 0 0 22px var(--ok); }
+  .lys.rod { background: var(--tap); box-shadow: 0 0 22px var(--tap); }
+  .lys.regnbue { background: linear-gradient(90deg, #f55, #fb4, #ef5, #5e8, #5bf, #b6f, #f55); background-size: 200% 100%; animation: regnbue 1s linear infinite; }
+  @keyframes regnbue { to { background-position: 200% 0; } }
+  .lys.skynd { animation: skynd .5s steps(1) infinite; }
+  @keyframes skynd { 50% { background: #5a5040; box-shadow: none; } }
+
+  .liv { width: 100%; max-width: 520px; }
+  .liv-topp { display: flex; justify-content: space-between; font-size: 14px; color: var(--dempet); margin-bottom: 6px; }
+  .liv-topp b { color: var(--tekst); font-size: 18px; }
+  .liv-bar { height: 12px; background: #15141a; border-radius: 6px; overflow: hidden; }
+  .liv-bar i { display: block; height: 100%; width: 100%; background: var(--aksent); transform-origin: left; }
+
+  .knapper { display: flex; gap: 28px; align-items: center; margin-top: 4px; }
+  .knapp { width: 120px; height: 120px; border-radius: 50%; border: 6px solid #15141a; font: 800 24px system-ui, sans-serif; color: #fff; cursor: pointer;
+    box-shadow: 0 6px 0 #15141a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .knapp small { font-size: 12px; font-weight: 600; opacity: .9; }
+  .knapp:active { transform: translateY(4px); box-shadow: 0 2px 0 #15141a; }
+  .knapp:focus-visible { outline: 3px solid var(--aksent); outline-offset: 3px; }
+  #ja { background: #2f8a45; } #nei { background: #b23b2a; }
+  .start { font: inherit; font-size: 14px; color: var(--tekst); background: transparent; border: 1px solid var(--dempet); border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+  .status { min-height: 20px; font-size: 14px; color: var(--dempet); text-align: center; }
+
+  /* the receipt printer */
+  .skriver { display: flex; flex-direction: column; min-height: 0; background: var(--bord-lys); border-radius: 10px; padding: 14px 14px 0; }
+  .spalte { height: 10px; background: #15141a; border-radius: 5px; margin: 0 6px; }
+  .papir-rull { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px; scrollbar-width: thin; }
+  .papir { background: var(--papir); color: var(--blekk); font-family: var(--mono); font-size: 12.5px; line-height: 1.5; padding: 16px 12px 24px; margin-top: -2px;
+    white-space: pre; min-height: 100%; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+  .papir .kutt { color: #8a8794; text-align: center; border-top: 1px dashed #8a8794; margin: 10px -12px; padding-top: 2px; }
+  .papir .gammel { opacity: .45; }
+  .skriver-bunn { display: flex; justify-content: space-between; gap: 8px; padding: 10px 6px 12px; color: var(--dempet); font-size: 13px; }
+  .skriver-bunn label { display: flex; gap: 6px; align-items: center; }
+
+  details { margin: 0 20px 16px; font-size: 13px; color: var(--dempet); }
+  details pre { font-family: var(--mono); font-size: 12px; max-height: 160px; overflow-y: auto; background: #15141a; padding: 8px; border-radius: 6px; }
+
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 60vh; padding: 0 16px 16px; }
+    .knapp { width: 96px; height: 96px; font-size: 20px; }
+    .vindu { height: 380px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .rull { transition: none; } .blink, .lys.skynd, .lys.regnbue { animation: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Kvitteringsspillet · simulator</h1>
+  <p>Trykk <kbd>J</kbd> + <kbd>N</kbd> samtidig (eller <kbd>mellomrom</kbd>) for å starte · <kbd>J</kbd> = JA · <kbd>N</kbd> = NEI</p>
+</header>
+<main>
+  <section class="maskin" aria-label="Maskinen">
+    <div class="vindu" aria-live="polite"><div class="rull" id="rull"></div></div>
+    <div class="lys" id="lys" aria-hidden="true"></div>
+    <div class="liv">
+      <div class="liv-topp"><span>Alder <b id="alder">0 år</b></span><span id="igjen">60 s igjen av livet</span></div>
+      <div class="liv-bar"><i id="livBar"></i></div>
+    </div>
+    <div class="knapper">
+      <button class="knapp" id="ja" type="button">JA<small id="jaTekst"></small></button>
+      <button class="knapp" id="nei" type="button">NEI<small id="neiTekst"></small></button>
+    </div>
+    <div class="status" id="status"></div>
+    <button class="start" id="start" type="button">Start nytt spill</button>
+  </section>
+  <section class="skriver" aria-label="Kvitteringen">
+    <div class="spalte"></div>
+    <div class="papir-rull" id="papirRull"><div class="papir" id="papir"></div></div>
+    <div class="skriver-bunn">
+      <span id="saldo"></span>
+      <label><input type="checkbox" id="rask"> Rask skriver og belte</label>
+    </div>
+  </section>
+</main>
+<details>
+  <summary>Logg</summary>
+  <pre id="logg"></pre>
+</details>
+
+<script type="module">
+import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS } from "./game/kvittering.js";
+import { ding } from "./game/sound.js";
+
+const $ = id => document.getElementById(id);
+const rask = () => $("rask").checked;
+const pause = ms => new Promise(r => setTimeout(r, ms));
+
+// ---------- the scroll: one screen per question, START = question 1 ----------
+let pos = 0;
+const skjermer = [];
+function skjerm(i, innhold) {
+  if (!skjermer[i]) {
+    const el = document.createElement("div");
+    el.className = "rute";
+    el.style.top = (i * 100) + "%";
+    $("rull").appendChild(el);
+    skjermer[i] = el;
+  }
+  innhold(skjermer[i]);
+}
+const flyttTil = (i, ms) => {
+  $("rull").style.transitionDuration = ms + "ms";
+  $("rull").style.transform = `translateY(${-i * 100}%)`;
+  pos = i;
+  return pause(ms);
+};
+const tekstEl = (tag, tekst, cls) => Object.assign(document.createElement(tag), { textContent: tekst, className: cls || "" });
+
+function visSporsmal(i, s) {
+  skjerm(i, el => {
+    el.className = "rute";
+    const valg = Object.keys(s.svar);
+    const knappetekst = valg.some(v => !/^(ja|nei)$/i.test(v))
+      ? [`JA = ${valg[0]}`, valg[1] ? `NEI = ${valg[1]}` : ""] : ["", ""];
+    el.replaceChildren(
+      tekstEl("div", `${s.nr}.${s.tittel ? " " + s.tittel : ""}`, "nr"),
+      ...(s.pris ? [tekstEl("div", `${s.pris.toLocaleString("nb-NO")} kroner`, "pris")] : []),
+      ...(s.bilde ? [tekstEl("div", `[ ${s.bilde} ]`, "bilde")] : []),
+      Object.assign(document.createElement("div"), { className: "tekst" }),
+      Object.assign(document.createElement("div"), { className: "knappetekst" }),
+    );
+    el.querySelector(".tekst").replaceChildren(...s.tekst.map(t => tekstEl("p", t)));
+    el.querySelector(".knappetekst").replaceChildren(tekstEl("span", knappetekst[0]), tekstEl("span", knappetekst[1]));
+  });
+}
+function visStor(tekst, liten, blink) {
+  skjerm(pos, el => {
+    el.className = "rute stor";
+    el.replaceChildren(tekstEl("div", tekst, blink ? "blink" : ""));
+    if (liten) el.firstChild.appendChild(tekstEl("small", liten));
+  });
+}
+
+// ---------- the light ----------
+let lysTimer = null;
+function lys(klasse, ms) {
+  clearTimeout(lysTimer);
+  $("lys").className = "lys " + (klasse || "");
+  if (ms) lysTimer = setTimeout(() => { $("lys").className = "lys"; }, ms);
+}
+
+// ---------- the printer ----------
+let gammel = false;   // the last receipt was cut: the next print starts a fresh one
+async function skriv(lines) {
+  const papir = $("papir");
+  if (gammel) {
+    papir.replaceChildren();
+    gammel = false;
+  }
+  for (const l of lines) {
+    papir.appendChild(tekstEl("div", l || " "));
+    $("papirRull").scrollTop = $("papirRull").scrollHeight;
+    await pause(rask() ? 8 : 45);
+  }
+}
+async function kutt() {
+  await pause(rask() ? 50 : 400);
+  for (const el of $("papir").children) el.classList.add("gammel");
+  $("papir").appendChild(tekstEl("div", "✂  avrevet", "kutt"));
+  $("papirRull").scrollTop = $("papirRull").scrollHeight;
+  gammel = true;
+}
+
+// ---------- the game, with the simulated machine as its io ----------
+const loggLinjer = [];
+function logg(t) {
+  loggLinjer.unshift(`${new Date().toLocaleTimeString()}  ${t}`);
+  loggLinjer.length = Math.min(loggLinjer.length, 200);
+  $("logg").textContent = loggLinjer.join("\n");
+}
+
+let pauseSlutt = 0;
+const game = createKvitteringGame({
+  now: () => performance.now(),
+  after: (ms, fn) => setTimeout(fn, ms),
+  cancel: id => clearTimeout(id),
+  belt: {
+    step: () => flyttTil(pos + 1, rask() ? 200 : 1600),
+    rewind: () => flyttTil(0, rask() ? 200 : Math.max(800, pos * 450)),
+  },
+  print: (label, lines) => skriv(lines),
+  cut: kutt,
+  bell(n) { ding(n); logg(`Bjelle × ${n}`); },
+  flash(riktig) { lys(riktig ? "gronn" : "rod", 900); },
+  hurry() { lys("skynd"); },
+  celebrate() { lys("regnbue", 6000); },
+  idle() { visStor("TRYKK JA + NEI FOR Å STARTE", "", true); },
+  log: logg,
+  onState({ state, nr, sporsmal, spill, valg }) {
+    $("jaTekst").textContent = state === "deciding" && valg[0] && !/^ja$/i.test(valg[0]) ? valg[0] : "";
+    $("neiTekst").textContent = state === "deciding" && valg[1] && !/^nei$/i.test(valg[1]) ? valg[1] : "";
+    if (state === "deciding") { visSporsmal(nr, sporsmal); if (!$("lys").className.includes("skynd")) lys(); }
+    if (state === "starting") visStor("START", "Beltet spoles til start …");
+    if (state === "over") visStor(spill.tapt ? "SLUTT" : "DU KLARTE DET!", "Kvitteringen skrives ut …");
+    if (state === "pause") pauseSlutt = performance.now() + PAUSE_ETTER_SLUTT_MS;
+    if (state === "attract") { skjermer.slice(1).forEach(el => el.remove()); skjermer.length = 1; }
+    $("saldo").textContent = state === "attract" ? "" : `Venner: ${spill.venner.length} · Kroner: ${spill.kroner}`;
+  },
+});
+
+// ---------- the life clock and the status line, drawn every frame ----------
+function tegn() {
+  const igjen = Math.max(0, game.igjenMs), brukt = LIVSTID_MS - igjen;
+  const alder = Math.min(LEVEALDER, Math.floor(brukt * LEVEALDER / LIVSTID_MS));
+  const iSpill = !["attract", "starting"].includes(game.state);
+  $("alder").textContent = `${iSpill ? alder : 0} år`;
+  $("igjen").textContent = iSpill ? `${Math.ceil(igjen / 1000)} s igjen av livet` : `${LIVSTID_MS / 1000} s = ${LEVEALDER} år`;
+  $("livBar").style.transform = `scaleX(${iSpill ? igjen / LIVSTID_MS : 1})`;
+  $("status").textContent = {
+    attract: "Venter på en spiller.",
+    starting: "Starter …",
+    deciding: "Klokka går. Velg JA eller NEI.",
+    answering: "Maskinen skriver og flytter beltet. Klokka står stille.",
+    over: "Spillet er over.",
+    pause: `Ta kvitteringen! Ny runde om ${Math.max(0, Math.ceil((pauseSlutt - performance.now()) / 1000))} s.`,
+    resetting: "Tilbake til start …",
+  }[game.state] || game.state;
+  requestAnimationFrame(tegn);
+}
+
+// ---------- buttons: JA and NEI together start a game, like on the machine ----------
+const SAMTIDIG_MS = 400;
+let sist = { ja: -1e9, nei: -1e9 };
+function trykk(knapp) {
+  const t = performance.now(), annen = knapp === "ja" ? "nei" : "ja";
+  sist[knapp] = t;
+  if (game.state === "attract") {
+    if (t - sist[annen] < SAMTIDIG_MS) game.start();
+    return;
+  }
+  game.answer(knapp === "ja");
+}
+$("ja").onclick = () => trykk("ja");
+$("nei").onclick = () => trykk("nei");
+$("start").onclick = () => game.start();
+document.addEventListener("keydown", e => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === "j") trykk("ja");
+  else if (k === "n") trykk("nei");
+  else if (k === " " || k === "c") { e.preventDefault(); game.start(); }
+});
+
+visStor("TRYKK JA + NEI FOR Å STARTE", "", true);
+tegn();
+</script>
+</body>
+</html>
