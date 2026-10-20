@@ -17,16 +17,21 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 o";
+const VERSION = "phone 2026-10-20 p";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
 const settings = (() => {
-  // ntfyTopic: "" = no push notification. (Older keys from the life game — answerSeconds,
-  // cards, finalText — may still be stored; nothing reads them now.)
+  // (Older keys from the life game — answerSeconds, cards, finalText — may still be stored;
+  // nothing reads them now.)
   // answerFeedMm: paper fed after each answer (the print head sits well below the slot)
-  const d = { ntfyTopic: "", answerFeedMm: 30 };
-  try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
+  // ntfyTopic: the maker's own channel (2026-10-20); an empty saved one falls back to it too,
+  // since the field used to start empty and that empty value was saved with every setting
+  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 30 };
+  let s = d;
+  try { s = { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch {}
+  if (!s.ntfyTopic) s.ntfyTopic = d.ntfyTopic;
+  return s;
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
 
