@@ -1,7 +1,8 @@
 // Aksels manus for Kvitteringsspillet: ti valg gjennom et helt liv, og alt havner på kvitteringen.
-// Hentet fra kvitteringsspillet/kvitteringsspillet.html. Eneste endring: spørsmål 10 «Nei» har fått
-// et svar (det var tomt). "format" forklarer stegene; reglene som utfører dem ligger i
-// kvitteringMotor.js, og klokka (60 sekunder = 67 år) i kvittering.js.
+// Hentet fra kvitteringsspillet/kvitteringsspillet.html. Endringer: spørsmål 10 «Nei» har fått et
+// svar (det var tomt), og panten på seilbåten (spørsmål 8 «Ja») er 50 kr i stedet for 9500, så den
+// ikke redder noen nå som saldoen sjekkes etter hele svaret. "format" forklarer stegene; reglene
+// som utfører dem ligger i kvitteringMotor.js, og klokka (60 sekunder = 67 år) i kvittering.js.
 export const MANUS = {
   "tittel": "Kvitteringsspillet",
   "mal": "Gjennomføre alle nivåer uten å gå i minus, i venner eller kroner.",
@@ -352,7 +353,7 @@ export const MANUS = {
             "venner": -4
           },
           {
-            "kroner": 9500,
+            "kroner": 50,
             "post": "Kambo marina (pant)"
           }
         ],

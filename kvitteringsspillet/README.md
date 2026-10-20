@@ -54,6 +54,11 @@ tap.
     `LINJE_MS` i `game/kvittering.js`. Simulatoren lager en «skhsh»-lyd for hver linje.
   - Henger skriveren, venter spillet på den én gang (20 s) og fortsetter så i lesetempo.
   - Hvert svar skrives med alderen: `3. Ja -------------------- 23 år`.
+  - **Saldoen sjekkes når hele svaret er utført**, ikke etter hvert steg som i prototypen, så
+    historien i et svar alltid kommer ut før «SPILLET ER TAPT». Kroner under 0 når svaret er
+    ferdig er tap; venner som skulle forsvinne men ikke fantes, dekkes av nye venner senere i
+    samme svar, ellers er det tap. Døden stopper svaret med en gang. Panten på seilbåten
+    (spørsmål 8 «Ja») er satt ned fra 9500 til 50 kr, så den ikke redder noen.
   - Er de 60 sekundene brukt opp, er spillet over: «Tiden er ute. Du ble 67 år.»
   - **JA = første svar, NEI = andre** (spørsmål 2: JA = Venner, NEI = Penger).
   - Spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier.

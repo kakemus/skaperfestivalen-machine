@@ -385,7 +385,8 @@ colour picker (cr/cg/cb + gamma), as the maker allowed.
 **Kvitteringsspillet, Aksels manus (2026-10-20, branch `kvitteringsspill-aksels-manus`):** replaces
 the life game on this branch. `game/kvitteringMotor.js` (the rules, moved unchanged from Aksel's
 prototype `kvitteringsspillet/kvitteringsspillet.html`, plus `svarLinje` / `tidenErUte`),
-`game/manus.js` (the script; only change: question 10 "Nei" = "Vil du ha kvitteringen?") and
+`game/manus.js` (the script; changes: question 10 "Nei" = "Vil du ha kvitteringen?", the boat's
+pawn on question 8 "Ja" 50 kr instead of 9500) and
 `game/kvittering.js` (the game, same shape as `createLifeGame(io)`; also needs `io.now/after/cancel`
 so it runs in Node): question 1 stands ready (state `ready`, nothing printed, no clock) and the
 first answer starts the game — `start()` is only the power-on rewind; a life is 60 s = 67 years,
@@ -393,7 +394,11 @@ counted from the first answer and only while the player decides; the receipt
 prints line by line, `LINJE_MS` 0.5 s per line (blank lines ¼ of that) so players read as it
 comes out (the simulator plays `printSound()` from game/sound.js per line), and a printer that doesn't answer is waited for once
 (20 s), then only the reading pace is kept until a print gets through; each answer
-is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
+is printed with the age; **the balance is checked when the whole answer is done** (Aksel: the
+story must come out before the loss) — kroner < 0 at the end loses, friends removed that weren't
+there are a `vennegjeld` that friends added later in the same answer pay off, death stops at once;
+the pawn was lowered so it can't save anyone who couldn't pay for the boat (a test checks every
+path); JA = a question's first answer, NEI = its second; after the end: cut,
 5 s in which presses are ignored, then the rewind (`rewinding`), then question 1 ready again; every wait on printer/belt has a limit. All in
 sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
 with an on-screen machine, black and white (JA black, NEI white); the time left shows only on the

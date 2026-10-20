@@ -1,9 +1,10 @@
 // Test for Kvitteringsspillet. Kjør med:  node tests/kvittering.test.mjs
 // Ingen avhengigheter. Sjekker at
-//   1. game/manus.js er manuset fra kvitteringsspillet/kvitteringsspillet.html, med bare den
-//      ene endringen vi har gjort (spørsmål 10 «Nei»),
-//   2. game/kvitteringMotor.js gir nøyaktig de samme kvitteringene som den originale motoren
-//      i HTML-fila, for ALLE veier gjennom spillet,
+//   1. game/manus.js er manuset fra kvitteringsspillet/kvitteringsspillet.html, med bare de
+//      endringene vi har gjort (spørsmål 10 «Nei», panten på seilbåten),
+//   2. game/kvitteringMotor.js gir de samme kvitteringene som den originale motoren i HTML-fila
+//      der saldoen aldri er under null, og følger den nye regelen ellers: saldoen sjekkes
+//      først når hele svaret er utført, så historien alltid kommer ut,
 //   3. manuset passer maskinen: høyst to svar per spørsmål (JA / NEI), bare kjente steg,
 //      ingen linje bredere enn kvitteringen, og minst én vei til seier,
 //   4. game/kvittering.js (klokka, alderen, pausen etter slutt) med en falsk klokke og en
@@ -69,10 +70,13 @@ const veier = alleVeier(MANUS);
 const gamleVeier = alleVeier(gammeltManus);
 
 console.log("Manus");
-sjekk("game/manus.js = manuset i HTML-fila + svaret på spørsmål 10 «Nei»", () => {
+sjekk("game/manus.js = manuset i HTML-fila + svaret på spørsmål 10 «Nei» + panten på 50 kr", () => {
   const forventet = structuredClone(gammeltManus);
   assert.deepEqual(forventet.sporsmal[9].svar.Nei, []);
   forventet.sporsmal[9].svar.Nei = [{ no: "Vil du ha kvitteringen?" }];
+  const pant = forventet.sporsmal[7].svar.Ja.find(s => s.post === "Kambo marina (pant)");
+  assert.equal(pant.kroner, 9500);
+  pant.kroner = 50;
   assert.deepEqual(MANUS, forventet);
 });
 sjekk("høyst to svar per spørsmål (maskinen har bare JA og NEI)", () => {
@@ -89,11 +93,63 @@ sjekk("bare steg motoren kjenner", () => {
 });
 
 console.log(`Motoren (${veier.length} veier gjennom spillet)`);
-sjekk("ny motor gir samme kvittering som den originale, på alle veier", () => {
-  for (const vei of gamleVeier) {
+sjekk("der saldoen aldri er under null, gir ny motor samme kvittering som den originale", () => {
+  const trygge = gamleVeier.filter(vei => !spillVei(gammel, gammeltManus, vei).tapt);
+  assert.ok(trygge.length >= 20, "for få veier å sammenligne: " + trygge.length);
+  for (const vei of trygge) {
     const a = spillVei(gammel, gammeltManus, vei), b = spillVei(ny, gammeltManus, vei);
     assert.deepEqual(b, a, `forskjell på veien ${vei.join(" → ")}`);
   }
+});
+// En spiller rett før spørsmål `nr` (1-basert) med gitte kroner og venner.
+const spillerVed = (kroner, antallVenner) => ({ ...ny.nyttSpill(), kroner, venner: Array.from({ length: antallVenner }, (_, i) => "V" + i), visning: "venner" });
+sjekk("spørsmål 8 «Ja» uten råd: hele historien skrives ut før tapet", () => {
+  const s = spillerVed(9800, 11), linjer = ny.spillSvar(s, MANUS.sporsmal[7], "Ja").join(" ");
+  assert.equal(s.tapt, true);
+  assert.equal(s.grunn, "kroner");
+  for (const biter of ["Kjetil", "vil lære å seile", "Kambo marina"]) assert.ok(linjer.includes(biter), `mangler «${biter}»`);
+});
+sjekk("saldoen sjekkes etter hele svaret: Labubu kjøpt og solgt med 0 kr går bra", () => {
+  const s = spillerVed(0, 3);
+  ny.spillSvar(s, MANUS.sporsmal[2], "Ja");               // −800, så +900
+  assert.equal(s.tapt, false);
+  assert.equal(s.kroner, 100);
+});
+sjekk("venner som mangler dekkes av nye venner i samme svar (begravelsen redder)", () => {
+  const s = spillerVed(1000, 1);
+  ny.spillSvar(s, MANUS.sporsmal[8], "Ja");               // −2 venner, så 12 i begravelsen
+  assert.equal(s.tapt, false);
+  assert.equal(s.venner.length, 1 - 2 + 12);
+});
+sjekk("venner som mangler og ikke dekkes er tap, men teksten kommer ut", () => {
+  const s = spillerVed(1000, 1), linjer = ny.spillSvar(s, MANUS.sporsmal[2], "Nei").join(" ");
+  assert.equal(s.tapt, true);
+  assert.equal(s.grunn, "venner");
+  assert.ok(linjer.includes("kjedelig"));
+});
+sjekk("døden stopper svaret med en gang", () => {
+  const s = spillerVed(1000, 5);
+  ny.spillSvar(s, MANUS.sporsmal[6], "Nei");
+  assert.equal(s.grunn, "død");
+});
+sjekk("panten redder ingen: alle som når spørsmål 8 uten råd til båten, taper på «Ja»", () => {
+  let uten = 0;
+  (function prov(i, s) {
+    if (i === 7) {
+      if (s.kroner >= 19000) return;
+      uten++;
+      const k = ny.kopi(s);
+      ny.spillSvar(k, MANUS.sporsmal[7], "Ja");
+      assert.equal(k.tapt, true, `${s.kroner} kr før spørsmål 8 overlevde båten`);
+      return;
+    }
+    for (const v of Object.keys(MANUS.sporsmal[i].svar)) {
+      const k = ny.kopi(s);
+      ny.spillSvar(k, MANUS.sporsmal[i], v);
+      if (!k.tapt) prov(i + 1, k);
+    }
+  })(0, ny.nyttSpill());
+  assert.ok(uten > 0, "ingen når spørsmål 8 uten råd — testen tester ingenting");
 });
 sjekk(`ingen linje er bredere enn ${ny.BREDDE} tegn`, () => {
   for (const vei of veier) for (const l of spillVei(ny, MANUS, vei).linjer)

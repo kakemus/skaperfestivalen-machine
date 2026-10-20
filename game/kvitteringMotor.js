@@ -1,7 +1,9 @@
 // Spillmotoren for Kvitteringsspillet (Aksels manus, game/manus.js): utfører stegene
 // i et svar og gir tilbake linjene som skal på kvitteringen. Ren logikk — vet ingenting
 // om siden, skriveren eller beltet, så den kan testes alene (tests/kvittering.test.mjs).
-// Flyttet fra motor.js i kvitteringsspillet/kvitteringsspillet.html uten å endre reglene.
+// Flyttet fra motor.js i kvitteringsspillet/kvitteringsspillet.html. Én regel er endret
+// (Aksel, 2026-10-20): saldoen sjekkes når hele svaret er utført, ikke etter hvert steg,
+// så historien i et svar alltid kommer ut før «SPILLET ER TAPT».
 
 export const BREDDE = 32; // tegn per linje på kvitteringen
 
@@ -12,6 +14,7 @@ export function nyttSpill() {
     tapt: false,
     grunn: null,       // "kroner", "venner", "død" eller "tid" når spillet er tapt
     alder: 0,          // hvor gammel spilleren ble, når tiden gikk ut
+    vennegjeld: 0,     // venner som skulle forsvinne, men som ikke fantes (innenfor ett svar)
     visning: null,     // "venner" eller "kroner", settes av svaret på spørsmål 2. Før det vises begge.
     sumSkrevet: false, // et "sum"-steg har skrevet totalen, så sluttLinjer hopper over sin
   };
@@ -73,27 +76,21 @@ function utforSteg(spill, steg) {
       const fortegn = steg.kroner > 0 ? "+" : "";
       ut.push(kolonner(steg.post, fortegn + steg.kroner + " kr"));
     }
-    if (spill.kroner < 0) {
-      spill.tapt = true;
-      spill.grunn = "kroner";
-    }
   } else if (Array.isArray(steg.venner)) {
     spill.venner.push(...steg.venner);
     if (vises(spill, "venner")) ut.push(...vennelinjer(steg.venner, ""));
+    betalVennegjeld(spill);
   } else if (typeof steg.venner === "number" && steg.venner > 0) {
     // Mange venner uten egne navn, f.eks. { "venner": 4567, "navn": "Ikke navngitt venn" }
     const nye = Array(steg.venner).fill(steg.navn);
     spill.venner.push(...nye);
     if (vises(spill, "venner")) ut.push(...vennelinjer(nye, ""));
+    betalVennegjeld(spill);
   } else if (typeof steg.venner === "number") {
     const borte = [];
     for (let i = 0; i < -steg.venner; i++) {
-      if (spill.venner.length === 0) {
-        spill.tapt = true;
-        spill.grunn = "venner";
-        break;
-      }
-      borte.push(spill.venner.pop());
+      if (spill.venner.length === 0) spill.vennegjeld++;   // finnes ikke: sjekkes når svaret er ferdig
+      else borte.push(spill.venner.pop());
     }
     if (vises(spill, "venner")) ut.push(...vennelinjer(borte, "-"));
   } else if (steg.sum === "venner") {
@@ -110,15 +107,33 @@ function utforSteg(spill, steg) {
   return ut;
 }
 
-/** Utfører alle stegene i et svar, og stopper så snart spilleren har tapt. */
+// Nye venner dekker først venner som manglet tidligere i samme svar.
+function betalVennegjeld(spill) {
+  while (spill.vennegjeld > 0 && spill.venner.length > 0) {
+    spill.venner.pop();
+    spill.vennegjeld--;
+  }
+}
+
+/** Utfører alle stegene i et svar (hele historien kommer ut), og sjekker saldoen når
+ *  svaret er ferdig: kroner under 0, eller venner som manglet og ikke ble dekket, er tap.
+ *  Døden stopper svaret med en gang. */
 export function spillSvar(spill, sporsmal, valg) {
   const steg = sporsmal.svar[valg];
   if (!steg) throw new Error(`Spørsmål ${sporsmal.nr} har ikke svaret "${valg}"`);
   const ut = [];
   for (const s of steg) {
     ut.push(...utforSteg(spill, s));
-    if (spill.tapt) break;
+    if (spill.tapt) return ut;
   }
+  if (spill.kroner < 0) {
+    spill.tapt = true;
+    spill.grunn = "kroner";
+  } else if (spill.vennegjeld > 0) {
+    spill.tapt = true;
+    spill.grunn = "venner";
+  }
+  spill.vennegjeld = 0;
   return ut;
 }
 
