@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kvitteringsspillet</title>
+<!-- Lages av lag-html.js. Endre manus.json, motor.js eller mal.html, og kjør: node lag-html.js -->
+<style>
+  :root {
+    --bord: #2b2a33;
+    --bord-lys: #3a3944;
+    --tekst: #f4f1ea;
+    --dempet: #a9a6b3;
+    --papir: #fbfaf6;
+    --blekk: #23222a;
+    --aksent: #e8b04a;
+    --tap: #c8452f;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bord);
+    color: var(--tekst);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 14px 20px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: .02em; }
+  header p { margin: 0; color: var(--dempet); font-size: 14px; }
+  main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 420px);
+    gap: 24px;
+    padding: 0 20px 20px;
+  }
+
+  /* Ruta på kvitteringsskrollen */
+  .scene { display: flex; align-items: center; justify-content: center; }
+  .rute {
+    width: 100%;
+    max-width: 520px;
+    background: var(--papir);
+    color: var(--blekk);
+    border-radius: 6px;
+    padding: 28px 28px 24px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    font-family: var(--mono);
+  }
+  .nr { font-size: 14px; color: #6b6875; margin-bottom: 10px; }
+  .pris { font-size: 26px; font-weight: 700; margin: 4px 0 14px; }
+  .bilde {
+    border: 2px dashed #b9b5aa;
+    border-radius: 4px;
+    min-height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 16px;
+    margin-bottom: 18px;
+    font-size: 17px;
+  }
+  .bilde.foto { border: none; padding: 0; min-height: 0; flex-direction: column; gap: 6px; }
+  .bilde.foto img { display: block; max-width: 100%; max-height: 260px; object-fit: contain; border-radius: 3px; }
+  .bilde.foto figcaption { font-size: 13px; color: #6b6875; }
+  .tekst p { margin: 0 0 8px; font-size: 17px; line-height: 1.45; }
+  .tekst p:last-child { font-weight: 700; margin-top: 12px; }
+  .knapper { display: flex; gap: 12px; margin-top: 22px; }
+  .knapper button {
+    flex: 1;
+    font: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 14px 10px;
+    border-radius: 6px;
+    border: 2px solid var(--blekk);
+    background: var(--papir);
+    color: var(--blekk);
+    cursor: pointer;
+  }
+  .knapper button:hover:not(:disabled) { background: var(--aksent); }
+  .knapper button:focus-visible { outline: 3px solid var(--aksent); outline-offset: 2px; }
+  .knapper button:disabled { opacity: .35; cursor: default; }
+  .tast { display: block; font-size: 11px; font-weight: 400; color: #6b6875; margin-top: 2px; }
+
+  /* Kvitteringen */
+  .skriver {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--bord-lys);
+    border-radius: 10px;
+    padding: 14px 14px 0;
+  }
+  .spalte {
+    height: 10px;
+    background: #15141a;
+    border-radius: 5px;
+    margin: 0 6px;
+  }
+  .papir-rull { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px; scrollbar-width: thin; }
+  .papir {
+    background: var(--papir);
+    color: var(--blekk);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 18px 14px 30px;
+    margin-top: -2px;
+    white-space: pre;
+    min-height: 100%;
+    box-shadow: 0 4px 14px rgba(0,0,0,.3);
+    /* tagget kant nederst */
+    -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+            mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+  }
+  .papir .tapt { color: var(--tap); font-weight: 700; }
+  .papir .vant { font-weight: 700; }
+  .papir .overskrift { font-weight: 700; }
+  .papir .markor::after { content: "▌"; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .skriver-bunn { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 6px 12px; color: var(--dempet); font-size: 13px; }
+  .skriver-bunn button {
+    font: inherit; color: var(--tekst); background: transparent; border: 1px solid var(--dempet);
+    border-radius: 5px; padding: 6px 10px; cursor: pointer;
+  }
+  .skriver-bunn button:hover { border-color: var(--tekst); }
+
+
+  /* Feiltestingsvinduet */
+  .feil {
+    position: fixed; top: 12px; left: 12px; z-index: 10;
+    width: min(320px, calc(100vw - 32px)); max-height: calc(100vh - 24px); overflow-y: auto;
+    background: #15141a; color: var(--tekst); border: 1px solid var(--aksent); border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.45;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .feil[hidden], .feil-apne[hidden] { display: none; }
+  .feil-topp {
+    position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center;
+    background: #15141a; padding: 8px 10px; border-bottom: 1px solid var(--bord-lys);
+    font-weight: 700; color: var(--aksent);
+  }
+  .feil-topp button, .feil-apne {
+    font: inherit; color: var(--tekst); background: transparent; border: 1px solid var(--dempet);
+    border-radius: 4px; padding: 2px 8px; cursor: pointer;
+  }
+  .feil-apne { position: fixed; top: 12px; left: 12px; z-index: 10; background: #15141a; font-family: var(--mono); font-size: 12px; }
+  /* Skyver spillet til siden så vinduet ikke dekker knappene */
+  @media (min-width: 821px) { body.feil-apen { padding-left: 344px; } }
+  @media (max-width: 820px) {
+    .feil { position: static; width: auto; margin: 12px 16px 0; max-height: 45vh; }
+    .feil-apne { position: static; margin: 12px 16px 0; align-self: flex-start; }
+  }
+  .feil-innhold { padding: 8px 10px 10px; }
+  .feil dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 8px; }
+  .feil dt { color: var(--dempet); }
+  .feil dd { margin: 0; text-align: right; font-weight: 700; }
+  .feil .neg { color: #ff7a63; }
+  .feil .navn { color: var(--dempet); max-height: 90px; overflow-y: auto; margin-bottom: 10px; white-space: normal; }
+  .feil h3 { font-size: 12px; margin: 8px 0 4px; color: var(--aksent); }
+  .feil table { width: 100%; border-collapse: collapse; }
+  .feil td { padding: 2px 4px; vertical-align: top; }
+  .feil td:last-child { text-align: right; white-space: nowrap; }
+  .feil tr.na { background: rgba(232,176,74,.18); }
+  .feil tr.ferdig td { color: var(--dempet); }
+  .feil .ok { color: #7fd18b; }
+  .feil .feilvalg { color: #ff7a63; }
+  .feil .merk { color: var(--dempet); margin-top: 6px; }
+
+  @media (max-width: 820px) {
+    main { grid-template-columns: 1fr; grid-template-rows: auto 60vh; padding: 0 16px 16px; }
+    .rute { padding: 20px 18px; }
+    .bilde { min-height: 90px; }
+    .papir { font-size: 11.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .papir .markor::after { animation: none; }
+  }
+</style>
+</head>
+<body>
+<aside class="feil" id="feil" aria-label="Feiltesting">
+  <div class="feil-topp">
+    <span>Feiltesting <span style="font-weight:400;color:var(--dempet)">(tast D)</span></span>
+    <button type="button" id="feilLukk" aria-label="Lukk feiltesting">×</button>
+  </div>
+  <div class="feil-innhold" id="feilInnhold"></div>
+</aside>
+<button type="button" class="feil-apne" id="feilApne" hidden>Feiltesting</button>
+<header>
+  <h1>Kvitteringsspillet</h1>
+  <p id="mal"></p>
+</header>
+<main>
+  <section class="scene">
+    <div class="rute" aria-live="polite">
+      <div class="nr" id="nr"></div>
+      <div class="pris" id="pris"></div>
+      <div class="bilde" id="bilde"></div>
+      <div class="tekst" id="tekst"></div>
+      <div class="knapper" id="knapper"></div>
+    </div>
+  </section>
+  <section class="skriver" aria-label="Kvitteringen">
+    <div class="spalte"></div>
+    <div class="papir-rull" id="rull"><div class="papir" id="papir"></div></div>
+    <div class="skriver-bunn">
+      <span id="saldo"></span>
+      <span>
+        <label><input type="checkbox" id="rask"> Rask utskrift</label>
+        <button id="restart" type="button">Nytt liv</button>
+      </span>
+    </div>
+  </section>
+</main>
+
+<script>
+// Spillmotoren for Kvitteringsspillet. Leser manus.json og utfører stegene.
+// Brukes av spill.js (spille), sjekk.js (regne gjennom alle veier) og kvitteringsspillet.html (nettleser).
+
+const BREDDE = 32; // tegn per linje på kvitteringsskriveren
+
+// Bare i Node. I nettleseren ligger manuset ferdig inne i HTML-fila.
+function lesManus(fil = require('path').join(__dirname, 'manus.json')) {
+  return JSON.parse(require('fs').readFileSync(fil, 'utf8'));
+}
+
+function nyttSpill() {
+  return {
+    venner: [],   // stabel: nyeste venn ligger sist i lista
+    kroner: 0,
+    tapt: false,
+    grunn: null,
+    visning: null, // "venner" eller "kroner". Settes av svaret på spørsmål 2. Før det vises begge.
+  };
+}
+
+// Én linje med tekst til venstre og tall til høyre, f.eks. "Labubu            -800"
+function kolonner(venstre, hoyre) {
+  const plass = BREDDE - hoyre.length - 1;
+  const v = venstre.length > plass ? venstre.slice(0, plass) : venstre;
+  return v + ' '.repeat(BREDDE - v.length - hoyre.length) + hoyre;
+}
+
+// Bryter lang tekst over flere linjer.
+function brytTekst(tekst) {
+  const linjer = [];
+  let linje = '';
+  for (const ord of tekst.split(' ')) {
+    if (linje && (linje + ' ' + ord).length > BREDDE) {
+      linjer.push(linje);
+      linje = ord;
+    } else {
+      linje = linje ? linje + ' ' + ord : ord;
+    }
+  }
+  if (linje) linjer.push(linje);
+  return linjer;
+}
+
+// Én linje per venn ("Emma 1x"). Like navn etter hverandre slås sammen ("Ikke navngitt venn 4567x").
+function vennelinjer(navneliste, fortegn) {
+  const ut = [];
+  let i = 0;
+  while (i < navneliste.length) {
+    let j = i;
+    while (j < navneliste.length && navneliste[j] === navneliste[i]) j++;
+    ut.push(kolonner(navneliste[i], fortegn + (j - i) + 'x'));
+    i = j;
+  }
+  return ut;
+}
+
+// Skal denne typen linjer (venner eller kroner) skrives ut på kvitteringen?
+function vises(spill, type) {
+  return !spill.visning || spill.visning === type;
+}
+
+// Utfører ett steg. Returnerer linjene som skal skrives ut.
+function utforSteg(spill, steg) {
+  const ut = [];
+
+  if ('visning' in steg) {
+    spill.visning = steg.visning;
+  } else if ('no' in steg) {
+    ut.push('', ...brytTekst(steg.no));
+  } else if ('kroner' in steg) {
+    spill.kroner += steg.kroner;
+    if (vises(spill, 'kroner')) {
+      const fortegn = steg.kroner > 0 ? '+' : '';
+      ut.push(kolonner(steg.post, fortegn + steg.kroner + ' kr'));
+    }
+    if (spill.kroner < 0) {
+      spill.tapt = true;
+      spill.grunn = 'kroner';
+    }
+  } else if (Array.isArray(steg.venner)) {
+    for (const navn of steg.venner) spill.venner.push(navn);
+    if (vises(spill, 'venner')) ut.push(...vennelinjer(steg.venner, ''));
+  } else if (typeof steg.venner === 'number' && steg.venner > 0) {
+    // Mange venner uten egne navn, f.eks. { "venner": 4567, "navn": "Ikke navngitt venn" }
+    const nye = Array(steg.venner).fill(steg.navn);
+    spill.venner.push(...nye);
+    if (vises(spill, 'venner')) ut.push(...vennelinjer(nye, ''));
+  } else if (typeof steg.venner === 'number') {
+    const borte = [];
+    for (let i = 0; i < -steg.venner; i++) {
+      if (spill.venner.length === 0) {
+        spill.tapt = true;
+        spill.grunn = 'venner';
+        break;
+      }
+      borte.push(spill.venner.pop());
+    }
+    if (vises(spill, 'venner')) ut.push(...vennelinjer(borte, '-'));
+  } else if (steg.sum === 'venner') {
+    spill.sumSkrevet = true;
+    ut.push(kolonner('Total venner:', spill.venner.length + 'x'));
+  } else if (steg.sum === 'kroner') {
+    spill.sumSkrevet = true;
+    ut.push(kolonner('Total kroner:', spill.kroner + ' kr'));
+  } else if (steg.slutt === 'død') {
+    spill.tapt = true;
+    spill.grunn = 'død';
+  }
+
+  return ut;
+}
+
+// Utfører alle stegene i et svar, og stopper så snart spilleren har tapt.
+function spillSvar(spill, sporsmal, valg) {
+  const steg = sporsmal.svar[valg];
+  if (!steg) throw new Error(`Spørsmål ${sporsmal.nr} har ikke svaret "${valg}"`);
+  const ut = [];
+  for (const s of steg) {
+    ut.push(...utforSteg(spill, s));
+    if (spill.tapt) break;
+  }
+  return ut;
+}
+
+// avslutning: teksten som skrives helt til slutt i alle spill (manus.avslutning).
+function sluttLinjer(spill, avslutning) {
+  const ut = ['='.repeat(BREDDE)];
+  if (spill.tapt) {
+    const grunn = {
+      kroner: 'Du gikk i minus på kroner.',
+      venner: 'Du gikk tom for venner.',
+      død: 'Du døde.',
+    }[spill.grunn];
+    ut.push('SPILLET ER TAPT', ...brytTekst(grunn));
+  } else {
+    ut.push('DU KLARTE DET!');
+  }
+  // Hopper over summen hvis manuset allerede har skrevet den ut med et "sum"-steg.
+  if (!spill.sumSkrevet) ut.push(spill.visning === 'venner'
+    ? kolonner('SUM VENNER', spill.venner.length + 'x')
+    : kolonner('SUM', spill.kroner + ' kr'));
+  ut.push('='.repeat(BREDDE));
+  if (avslutning) ut.push('', ...brytTekst(avslutning));
+  return ut;
+}
+
+if (typeof module !== 'undefined') module.exports = { lesManus, nyttSpill, spillSvar, sluttLinjer, brytTekst, BREDDE };
+
+</script>
+<script>
+const MANUS = {"tittel":"Kvitteringsspillet","mal":"Gjennomføre alle nivåer uten å gå i minus, i venner eller kroner.","avslutning":"Vil du ha kvitteringen på det?","format":{"steg":["{ \"no\": \"...\" }                       Tekstsvar på norsk. Skrives ut på kvitteringen.","{ \"kroner\": 400, \"post\": \"Lønn\" }   Legger til (pluss) eller trekker fra (minus) kroner. \"post\" er teksten på kvitteringen.","{ \"venner\": [\"Emma\", \"Noah\"] }       Legger vennene øverst i stabelen. Hvert navn skrives som 1x.","{ \"venner\": 4567, \"navn\": \"Ikke navngitt venn\" }  Legger til mange venner med samme navn. Skrives på én linje.","{ \"venner\": -3 }                        Fjerner de 3 nyeste vennene fra stabelen.","{ \"sum\": \"venner\" }                     Skriver ut totalen, f.eks. \"Total venner: 15\". Kan også være \"kroner\".","{ \"visning\": \"venner\" }                 Kvitteringen viser bare venner fra nå av (eller \"kroner\"). Før dette vises begge.","{ \"slutt\": \"død\" }                    Spilleren dør. Spillet er tapt."],"tap":"Saldoen sjekkes etter hvert steg. Kroner under 0, eller flere venner fjernet enn det finnes i stabelen, betyr at spillet er tapt.","rekkefolge":"Stegene utføres og skrives ut i den rekkefølgen de står.","bilder":"\"bilde\" er beskrivelsen (vises som [ beskrivelse ] hvis bildet mangler). \"bildefil\" er bildet i mappa bilder/. lag-html.js legger bildene inn i HTML-fila."},"sporsmal":[{"nr":1,"tittel":"Plott","tekst":["Livet er mange valg.","Hva om du fikk hele livet på en kvittering?","Vil du bli født?"],"bilde":null,"pris":null,"svar":{"Ja":[{"venner":["Mamma","Pappa","Farmor"]},{"kroner":1900,"post":"Barnetrygd"},{"no":"Så godt det er å leve! Hvem du er, og hva du velger, setter spor i verden, og du har gleden av å oppleve konsekvensene!"}],"Nei":[{"no":"Vi velger ikke å bli født. Kjenn godt etter. Du fortsetter å leve, uansett om dagen er god eller dårlig. Livet er alle de andre valgene, de du faktisk har."}]}},{"nr":2,"tekst":["Hva vil du spare på?","Venner eller penger?"],"bilde":null,"pris":null,"svar":{"Venner":[{"visning":"venner"},{"venner":["Emma","Noah","Sara","Ali","Nora"]},{"no":"Venner gir deg valgmuligheter. De inviterer deg med, gir deg gratis kaffe hvis de jobber på kafé, og kanskje kjenner de noen som kan gi deg jobb."}],"Penger":[{"visning":"kroner"},{"kroner":1000,"post":"Sparing"},{"no":"Penger gir deg valgmuligheter. Du kan betale for å få ting gjort, for å dra dit du vil, og for å få det du vil ha."}]}},{"nr":3,"tekst":["Kjøper du den?"],"bilde":"Labubu","bildefil":"bilder/03-labubu.jpg","pris":800,"svar":{"Ja":[{"venner":["Leah","Oskar","Aksel","Mia"]},{"kroner":-800,"post":"Labubu"},{"no":"Labubuen er et statussymbol, som gjør deg populær. Du selger den 1 år senere."},{"kroner":900,"post":"Labubu solgt"}],"Nei":[{"no":"Labubuen er en meningsløs og dyr kosebamse. Du vil heller investere pengene lurt. Du tenker på ROI."},{"no":"Vennene dine synes du er kjedelig."},{"venner":-4}]}},{"nr":4,"tekst":["Kjøper du det?"],"bilde":"Vaffeljern","bildefil":"bilder/04-vaffeljern.jpg","pris":700,"svar":{"Ja":[{"venner":["Ingeborg","Jonas","Amir","Frida","Henrik"]},{"kroner":-700,"post":"Vaffeljern"},{"no":"Du har skjønt at vaffelhjerter er veien inn i venners hjerter. Vennene dine sier vaflene er så gode at du kan selge dem. Du selger vafler."},{"kroner":2900,"post":"Vaffelsalg"}],"Nei":[{"no":"Vaffeljernet er dyrt. Når du vil ha vafler, drar du heller til farmor. Hun bor langt unna."},{"kroner":-2000,"post":"Togbillett"},{"no":"Hun gir deg penger."},{"kroner":5000,"post":"Farmor"}]}},{"nr":5,"tekst":["Kjøper du denne?"],"bilde":"Binokularlupe med optikk mikroskop","bildefil":"bilder/05-binokularlupe.jpg","pris":1000,"svar":{"Ja":[{"venner":-3},{"kroner":-1000,"post":"Binokularlupe"},{"no":"Du kjøper mikroskopet for å se på insekter. Snart oppdager du en hel verden av interessante ting du tidligere ikke kunne se. For eksempel støvmidd. Et helt år går. Du får ekstrem støvallergi, og må kjøpe allergimedisin."},{"kroner":-4000,"post":"Allergimedisin"}],"Nei":[{"no":"Du vil heller forholde deg til verden på din størrelse, som for eksempel venner og jobb."},{"no":"Du jobber så mye at du ikke rekker å treffe vennene dine."},{"venner":-10},{"kroner":14000,"post":"Lønn"}]}},{"nr":6,"tekst":["Kjøper du den?"],"bilde":"Ekstremstol","bildefil":"bilder/06-ekstremstol.jpg","pris":2000,"svar":{"Ja":[{"kroner":-2000,"post":"Ekstremstol"},{"no":"Ekstremstolen din er kul, og alle vil sitte i den. Når den siste av vennene dine slenger seg ned i den, knekker stolen. De krever erstatning."},{"venner":-1},{"kroner":-3400,"post":"Erstatning"}],"Nei":[{"no":"Du lager en modell av Ekstremstolen med piperensere, og setter den i vinduet."},{"kroner":-1100,"post":"Piperensere"},{"no":"En dag stopper naboen deg for å fortelle at han kjente Terje Ekstrøms kone."},{"venner":["Arild"]},{"no":"Dere blir enige om å lage modeller av Ekstremstolen sammen, for å selge dem for 250 kroner stykket. Det er den perfekte julegaven."},{"kroner":4000,"post":"Stolmodeller"}]}},{"nr":7,"tekst":["Kjøper du den?"],"bilde":"Casall romaskin","bildefil":"bilder/07-romaskin.jpg","pris":3000,"svar":{"Ja":[{"kroner":-3000,"post":"Casall romaskin"},{"no":"Du har sett Terje Vigen på teatret. Inspirert av roingen hans kjøper du deg en romaskin. Du trener lite, men leser masse om Napoleonskrigene, og blir populær på fest."},{"venner":["Vilde","Magnus","Linnea","Tobias","Hedda"]}],"Nei":[{"no":"Du kjøper ikke romaskinen. Det bryter ut krig i Europa, og England innfører handelsblokade i Nordsjøen. Du bestemmer deg for å ro til Danmark for å skaffe korn. Halvveis over Skagerrak får du prolaps."},{"no":"Du dør."},{"slutt":"død"}]}},{"nr":8,"tekst":["Kjøper du den?"],"bilde":"Hallberg-Rassy Rasmus 35 fot enmastet – 1974","bildefil":"bilder/08-seilbat.jpg","pris":19000,"svar":{"Ja":[{"kroner":-19000,"post":"Hallberg-Rassy Rasmus 35"},{"no":"Å seile med vinden, og leve i takt med bølgene frister. Du kjøper en seilbåt og får plutselig tre nye venner som sier de «vil lære å seile»."},{"venner":["Kjetil","Stian","Mons"]},{"no":"Du skjønner at vinteropplag vil koste 7680 kroner, og vil selge båten. Ingen vil kjøpe den, så du panter den hos Kambo marina."},{"venner":-4},{"kroner":9500,"post":"Kambo marina (pant)"}],"Nei":[{"no":"Livet på havet fortsetter å friste, og du blir med tre jenter som skal krysse Atlanterhavet. Opplevelsen er skjellsettende, og du kan endelig gi slipp på samfunnets krav og leve livet ditt."},{"venner":["Ingrid","Sunniva","Maja"]},{"kroner":-10000,"post":"Atlanterhavstur"}]}},{"nr":9,"tekst":["Kjøper du den?"],"bilde":"Urne med lokk","bildefil":"bilder/09-urne.jpg","pris":500,"svar":{"Ja":[{"kroner":-500,"post":"Urne med lokk"},{"no":"Du finner en «pent brukt» urne på Finn. Vennene dine skjønner at noe er galt. Du mister noen, mens andre kommer nærmere."},{"venner":-2},{"no":"I begravelsen din kommer det mange flere enn du trodde, til og med klassekamerater fra barneskolen."},{"venner":["Tuva","Emil","Selma","Filip","Thea","Sander","Ella","Mathias","Iben","Jakob","Aurora","Even"]}],"Nei":[{"no":"Du trenger ingen urne, og vil bli strødd for vinden over Skagerrak, der Terje Vigen rodde. Flere venner syns det er rart."},{"venner":-5},{"no":"Seremonien blir plukket opp av Hvaler Budstikke og blir en nasjonal sensasjon. Kirkene åpner for at publikum kan komme og minnes livet ditt i hele Norge."},{"venner":4567,"navn":"Ikke navngitt venn"}]}},{"nr":10,"tittel":"Epilog","merknad":"Valget er å kjøpe selve maskinen spillet ble spilt på. Kommer etter livet er over.","tekst":["Kjøper du denne?"],"bilde":"Kvitteringsspillet","bildefil":"bilder/10-kvitteringsspillet.jpg","pris":10000,"svar":{"Ja":[{"no":"Gratulerer! Du har kjøpt maskinen. Vi vil straks betjene kjøpet ditt!"},{"no":"Livsforsikringen din betaler ut."},{"kroner":10000,"post":"Livsforsikring"},{"kroner":-10000,"post":"Kvitteringsspillet"},{"no":"Beregner summer ...."},{"sum":"venner"},{"sum":"kroner"}],"Nei":[]}}]};
+
+const $ = id => document.getElementById(id);
+const papir = $('papir'), rull = $('rull');
+let spill, nr, utskrift = Promise.resolve(), opptatt = false;
+
+$('mal').textContent = MANUS.mal;
+
+function pause(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Skriver linjer på kvitteringen, én og én, som en ekte skriver.
+function skriv(linjer, klasse) {
+  utskrift = utskrift.then(async () => {
+    for (const linje of linjer) {
+      const el = document.createElement('div');
+      if (klasse) el.className = klasse;
+      papir.appendChild(el);
+      el.classList.add('markor');
+      const rask = $('rask').checked;
+      if (rask || !linje) {
+        el.textContent = linje || ' ';
+      } else {
+        for (let i = 1; i <= linje.length; i += 2) {
+          el.textContent = linje.slice(0, i);
+          await pause(9);
+        }
+        el.textContent = linje;
+      }
+      el.classList.remove('markor');
+      rull.scrollTop = rull.scrollHeight;
+      await pause(rask ? 15 : 90);
+    }
+  });
+  return utskrift;
+}
+
+function oppdaterSaldo() {
+  const v = `Venner: ${spill.venner.length}`, k = `Kroner: ${spill.kroner}`;
+  $('saldo').textContent = spill.visning === 'venner' ? v : spill.visning === 'kroner' ? k : `${v} · ${k}`;
+}
+
+// Viser en rute med valg. Hver knapp kan også trykkes med første bokstav.
+function visRute({ nrTekst, pris, bilde, bildeData, tekst, valg, vedValg }) {
+  $('nr').textContent = nrTekst || '';
+  $('pris').textContent = pris ? `${pris.toLocaleString('nb-NO')} kroner` : '';
+  $('pris').style.display = pris ? '' : 'none';
+  // Bilde hvis det finnes, ellers beskrivelsen i en stiplet ramme: [ Labubu ]
+  $('bilde').classList.toggle('foto', !!bildeData);
+  if (bildeData) {
+    const fig = document.createElement('figure');
+    fig.style.margin = 0;
+    const img = Object.assign(document.createElement('img'), { src: bildeData, alt: bilde });
+    fig.append(img, Object.assign(document.createElement('figcaption'), { textContent: bilde }));
+    $('bilde').replaceChildren(fig);
+  } else {
+    $('bilde').textContent = bilde ? `[ ${bilde} ]` : '';
+  }
+  $('bilde').style.display = bilde ? '' : 'none';
+  $('tekst').replaceChildren(...tekst.map(t => Object.assign(document.createElement('p'), { textContent: t })));
+  const knapper = $('knapper');
+  knapper.replaceChildren(...valg.map(v => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.innerHTML = `${v}<span class="tast">tast ${v[0].toUpperCase()}</span>`;
+    b.onclick = () => velg(v);
+    return b;
+  }));
+  aktiveValg = { valg, vedValg };
+  settOpptatt(false);
+}
+
+let aktiveValg = null;
+function settOpptatt(ja) {
+  opptatt = ja;
+  for (const b of $('knapper').children) b.disabled = ja;
+}
+async function velg(v) {
+  if (opptatt || !aktiveValg) return;
+  settOpptatt(true);
+  await aktiveValg.vedValg(v);
+}
+document.addEventListener('keydown', e => {
+  if (!aktiveValg || e.ctrlKey || e.metaKey || e.altKey) return;
+  const v = aktiveValg.valg.find(x => x[0].toLowerCase() === e.key.toLowerCase());
+  if (v) velg(v);
+});
+
+function start() {
+  spill = nyttSpill();
+  nr = 0;
+  valgt = [];
+  papir.replaceChildren();
+  utskrift = Promise.resolve();
+  $('saldo').textContent = '';
+  skriv([MANUS.tittel.toUpperCase(), '='.repeat(BREDDE)], 'overskrift');
+  nesteSporsmal();
+  oppdaterFeil();
+}
+
+function nesteSporsmal() {
+  const s = MANUS.sporsmal[nr];
+  visRute({
+    nrTekst: `${s.nr}.${s.tittel ? ' ' + s.tittel : ''}`,
+    pris: s.pris,
+    bilde: s.bilde,
+    bildeData: s.bildeData,
+    tekst: s.tekst,
+    valg: Object.keys(s.svar),
+    vedValg: async v => {
+      const linjer = spillSvar(spill, s, v);
+      valgt.push({ valg: v, mulig: !spill.tapt && vinnerveier(spill, nr + 1).length > 0 });
+      await skriv(['', `${s.nr}. ${v}`.padEnd(BREDDE, '-')], 'overskrift');
+      await skriv(linjer);
+      oppdaterSaldo();
+      nr++;
+      oppdaterFeil();
+      if (spill.tapt || nr >= MANUS.sporsmal.length) return slutt();
+      nesteSporsmal();
+    },
+  });
+}
+
+async function slutt() {
+  const linjer = sluttLinjer(spill, MANUS.avslutning);
+  await skriv([''].concat(linjer), spill.tapt ? 'tapt' : 'vant');
+  await skriv(['', '']);
+  visRute({
+    nrTekst: spill.tapt ? 'Spillet er tapt' : 'Du klarte det!',
+    tekst: spill.tapt
+      ? [`Du kom til spørsmål ${nr}.`, 'Neste spiller: husk hva som skjedde!']
+      : ['Hele livet ditt fikk plass på en kvittering.'],
+    valg: ['Nytt liv'],
+    vedValg: async () => start(),
+  });
+}
+
+
+// ---------- Feiltesting ----------
+// Viser variablene og hvilke svar som fortsatt kan gi seier. Lukk med × eller tast D.
+
+// Alle veier til seier fra spørsmål nummer `fra` (0-basert), gitt tilstanden `start`.
+function vinnerveier(start, fra) {
+  const veier = [];
+  (function prov(i, s, vei) {
+    if (i === MANUS.sporsmal.length) { veier.push(vei); return; }
+    for (const v of Object.keys(MANUS.sporsmal[i].svar)) {
+      const kopi = { ...s, venner: [...s.venner] };
+      spillSvar(kopi, MANUS.sporsmal[i], v);
+      if (!kopi.tapt) prov(i + 1, kopi, [...vei, v]);
+    }
+  })(fra, start, []);
+  return veier;
+}
+
+// Like navn etter hverandre slås sammen: "Ikke navngitt venn ×4567".
+function navneliste(venner) {
+  const ut = [];
+  for (const n of venner) {
+    const siste = ut[ut.length - 1];
+    if (siste && siste.navn === n) siste.antall++; else ut.push({ navn: n, antall: 1 });
+  }
+  return ut.map(x => x.antall > 1 ? `${x.navn} ×${x.antall}` : x.navn).join(', ') || '(ingen)';
+}
+
+let valgt = [];  // spillerens svar så langt: { valg, mulig } der mulig = seier fortsatt mulig etter svaret
+
+function oppdaterFeil() {
+  const el = $('feilInnhold');
+  if (!spill || $('feil').hidden) return;
+  const veier = spill.tapt ? [] : vinnerveier(spill, nr);
+  const tekst = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  let rader = '';
+  MANUS.sporsmal.forEach((s, i) => {
+    const navn = tekst(s.bilde || s.tittel || s.tekst[s.tekst.length - 1]);
+    let svar;
+    if (i < valgt.length) {
+      const { valg, mulig } = valgt[i];
+      svar = `<span class="${mulig ? 'ok' : 'feilvalg'}">${tekst(valg)} ${mulig ? '✓' : '✗'}</span>`;
+    } else if (veier.length) {
+      svar = `<span class="ok">${[...new Set(veier.map(v => v[i - nr]))].map(tekst).join(' / ')}</span>`;
+    } else {
+      svar = '–';
+    }
+    const klasse = i < valgt.length ? 'ferdig' : i === nr && !spill.tapt ? 'na' : '';
+    rader += `<tr class="${klasse}"><td>${s.nr}. ${navn}</td><td>${svar}</td></tr>`;
+  });
+
+  const merk = spill.tapt ? 'Spillet er tapt.'
+    : nr >= MANUS.sporsmal.length ? 'Spillet er vunnet.'
+    : veier.length ? `${veier.length} vei${veier.length === 1 ? '' : 'er'} til seier herfra.`
+    : 'Ingen vei til seier herfra. Spilleren kommer til å tape.';
+
+  el.innerHTML = `
+    <dl>
+      <dt>venner</dt><dd class="${spill.venner.length === 0 ? 'neg' : ''}">${spill.venner.length}</dd>
+      <dt>kroner</dt><dd class="${spill.kroner < 0 ? 'neg' : ''}">${spill.kroner}</dd>
+      <dt>visning</dt><dd>${spill.visning ?? 'begge'}</dd>
+      <dt>spørsmål</dt><dd>${Math.min(nr + 1, MANUS.sporsmal.length)} av ${MANUS.sporsmal.length}</dd>
+      <dt>tapt</dt><dd class="${spill.tapt ? 'neg' : ''}">${spill.tapt ? 'ja (' + spill.grunn + ')' : 'nei'}</dd>
+    </dl>
+    <div class="navn">${tekst(navneliste(spill.venner))}</div>
+    <h3>Riktig svar</h3>
+    <table>${rader}</table>
+    <div class="merk">${merk}<br>✓/✗ = seier var mulig / umulig etter svaret.</div>`;
+}
+
+function visFeil(vis) {
+  $('feil').hidden = !vis;
+  $('feilApne').hidden = vis;
+  document.body.classList.toggle('feil-apen', vis);
+  try { localStorage.setItem('kvitteringsspillet.feil', vis ? '1' : '0'); } catch (e) {}
+  oppdaterFeil();
+}
+$('feilLukk').onclick = () => visFeil(false);
+$('feilApne').onclick = () => visFeil(true);
+document.addEventListener('keydown', e => {
+  if (e.key.toLowerCase() === 'd' && !e.ctrlKey && !e.metaKey && !e.altKey) visFeil($('feil').hidden);
+});
+let feilApen = true;
+try { feilApen = localStorage.getItem('kvitteringsspillet.feil') !== '0'; } catch (e) {}
+
+$('restart').onclick = () => { aktiveValg = null; start(); };
+start();
+visFeil(feilApen);
+</script>
+</body>
+</html>
