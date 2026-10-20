@@ -12,8 +12,10 @@
 //      │                              │
 //      └──── 15 s for the player to take the receipt, belt back to START ◀─┘
 //
-// The life clock only runs while the player is choosing — not while the
-// machine prints or moves the belt, so the 60 s are the player's own.
+// The receipt is printed line by line, LINJE_MS per line, so the player can
+// read it as it comes out. The life clock only runs while the player is
+// choosing — not while the machine prints or moves the belt, so the 60 s are
+// the player's own and the reading time is free.
 // JA = the question's first answer, NEI = its second (spørsmål 2: JA = Venner).
 // Knows nothing about the page or the hardware: everything physical comes in
 // through `io`, so the same game runs on the machine, in simulator.html and in
@@ -25,6 +27,8 @@ import * as motor from "./kvitteringMotor.js";
 export const LIVSTID_MS = 60000;          // a whole life …
 export const LEVEALDER = 67;              // … is 67 years
 export const PAUSE_ETTER_SLUTT_MS = 15000;
+export const LINJE_MS = 2000;             // per printed line of text (io.linjeMs() can change it)
+const TOM_LINJE_ANDEL = 0.25;             // a blank line is only spacing: a quarter of that
 const HURRY_MS = 10000;                   // the light flickers faster for the last 10 s of life
 const PRINT_LIMIT_MS = 20000;             // longest wait for a print or a cut
 const BELT_LIMIT_MS = 70000;              // belt.js gives up on the board after 15 s / 60 s itself
@@ -44,7 +48,25 @@ export function createKvitteringGame(io, manus = MANUS) {
   const stopTimers = () => { timers.forEach(io.cancel); timers = []; };
   const alder = () => Math.min(LEVEALDER, Math.floor(brukt * LEVEALDER / LIVSTID_MS));
   const valgFor = s => Object.keys(s.svar);
-  const print = (label, lines) => within(PRINT_LIMIT_MS, io.print(label, lines));
+
+  // One line at a time, each given its reading time; stops if the game was reset meanwhile.
+  // A printer that doesn't answer is waited for once (PRINT_LIMIT_MS); after that the game
+  // only keeps its reading pace until a print gets through again, instead of waiting per line.
+  let printerStuck = false;
+  async function print(id, label, lines) {
+    for (const line of lines) {
+      if (!still(id)) return;
+      const ms = (io.linjeMs?.() ?? LINJE_MS) * (line ? 1 : TOM_LINJE_ANDEL);
+      const printed = Promise.resolve(io.print(label, [line])).then(
+        () => { printerStuck = false; },
+        e => io.log("Utskrift feilet: " + e.message));
+      const limit = wait(PRINT_LIMIT_MS).then(() => {
+        if (!printerStuck) io.log("Skriveren svarer ikke");
+        printerStuck = true;
+      });
+      await Promise.all([wait(ms), printerStuck ? null : Promise.race([printed, limit])]);
+    }
+  }
 
   function setState(s) {
     state = s;
@@ -81,7 +103,7 @@ export function createKvitteringGame(io, manus = MANUS) {
     const won = !spill.tapt;
     io.log(won ? "Vunnet" : `Tapt (${spill.grunn})`);
     if (won) { io.celebrate?.(); io.bell?.(3); } else io.flash?.(false);
-    await print("Slutt", ["", ...motor.sluttLinjer(spill, manus.avslutning)]);
+    await print(id, "Slutt", ["", ...motor.sluttLinjer(spill, manus.avslutning)]);
     if (!still(id)) return;
     await within(PRINT_LIMIT_MS, io.cut());
     if (!still(id)) return;
@@ -122,7 +144,7 @@ export function createKvitteringGame(io, manus = MANUS) {
       io.log("Nytt spill");
       await Promise.all([
         within(BELT_LIMIT_MS, io.belt.rewind()),
-        print("Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]),
+        print(id, "Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]),
       ]);
       decide(id);
       return true;
@@ -142,12 +164,14 @@ export function createKvitteringGame(io, manus = MANUS) {
       io.log(`${s.nr}. ${v} (${alder()} år)`);
       nr++;
       if (spill.tapt || nr >= manus.sporsmal.length) {
-        await print(`Svar ${s.nr}`, lines);
+        await print(id, `Svar ${s.nr}`, lines);
+        if (!still(id)) return;
         return over(id);
       }
       io.flash?.(true);
       io.bell?.(1);
-      await Promise.all([print(`Svar ${s.nr}`, lines), within(BELT_LIMIT_MS, io.belt.step())]);
+      // the belt shows the next question while the answer is still printing
+      await Promise.all([print(id, `Svar ${s.nr}`, lines), within(BELT_LIMIT_MS, io.belt.step())]);
       decide(id);
     },
 
