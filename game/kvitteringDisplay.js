@@ -23,7 +23,7 @@ export function lcdLinjer(game, ms) {
   const status = sider(`${game.alder} ÅR`, saldo);
   switch (game.state) {
     case "ready":
-      return [midt("KVITTERINGSSPILLET"), midt(Math.floor(ms / 3000) % 2 ? "HELE LIVET: 10 MIN" : "SVAR JA ELLER NEI")];
+      return [midt("KVITTERINGSSPILLET"), midt(Math.floor(ms / 3000) % 2 ? "HELE LIVET: 3 MIN" : "SVAR JA ELLER NEI")];
     case "deciding":
       if (igjen <= 10000 && Math.floor(ms / 500) % 2) return [midt(`SKYND DEG!  ${tid(igjen)}`), status];
       return [sider("TID IGJEN", tid(igjen)), status];
