@@ -6,7 +6,7 @@
 // first version served the copy first and refreshed in the background, which
 // needed two reloads per update and confused things on the phone.)
 // A new file for the phone version = add it to FILES (and to phone_server.py's list).
-const CACHE = "machine-phone-v27";
+const CACHE = "machine-phone-v28";
 const WAIT_MS = 1500;
 const FILES = [
   "./", "phone.html", "phone.js", "manifest.json", "icon.svg", "phonecheck.html", "belt.html", "belt.js",
