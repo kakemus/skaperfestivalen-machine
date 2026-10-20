@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 q";
+const VERSION = "phone 2026-10-20 r";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -279,6 +279,9 @@ const toBoard = line => controller.send(line) || (log("No micro:bit connected"),
 $("tStep").onclick = () => toBoard("BELT:STEP");
 $("tDown").onclick = () => toBoard("BELT:BACK:1");
 $("tHome").onclick = () => toBoard("BELT:HOME");
+// the command that starts the IBM display's helper in Termux (after a phone restart)
+$("copyLcdCmd").onclick = () => navigator.clipboard.writeText($("lcdCmd").textContent)
+  .then(() => log("Copied — paste it in Termux (long-press → Paste)"), e => log("Couldn't copy: " + e.message));
 $("tResetBoard").onclick = async () => {
   log("micro:bit: resetting it by hand");
   if (await controller.resetBoard()) log("Reset sent — its LEDs should flash and show M again in a few seconds");
