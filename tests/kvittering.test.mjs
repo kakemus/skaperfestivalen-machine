@@ -275,21 +275,23 @@ await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", 
   await klar(m, spill);
   spill.answer(true);
   await tilSvar(m, spill);
-  await m.gå(6000); spill.answer(true);     // 6 s = 6 år
+  const seksÅr = Math.ceil(6 * LIVSTID_MS / LEVEALDER);   // lang nok tid til 6 år, uansett livstid
+  await m.gå(seksÅr); spill.answer(true);
   const svart = m.now();
   await m.gå(10);
   assert.equal(spill.state, "answering");
   while (spill.state !== "deciding") await m.gå(10);   // maskinen skriver og flytter beltet …
   assert.ok(m.now() - svart >= 1600, "maskinen brukte ingen tid?");
   assert.equal(spill.alder, 6);                          // … men livet gikk ikke imens
-  assert.equal(spill.igjenMs, LIVSTID_MS - 6000);
+  assert.equal(spill.igjenMs, LIVSTID_MS - seksÅr);
 });
 await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje, og livet står stille imens", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   await klar(m, spill);
   spill.answer(true);
   await tilSvar(m, spill);
-  await m.gå(3000); spill.answer(true);
+  const treÅr = Math.ceil(3 * LIVSTID_MS / LEVEALDER);
+  await m.gå(treÅr); spill.answer(true);
   const fra = m.tider.length;
   await m.gå(10);
   while (spill.state !== "deciding") {
@@ -302,9 +304,9 @@ await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje,
     const ms = linjer[i].t - linjer[i - 1].t, forrige = linjer[i - 1].l;
     assert.equal(ms, forrige ? LINJE_MS : LINJE_MS / 4, `"${forrige}" fikk ${ms} ms`);
   }
-  assert.ok(LIVSTID_MS - 3000 - spill.igjenMs < 100, `${spill.igjenMs} ms igjen`);   // < 100 ms inn i neste spørsmål
+  assert.ok(LIVSTID_MS - treÅr - spill.igjenMs < 100, `${spill.igjenMs} ms igjen`);   // < 100 ms inn i neste spørsmål
 });
-await sjekkAsync("ingen svar etter det første: etter 60 s er tiden ute, «Du ble 67 år», kutt, klar igjen", async () => {
+await sjekkAsync("ingen svar etter det første: når livstiden er brukt opp er tiden ute, «Du ble 67 år», kutt, klar igjen", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   await klar(m, spill);
   spill.answer(true);

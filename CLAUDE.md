@@ -389,7 +389,7 @@ prototype `kvitteringsspillet/kvitteringsspillet.html`, plus `svarLinje` / `tide
 pawn on question 8 "Ja" 50 kr instead of 9500) and
 `game/kvittering.js` (the game, same shape as `createLifeGame(io)`; also needs `io.now/after/cancel`
 so it runs in Node): question 1 stands ready (state `ready`, nothing printed, no clock) and the
-first answer starts the game — `start()` is only the power-on rewind; a life is 60 s = 67 years,
+first answer starts the game — `start()` is only the power-on rewind; a life is 10 min = 67 years (60 s until 2026-10-20 — about 6 s a question was too short),
 counted from the first answer and only while the player decides; the receipt
 prints line by line, `LINJE_MS` 0.5 s per line (blank lines ¼ of that) so players read as it
 comes out (the simulator plays `printSound()` from game/sound.js per line), and a printer that doesn't answer is waited for once
