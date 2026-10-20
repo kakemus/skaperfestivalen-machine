@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 m";
+const VERSION = "phone 2026-10-20 n";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -268,6 +268,10 @@ const toBoard = line => controller.send(line) || (log("No micro:bit connected"),
 $("tStep").onclick = () => toBoard("BELT:STEP");
 $("tDown").onclick = () => toBoard("BELT:BACK:1");
 $("tHome").onclick = () => toBoard("BELT:HOME");
+$("tResetBoard").onclick = async () => {
+  log("micro:bit: resetting it by hand");
+  if (await controller.resetBoard()) log("Reset sent — its LEDs should flash and show M again in a few seconds");
+};
 $("tTighten").onclick = () => toBoard("TENSION") && log("Tightening the paper");
 $("tCal").onclick = () => toBoard("CALIBRATE") && log("Auto-calibrating — the belt runs up, measures and finds START again");
 // hold-to-run: HOLD:±1 every 250 ms while pressed (the board stops by itself 600 ms
