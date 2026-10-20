@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 p";
+const VERSION = "phone 2026-10-20 q";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -39,7 +39,7 @@ const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(
 const lines = [];
 function log(text) {
   lines.push(`${new Date().toLocaleTimeString()}  ${text}`);
-  if (lines.length > 150) lines.shift();
+  if (lines.length > 1500) lines.shift();          // enough for a long session: "Send log" got only the last minute or two
   $("log").textContent = lines.slice().reverse().join("\n");
 }
 
