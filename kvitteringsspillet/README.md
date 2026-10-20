@@ -42,8 +42,13 @@ tap.
   `game/kvittering.js`, som snakker med maskinen gjennom det samme `io`-objektet.
 - **Maskinen har bare JA og NEI.** Spørsmål 2 har valgene «Venner / Penger», og spørsmål 10 har et
   tomt «Nei». Det må bestemmes hvilken knapp som er hva.
-- **`motor.js` er skrevet for Node** (`require` / `module.exports`). Maskinen bruker ES-moduler
-  (`export`), så den trenger en liten omskriving. `manus.json` kan brukes som den er.
+- **Gjort: motoren og manuset er ES-moduler.** `game/kvitteringMotor.js` (reglene) og
+  `game/manus.js` (historien), og begge er med i offline-kopien (`sw.js`, `phone_server.py`).
+  `node tests/kvittering.test.mjs` spiller alle 55 veier gjennom spillet og sjekker at den nye
+  motoren gir nøyaktig samme kvittering som originalen i `kvitteringsspillet.html`.
+- **Ikke gjort ennå:** spillet er ikke koblet til maskinen. `phone.js` kjører fortsatt «Livet AS».
+  Det som gjenstår: `game/kvittering.js` med samme form som `createLifeGame(io)`, kvitteringene
+  tegnet for skriveren, og beltet med ett spørsmål per skjerm.
 - **10 spørsmål = 10 skjermer** på beltet (`SET:screens:10`, som telefonen allerede sender).
 - **Bredden** er 32 tegn per linje (`BREDDE` i motoren). `game/receipt.js` tegner på 576 punkter
   (80 mm), så tekststørrelsen der avgjør hvor mange tegn som får plass.

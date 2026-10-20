@@ -381,3 +381,11 @@ flash/win/move/hold/calibrate/STOP/LED:ON ends it (moves need steady light). The
 FOR Å STARTE"). The Mac page (main.js) still runs the old quiz. **Firmware now 14.4 KB packed** —
 with loader + settings ~15 of ~16 KB: the next firmware feature should come with dropping the
 colour picker (cr/cg/cb + gamma), as the maker allowed.
+
+**Kvitteringsspillet, Aksels manus (2026-10-20, branch `kvitteringsspill-aksels-manus`):** replaces
+the life game on this branch. So far only the logic: `game/kvitteringMotor.js` (the rules, moved
+unchanged from Aksel's prototype `kvitteringsspillet/kvitteringsspillet.html`) and `game/manus.js`
+(the script: 10 questions, steps for venner/kroner/text/death), both in sw.js + phone_server.py
+(cache v15). `node tests/kvittering.test.mjs` plays all 55 paths in the prototype's motor and the
+new one and requires identical receipts, ≤ 32 chars per line, ≤ 2 answers per question. Not wired
+into phone.js yet (it still runs game/life.js).
