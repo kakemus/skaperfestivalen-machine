@@ -175,7 +175,7 @@ async function tilSvar(m, spill, maks = 120000) {
 }
 
 console.log("Spillet (falsk klokke og maskin)");
-await sjekkAsync("et spill med JA på alt: alder ved hvert svar, slutt, kutt, 15 s pause, tilbake til start", async () => {
+await sjekkAsync("et spill med JA på alt: alder ved hvert svar, slutt, kutt, pause, tilbake til start", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   spill.start();
   assert.equal(spill.state, "starting");
@@ -240,7 +240,7 @@ await sjekkAsync("ingen svar: etter 60 s er tiden ute, «Du ble 67 år», kutt o
   await m.gå(PAUSE_ETTER_SLUTT_MS + 1000);
   assert.equal(spill.state, "attract");
 });
-await sjekkAsync("trykk i pausen etter slutt starter ikke et nytt spill før de 15 sekundene er gått", async () => {
+await sjekkAsync("trykk i pausen etter slutt starter ikke et nytt spill før pausen er over", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   spill.start();
   await tilSvar(m, spill);
