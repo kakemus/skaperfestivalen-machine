@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 u";
+const VERSION = "phone 2026-10-20 v";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -167,7 +167,7 @@ on("controller:raw", ({ line }) => {
   if (pos) $("sPos").textContent = pos[1] === "-1" ? "unknown" : pos[1] === "0" ? "START" : "screen " + pos[1];
   // heartbeats, live light readings and trace samples would flood the log
   // (a whole game's events got pushed out by LIGHT lines, 2026-10-16)
-  if (!/^(HB|LIGHT|T):/.test(line) && line !== "PONG") log("← " + line);
+  if (!/^(HB|LIGHT|T):/.test(line)) log("← " + line);
   lastHeard = Date.now();
 });
 let lastHeard = 0;
@@ -181,47 +181,46 @@ on("controller:disconnected", () => { pill("sMicrobit", "not connected", false);
 on("controller:error", ({ message }) => log("micro:bit: " + message));
 
 // ---------- micro:bit watchdog ----------
-// Twice now (2026-10-20) the board went deaf mid-game: "M" on its LEDs (its idle screen),
-// connected over USB, but no reaction to any command until its reset button was pressed.
-// The cause isn't known yet, so: a PING every 5 s; two unanswered in a row → log what's still
-// coming from it, reset it the way its button does (a serial break), and put the game back
-// on START (the board lost its place). The log then shows how often, and what came before.
-// Only ONE automatic reset until the board answers again: on 2026-10-20 it didn't come back
-// after one, and a reset every 15 s kept it from ever starting (and overrode its own button).
-let pingSent = 0, lastPong = Date.now(), lastHb = 0, misses = 0, resetting = false, autoResetUsed = false;
+// On 2026-10-20 the board kept freezing mid-game ("M" on its LEDs, still on USB, its heartbeat
+// — sent every 2 s whatever it does — just stopping), always while a player was thinking and
+// only with the IBM display on the hub; the cause isn't known yet. So: no heartbeat for 5 s →
+// reset it the way its button does (a serial break), then, if the belt was standing still, tell
+// it which screen it's on (POS) so the game simply goes on; if it was moving, back to START.
+// Only one automatic reset until it's heard from again: a reset every few seconds once kept
+// it from ever starting (and overrode its own button).
+let lastHb = Date.now(), resetting = false, autoResetUsed = false, sinceConnect = Date.now();
 on("controller:raw", ({ line }) => {
-  if (line === "PONG") {
-    if (misses || autoResetUsed) pill("sMicrobit", "connected", true);
-    lastPong = Date.now(); misses = 0; autoResetUsed = false;
-  }
-  if (line.startsWith("HB:")) lastHb = Date.now();
+  if (!line.startsWith("HB:")) return;
+  lastHb = Date.now();
+  if (autoResetUsed) { autoResetUsed = false; pill("sMicrobit", "connected", true); }
 });
-on("controller:connected", () => { lastPong = Date.now(); misses = 0; pingSent = 0; });
-every(5000, async () => {
+on("controller:connected", () => { lastHb = sinceConnect = Date.now(); });
+every(1000, async () => {
   if (!controller.isConnected() || resetting) return;
-  if (pingSent && lastPong < pingSent) {
-    misses++;
-    const hb = lastHb ? `${Math.round((Date.now() - lastHb) / 1000)} s ago` : "never";
-    log(`micro:bit didn't answer (${misses}) — last heartbeat ${hb}`);
-    pill("sMicrobit", "not answering", false);
+  const quiet = Date.now() - Math.max(lastHb, sinceConnect);
+  if (quiet < 5000) return;
+  if (autoResetUsed) {
+    if (quiet < 6000) log("micro:bit still not answering after its reset — unplug its USB cable and plug it back in");
+    return;
   }
-  if (misses === 2 && autoResetUsed) log("micro:bit still not answering after its reset — unplug its USB cable and plug it back in");
-  if (misses >= 2 && !autoResetUsed) {
-    misses = 0;
-    autoResetUsed = true;
-    resetting = true;
-    log("micro:bit: resetting it (like its reset button)");
-    if (await controller.resetBoard()) {
-      await new Promise(r => after(4000, r));                  // it starts up again
-      controller.send(`SET:screens:${MANUS.sporsmal.length}`);
-      log("micro:bit reset — the game goes back to START");
+  autoResetUsed = true;
+  resetting = true;
+  const still = ["ready", "deciding"].includes(game.state), screen = belt.position;
+  log(`micro:bit silent for ${Math.round(quiet / 1000)} s (game: ${game.state}, screen ${screen}) — resetting it`);
+  pill("sMicrobit", "not answering — resetting", false);
+  if (await controller.resetBoard()) {
+    await new Promise(r => after(3000, r));                  // it starts up again
+    controller.send(`SET:screens:${MANUS.sporsmal.length}`);
+    if (still) {
+      controller.send(`POS:${screen}`);
+      log(`micro:bit reset — told it it's on screen ${screen}; the game goes on`);
+    } else {
+      log("micro:bit reset during a move — the game goes back to START");
       game.reset();
     }
-    resetting = false;
-    lastPong = Date.now();
   }
-  pingSent = Date.now();
-  controller.send("PING");
+  lastHb = Date.now();
+  resetting = false;
 });
 
 // ---------- the IBM till display, through the helper in Termux (tools/termux-ibm/) ----------
