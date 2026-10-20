@@ -12,11 +12,12 @@ import { after, every, cancel } from "./core/clock.js";
 import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
 import { MANUS } from "./game/manus.js";
 import * as tegning from "./game/kvitteringTegning.js";
+import { lcdLinjer } from "./game/kvitteringDisplay.js";
 import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 h";
+const VERSION = "phone 2026-10-20 i";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -163,6 +164,30 @@ on("printer:printed", ({ label }) => log("Printed " + label));
 on("controller:connected", () => { pill("sMicrobit", "connected", true); log("micro:bit connected"); });
 on("controller:disconnected", () => { pill("sMicrobit", "not connected", false); log("micro:bit unplugged"); });
 on("controller:error", ({ message }) => log("micro:bit: " + message));
+
+// ---------- the IBM till display, through the helper in Termux (tools/termux-ibm/) ----------
+// Android's Chrome has no WebHID; the helper owns the display and listens on 127.0.0.1:8765.
+// Four times a second the game's two lines go there (the helper skips unchanged lines).
+// Not running: a quiet retry every 5 s, so the game never waits for it.
+const LCD = "http://127.0.0.1:8765";
+let lcdUp = null, lcdNext = 0, lcdShown = "";
+every(250, () => {
+  const now = Date.now();
+  if (lcdUp === false && now < lcdNext) return;
+  const [top, bottom] = lcdLinjer(game, now), key = top + "|" + bottom;
+  if (lcdUp && key === lcdShown) return;
+  fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}`, { cache: "no-store" })
+    .then(r => {
+      if (!r.ok) throw new Error("helper answered " + r.status);
+      lcdShown = key;
+      if (lcdUp !== true) { lcdUp = true; pill("sLcd", "connected", true); log("IBM display: connected"); }
+    })
+    .catch(() => {
+      lcdShown = "";
+      lcdNext = Date.now() + 5000;
+      if (lcdUp !== false) { lcdUp = false; pill("sLcd", "not running (start it in Termux)", false); log("IBM display: helper not running"); }
+    });
+});
 
 // tiny status in the corner of the game screen: only shows trouble
 every(1000, () => {

@@ -17,7 +17,7 @@ FILES = {
     "phone.html", "phone.js", "sw.js", "manifest.json", "icon.svg", "phonecheck.html", "belt.html", "belt.js",
     "core/clock.js", "core/clockWorker.js", "core/controller.js", "core/eventBus.js", "core/printer.js",
     "core/raster.js", "core/singleTab.js", "core/usbSerial.js",
-    "game/game.js", "game/lang.js", "game/life.js", "game/cards.js", "game/receipt.js", "game/kvittering.js", "game/kvitteringMotor.js", "game/kvitteringTegning.js",
+    "game/game.js", "game/lang.js", "game/life.js", "game/cards.js", "game/receipt.js", "game/kvittering.js", "game/kvitteringMotor.js", "game/kvitteringTegning.js", "game/kvitteringDisplay.js",
     "bilder/03-labubu.png", "bilder/04-vaffeljern.png", "bilder/05-binokularlupe.png", "bilder/06-ekstremstol.png", "bilder/07-romaskin.png", "bilder/08-seilbat.png", "bilder/09-urne.png", "bilder/10-kvitteringsspillet.png", "game/manus.js", "game/questions.js", "game/sound.js",
     "belt/belt.js", "belt/strip.js",
     "tickets/index.js", "tickets/draw.js", "tickets/code128.js", "tickets/fortune.js", "tickets/plain.js",
