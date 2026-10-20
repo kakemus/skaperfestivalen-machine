@@ -47,7 +47,7 @@ tap.
 - **Gjort: spillet på maskinen, `game/kvittering.js`** (samme form som `createLifeGame(io)`):
   - **Spørsmål 1 står klart** så snart maskinen er ledig. Det første svaret starter spillet
     (overskrift + svar skrives ut), og klokka går fra da av. Ingenting skrives ut før noen svarer.
-  - Et liv er **3 minutter = 67 år** (var 60 sekunder, ca. 6 s per spørsmål var for kort; så prøvd 10 og 4 minutter). Klokka går bare mens spilleren velger, ikke mens maskinen
+  - Et liv er **3 minutter = 80 år** (var 67 år) (var 60 sekunder, ca. 6 s per spørsmål var for kort; så prøvd 10 og 4 minutter). Klokka går bare mens spilleren velger, ikke mens maskinen
     skriver ut eller flytter beltet.
   - Kvitteringen skrives **linje for linje, et halvt sekund per linje** (tomme linjer en firedel
     av det), så spillerne kan lese mens den kommer ut. Imens viser beltet neste spørsmål.
@@ -59,7 +59,7 @@ tap.
     ferdig er tap; venner som skulle forsvinne men ikke fantes, dekkes av nye venner senere i
     samme svar, ellers er det tap. Døden stopper svaret med en gang. Panten på seilbåten
     (spørsmål 8 «Ja») er satt ned fra 9500 til 50 kr, så den ikke redder noen.
-  - Er de 3 minuttene brukt opp, er spillet over: «Tiden er ute. Du ble 67 år.»
+  - Er de 3 minuttene brukt opp, er spillet over: «Tiden er ute. Du ble 80 år.»
   - **JA = første svar, NEI = andre** (spørsmål 2: JA = Venner, NEI = Penger).
   - Spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier.
   - Etter slutt: kvitteringen kuttes, spilleren får **5 sekunder** (trykk ignoreres), **så**

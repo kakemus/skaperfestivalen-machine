@@ -6,7 +6,7 @@
 //   deciding   DU ER 23 ÅR / 1900 KR — no countdown (the maker, 2026-10-20): just the age,
 //              ticking up while the player thinks; "SKYND DEG!" blinks in the last 10 s
 //   answering  the same, the age standing still while the machine prints
-//   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 67 ÅR
+//   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 80 ÅR
 import { LIVSTID_MS, LEVEALDER } from "./kvittering.js";
 export const LCD_BREDDE = 20;
 

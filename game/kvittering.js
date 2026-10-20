@@ -11,7 +11,7 @@
 //      │      │ JA / NEI: the answer's steps → receipt lines with your age, │
 //      │      │   green + ding + belt one screen up ──▶ next question       │
 //      │      │ lost (kroner, venner, død), the last question answered,     │
-//      │      │   or the 3 min used up ("Tiden er ute. Du ble 67 år.")     │
+//      │      │   or the 3 min used up ("Tiden er ute. Du ble 80 år.")     │
 //      │      └──────────────▶ over: ending printed, cut ─────────────────┘
 //      │                              │
 //      └── rewinding: belt back to START ◀── 5 s to take the receipt ◀───┘
@@ -29,7 +29,7 @@ import { MANUS } from "./manus.js";
 import * as motor from "./kvitteringMotor.js";
 
 export const LIVSTID_MS = 180000;         // a whole life … (2026-10-20: 60 s was too short, 10 min too long; tried 4, settled on 3)
-export const LEVEALDER = 67;              // … is 67 years
+export const LEVEALDER = 80;              // … is 80 years (67 until 2026-10-20 felt brutal)
 export const PAUSE_ETTER_SLUTT_MS = 5000;
 export const LINJE_MS = 500;              // per printed line of text (io.linjeMs() can change it)
 const TOM_LINJE_ANDEL = 0.25;             // a blank line is only spacing: a quarter of that

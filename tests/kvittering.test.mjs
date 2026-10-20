@@ -306,7 +306,7 @@ await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje,
   }
   assert.ok(LIVSTID_MS - treÅr - spill.igjenMs < 100, `${spill.igjenMs} ms igjen`);   // < 100 ms inn i neste spørsmål
 });
-await sjekkAsync("ingen svar etter det første: når livstiden er brukt opp er tiden ute, «Du ble 67 år», kutt, klar igjen", async () => {
+await sjekkAsync("ingen svar etter det første: når livstiden er brukt opp er tiden ute, «Du ble 80 år», kutt, klar igjen", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
   await klar(m, spill);
   spill.answer(true);
@@ -316,7 +316,7 @@ await sjekkAsync("ingen svar etter det første: når livstiden er brukt opp er t
   await m.gå(200);
   assert.equal(spill.state, "over");
   await m.gå(20000);                         // sluttkvitteringen skrives, linje for linje
-  assert.ok(m.utskrift.includes("Tiden er ute. Du ble 67 år."), m.utskrift.slice(-8).join("\n"));
+  assert.ok(m.utskrift.includes(`Tiden er ute. Du ble ${LEVEALDER} år.`), m.utskrift.slice(-8).join("\n"));
   assert.equal(m.kutt, 1);
   await tilSvar(m, spill);
   assert.equal(spill.state, "ready");
