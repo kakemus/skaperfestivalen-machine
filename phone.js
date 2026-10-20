@@ -16,7 +16,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 f";
+const VERSION = "phone 2026-10-20 g";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -24,7 +24,7 @@ const settings = (() => {
   // ntfyTopic: "" = no push notification. (Older keys from the life game — answerSeconds,
   // cards, finalText — may still be stored; nothing reads them now.)
   // answerFeedMm: paper fed after each answer (the print head sits well below the slot)
-  const d = { ntfyTopic: "", answerFeedMm: 20 };
+  const d = { ntfyTopic: "", answerFeedMm: 30 };
   try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
