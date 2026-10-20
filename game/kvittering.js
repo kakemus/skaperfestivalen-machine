@@ -10,7 +10,7 @@
 //      │      │   or the 60 s used up ("Tiden er ute. Du ble 67 år.")       │
 //      │      └──────────────▶ over: ending printed, cut ─────────────────┘
 //      │                              │
-//      └──── 15 s for the player to take the receipt, belt back to START ◀─┘
+//      └───── 5 s for the player to take the receipt, belt back to START ◀─┘
 //
 // The receipt is printed line by line, LINJE_MS per line, so the player can
 // read it as it comes out. The life clock only runs while the player is
@@ -26,7 +26,7 @@ import * as motor from "./kvitteringMotor.js";
 
 export const LIVSTID_MS = 60000;          // a whole life …
 export const LEVEALDER = 67;              // … is 67 years
-export const PAUSE_ETTER_SLUTT_MS = 15000;
+export const PAUSE_ETTER_SLUTT_MS = 5000;
 export const LINJE_MS = 500;              // per printed line of text (io.linjeMs() can change it)
 const TOM_LINJE_ANDEL = 0.25;             // a blank line is only spacing: a quarter of that
 const HURRY_MS = 10000;                   // the light flickers faster for the last 10 s of life
@@ -138,7 +138,7 @@ export function createKvitteringGame(io, manus = MANUS) {
     get igjenMs() { return LIVSTID_MS - brukt - (state === "deciding" ? io.now() - startet : 0); },
 
     /** JA + NEI together (or a coin): a new game. Only from attract, so the
-     *  15 s after a game always belong to the player who just finished. */
+     *  5 s after a game always belong to the player who just finished. */
     async start() {
       if (state !== "attract") return false;
       const id = ++run;

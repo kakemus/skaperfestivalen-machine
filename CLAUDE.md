@@ -392,7 +392,7 @@ prints line by line, `LINJE_MS` 0.5 s per line (blank lines ¼ of that) so playe
 comes out (the simulator plays `printSound()` from game/sound.js per line), and a printer that doesn't answer is waited for once
 (20 s), then only the reading pace is kept until a print gets through; each answer
 is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
-15 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in
+5 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in
 sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
 with an on-screen machine, black and white (JA black, NEI white); the time left shows only on the
 receipt, the testing panel (D) shows kroner, venner, age, time and which answers can still win. `node tests/kvittering.test.mjs`: all 55 paths identical to the
