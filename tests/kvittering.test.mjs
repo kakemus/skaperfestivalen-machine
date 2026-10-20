@@ -191,6 +191,8 @@ await sjekkAsync("et spill med JA på alt: alder ved hvert svar, slutt, kutt, 15
   assert.equal(m.kutt, 1);
   assert.equal(spill.state, "attract");
   assert.ok(m.tilstander.includes("pause"));
+  assert.ok(m.now() > 30000, "spillet var for kort til å teste skrivervakten");
+  assert.ok(!m.logg.includes("Skriveren svarer ikke"), "en skriver som virker ble meldt som hengt");
 });
 await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
@@ -296,6 +298,7 @@ await sjekkAsync("en hel festivaldag (10 timer) med tilfeldige trykk: hvert spil
     assert.ok(m.now() - startTid < 10 * 60 * 1000 || spill.state === "attract", `et spill har vart ${m.now() - startTid} ms (${spill.state})`);
   }
   assert.ok(spillTotalt > 100, "bare " + spillTotalt + " spill");
+  assert.ok(!m.logg.includes("Skriveren svarer ikke"), "en skriver som virker ble meldt som hengt");
   assert.ok(m.kutt <= spillTotalt && m.kutt >= spillTotalt * 0.9, `${m.kutt} kutt for ${spillTotalt} spill`);
   console.log(`       ${spillTotalt} spill, ${m.kutt} kutt, lengste spill ${Math.round(lengst / 1000)} s`);
 });

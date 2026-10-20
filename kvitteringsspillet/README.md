@@ -60,7 +60,8 @@ tap.
   - Alle ventinger på skriver og belte har en tidsgrense, så en skriver som henger stopper ikke
     spillet.
 - **Simulator:** `simulator.html` (dobbeltklikk `start-simulator.command`) kjører det samme spillet
-  i nettleseren uten maskinvare: vinduet, knappene, lyset, bjella og skriveren.
+  i nettleseren uten maskinvare: vinduet, knappene, lyset, bjella og skriveren. Tiden vises bare
+  på kvitteringen. Tast **D** åpner feiltesting: kroner, venner, alder, tid og riktige svar.
 - **Tester:** `node tests/kvittering.test.mjs` spiller alle 55 veier og sjekker at motoren gir
   samme kvittering som originalen, og kjører spillet med en falsk klokke: alder, 60 s, pausen,
   spørsmål 10, en skriver som henger, og en hel festivaldag (10 timer) med tilfeldige trykk.
