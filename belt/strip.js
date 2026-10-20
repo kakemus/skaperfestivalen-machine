@@ -26,7 +26,11 @@ export const DEFAULT_STRIP = {
 // all optional strings (lines: an array; image: a ready canvas, instead of the box), laid out inside the part of the screen
 // that shows through the window (screens/README.md: 63 × 90 mm from 72, 40 px; the
 // cabinet's front window is 2 mm smaller again, so a little margin inside that).
-const WIN = { x: 92, y: 60, w: 464, h: 680 };
+// Measured on the built machine (2026-10-20, the maker's photo): the front's window sits
+// ~5 mm left of where it was drawn, so about 5–65 mm of the paper's width shows (the mark's
+// right half too) and text past ~65 mm was cut off. Content now 12–62 mm: clear of the mark,
+// 3 mm inside the right edge.
+const WIN = { x: 96, y: 60, w: 400, h: 680 };
 
 export function stripLayout(cfg) {
   const screen = mmToDots(cfg.screenMm), leader = mmToDots(cfg.leaderMm);

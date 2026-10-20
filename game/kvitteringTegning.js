@@ -64,7 +64,7 @@ export function topp(tittel) {
 // is backlit, so what's black blocks the light. Per picture, if needed: lys / kontrast
 // (1 = unchanged), gamma (< 1 lighter mid-tones), kant = a black outline round the object,
 // for a white object that would vanish on white paper.
-export const BILDE = { w: 464, h: 278 };
+export const BILDE = { w: 400, h: 240 };      // as wide as the strip's content area (belt/strip.js WIN)
 const JUSTER = {
   5: { kant: true },                      // white microscope on white paper
   6: { gamma: 0.6 },                      // the red chair went almost solid: lighter, so its tubes show
