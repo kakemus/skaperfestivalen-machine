@@ -16,14 +16,15 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 e";
+const VERSION = "phone 2026-10-20 f";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
 const settings = (() => {
   // ntfyTopic: "" = no push notification. (Older keys from the life game — answerSeconds,
   // cards, finalText — may still be stored; nothing reads them now.)
-  const d = { ntfyTopic: "" };
+  // answerFeedMm: paper fed after each answer (the print head sits well below the slot)
+  const d = { ntfyTopic: "", answerFeedMm: 20 };
   try { return { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch { return d; }
 })();
 const save = () => { try { localStorage.setItem("phoneSettings", JSON.stringify(settings)); } catch {} };
@@ -112,6 +113,8 @@ const game = createKvitteringGame({
     showLevels(nr);
     runTimer(state === "deciding" ? igjenMs / 1000 : 0, igjenMs / LIVSTID_MS);
     if (state === "over" && !spill.tapt) notify("Noen klarte Kvitteringsspillet!");
+    // an answer is printed (the game waits for that before the next question): feed it up into view
+    if (state === "deciding" && settings.answerFeedMm > 0) print("Feed", () => tegning.linjer([], { feedMm: settings.answerFeedMm }));
     if (state === "attract") return;
     // the phone's screen is only for the operator: what the scroll shows, the age, the balance
     const status = `${alder} ÅR · ${spill.kroner} KR · ${spill.venner.length} VENNER`;
@@ -201,6 +204,7 @@ const toBoard = line => controller.send(line) || (log("No micro:bit connected"),
 $("tStep").onclick = () => toBoard("BELT:STEP");
 $("tDown").onclick = () => toBoard("BELT:BACK:1");
 $("tHome").onclick = () => toBoard("BELT:HOME");
+$("tTighten").onclick = () => toBoard("TENSION") && log("Tightening the paper");
 $("tCal").onclick = () => toBoard("CALIBRATE") && log("Auto-calibrating — the belt runs up, measures and finds START again");
 // hold-to-run: HOLD:±1 every 250 ms while pressed (the board stops by itself 600 ms
 // after the last one, so a lost connection can't leave it running), HOLD:0 on release
@@ -244,6 +248,8 @@ $("stripInfo").textContent = `${MANUS.sporsmal.length} questions → ${MANUS.spo
 $("previewStrip").onclick = () => { $("stripImg").src = drawStrip(stripCfg()).toDataURL(); $("stripImg").hidden = false; };
 $("printStrip").onclick = () => printer.print({ label: "Paper strip", build: () => drawStrip(stripCfg()), slow: false })
   .catch(e => log("Print failed: " + e.message));
+$("answerFeed").value = settings.answerFeedMm;
+$("answerFeed").onchange = () => { settings.answerFeedMm = Math.max(0, Math.min(60, Number($("answerFeed").value) || 0)); save(); };
 $("ntfy").value = settings.ntfyTopic;
 $("ntfy").onchange = () => { settings.ntfyTopic = $("ntfy").value.trim(); save(); };
 $("ntfyTest").onclick = () => settings.ntfyTopic ? notify("Test fra maskinen") : log("Type a topic name first");

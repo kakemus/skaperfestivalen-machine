@@ -87,7 +87,8 @@
   <h2>Belt</h2>
   <div class="two"><button id="tStep">▲ Step up</button><button id="tDown">▼ Step down</button></div>
   <div class="two" style="margin-top:8px"><button id="holdUp" class="hold">⇧ Hold: wind up</button><button id="holdDown" class="hold">⇩ Hold: wind down</button></div>
-  <div class="two" style="margin-top:8px"><button id="tHome">⏮ Find START</button><button id="tCal">Auto-calibrate</button></div>
+  <div class="two" style="margin-top:8px"><button id="tHome">⏮ Find START</button><button id="tTighten">↕ Tighten paper</button></div>
+  <button id="tCal">Auto-calibrate</button>
   <p class="dim" style="margin-top:6px">Auto-calibrate: put the paper on START first; it runs up 1½ screens, measures, then finds START again.
     After moving the belt by hand, press Reset game.</p>
 
@@ -96,6 +97,8 @@
   <div class="two" style="margin-top:8px"><button id="tYes">JA</button><button id="tNo">NEI</button></div>
   <div class="two" style="margin-top:8px"><button id="tPrint">Test print</button><button id="tCut">Cut</button></div>
   <div class="two" style="margin-top:8px"><button id="tBell">Ring bell</button><button id="tWin">Win light</button></div>
+  <label>Space under each answer (mm) <input type="number" id="answerFeed" min="0" max="60"></label>
+  <p class="dim" style="margin-top:4px">Paper fed after each answer, so its last lines come up out of the printer where the player can read them.</p>
 
   <h2>Log</h2>
   <button id="sendLog" style="margin-top:0">Send log to the Mac</button>
