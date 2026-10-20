@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 j";
+const VERSION = "phone 2026-10-20 k";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -91,11 +91,14 @@ function notify(text) {
     .then(() => log("Push sent"), e => log("Push failed (no internet?): " + e.message));
 }
 
+// the game moves the belt on only once an answer is printed: first feed that answer up out of
+// the printer's slot (the head sits well below it), so it can be read while the next question comes
+const feedAnswer = () => settings.answerFeedMm > 0 ? print("Feed", () => tegning.linjer([], { feedMm: settings.answerFeedMm })) : null;
 const game = createKvitteringGame({
   now: () => performance.now(),
   after,
   cancel,
-  belt,
+  belt: { step: () => Promise.resolve(feedAnswer()).then(() => belt.step()), rewind: () => belt.rewind() },
   // the game hands over one text line at a time; the start's title gets the big top
   // (which has its own rule under it, so the start's "=====" line is left out)
   print(label, lines) {
@@ -114,8 +117,6 @@ const game = createKvitteringGame({
     showLevels(nr);
     runTimer(state === "deciding" ? igjenMs / 1000 : 0, igjenMs / LIVSTID_MS);
     if (state === "over" && !spill.tapt) notify("Noen klarte Kvitteringsspillet!");
-    // an answer is printed (the game waits for that before the next question): feed it up into view
-    if (state === "deciding" && settings.answerFeedMm > 0) print("Feed", () => tegning.linjer([], { feedMm: settings.answerFeedMm }));
     if (state === "attract") return;
     // the phone's screen is only for the operator: what the scroll shows, the age, the balance
     const status = `${alder} ÅR · ${spill.kroner} KR · ${spill.venner.length} VENNER`;

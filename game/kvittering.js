@@ -1,4 +1,4 @@
-// Kvitteringsspillet på maskinen (Aksels manus, 2026-10-20): et helt liv på 3 minutter.
+// Kvitteringsspillet på maskinen (Aksels manus, 2026-10-20): et helt liv på 4 minutter.
 //
 //   start() once at power-on ──▶ starting: belt to START
 //                                    │
@@ -11,14 +11,14 @@
 //      │      │ JA / NEI: the answer's steps → receipt lines with your age, │
 //      │      │   green + ding + belt one screen up ──▶ next question       │
 //      │      │ lost (kroner, venner, død), the last question answered,     │
-//      │      │   or the 3 min used up ("Tiden er ute. Du ble 67 år.")     │
+//      │      │   or the 4 min used up ("Tiden er ute. Du ble 67 år.")     │
 //      │      └──────────────▶ over: ending printed, cut ─────────────────┘
 //      │                              │
 //      └── rewinding: belt back to START ◀── 5 s to take the receipt ◀───┘
 //
 // The receipt is printed line by line, LINJE_MS per line, so the player can
 // read it as it comes out. The life clock only runs while the player is
-// choosing — not while the machine prints or moves the belt, so the 3 min are
+// choosing — not while the machine prints or moves the belt, so the 4 min are
 // the player's own and the reading time is free.
 // JA = the question's first answer, NEI = its second (spørsmål 2: JA = Venner).
 // Knows nothing about the page or the hardware: everything physical comes in
@@ -28,7 +28,7 @@
 import { MANUS } from "./manus.js";
 import * as motor from "./kvitteringMotor.js";
 
-export const LIVSTID_MS = 180000;         // a whole life … (2026-10-20: 60 s was too short, 10 min too long; the maker chose 3)
+export const LIVSTID_MS = 240000;         // a whole life … (2026-10-20: 60 s was too short, 10 min too long; 3, then 4)
 export const LEVEALDER = 67;              // … is 67 years
 export const PAUSE_ETTER_SLUTT_MS = 5000;
 export const LINJE_MS = 500;              // per printed line of text (io.linjeMs() can change it)
@@ -187,8 +187,11 @@ export function createKvitteringGame(io, manus = MANUS) {
       }
       io.flash?.(true);
       io.bell?.(1);
-      // the belt shows the next question while the answer is still printing
-      await Promise.all([printAnswer(), within(BELT_LIMIT_MS, io.belt.step())]);
+      // the answer is printed first, then the belt moves on to the next question (2026-10-20,
+      // the maker: the player reads the receipt, and the next question doesn't run ahead of it)
+      await printAnswer();
+      if (!still(id)) return;
+      await within(BELT_LIMIT_MS, io.belt.step());
       decide(id);
     },
 
