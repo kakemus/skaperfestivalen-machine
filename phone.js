@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 r";
+const VERSION = "phone 2026-10-20 s";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -282,6 +282,12 @@ $("tHome").onclick = () => toBoard("BELT:HOME");
 // the command that starts the IBM display's helper in Termux (after a phone restart)
 $("copyLcdCmd").onclick = () => navigator.clipboard.writeText($("lcdCmd").textContent)
   .then(() => log("Copied — paste it in Termux (long-press → Paste)"), e => log("Couldn't copy: " + e.message));
+// one-off: fetch the newest helper from the Mac's phone server (only works with the Mac there)
+$("copyLcdUpdate").onclick = () => {
+  const base = location.origin + "/tools/termux-ibm/";
+  navigator.clipboard.writeText(`curl -sf ${base}start-display.sh -o ~/start-display.sh; curl -sf ${base}ibm_bridge.py -o ~/ibm_bridge.py; bash ~/start-display.sh`)
+    .then(() => log("Copied — paste it in Termux (long-press → Paste)"), e => log("Couldn't copy: " + e.message));
+};
 $("tResetBoard").onclick = async () => {
   log("micro:bit: resetting it by hand");
   if (await controller.resetBoard()) log("Reset sent — its LEDs should flash and show M again in a few seconds");

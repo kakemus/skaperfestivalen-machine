@@ -1,18 +1,18 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# Finds the IBM display (USB 04b3:4526), asks Android for permission, and runs the bridge.
+# Finds the IBM display (USB 04b3:4526) among the USB devices, and runs the bridge on it.
+# Termux can't read the USB list itself, so each device is asked once (Android may show an
+# Allow dialog for each the first time) and probed — the last path that worked is tried first.
 termux-wake-lock
-dev=""
-for d in /sys/bus/usb/devices/*; do
-  if [ "$(cat $d/idVendor 2>/dev/null)" = "04b3" ] && [ "$(cat $d/idProduct 2>/dev/null)" = "4526" ]; then
-    dev=$(printf "/dev/bus/usb/%03d/%03d" "$(cat $d/busnum)" "$(cat $d/devnum)")
+pkill -f ibm_bridge.py 2>/dev/null; sleep 0.5
+last=$(cat ~/.ibm_display_path 2>/dev/null)
+all=$(termux-usb -l | grep -o '/dev/bus/usb/[0-9/]*')
+for dev in ${1:-$last} $all; do
+  [ -n "$dev" ] || continue
+  termux-usb -r "$dev" >/dev/null 2>&1 || continue
+  if termux-usb -e "python $HOME/ibm_bridge.py --probe" "$dev" 2>/dev/null | grep -q '^IBM'; then
+    echo "IBM display at $dev"
+    echo "$dev" > ~/.ibm_display_path
+    exec termux-usb -e "python $HOME/ibm_bridge.py" "$dev"
   fi
 done
-if [ -z "$dev" ]; then
-  echo "Couldn't read the USB list directly - these are the USB devices:"
-  termux-usb -l
-  echo "Run:  bash ~/start-display.sh /dev/bus/usb/xxx/yyy   (the display's path)"
-  [ -n "$1" ] && dev="$1" || exit 1
-fi
-echo "IBM display at $dev - tap ALLOW if Android asks"
-termux-usb -r "$dev"
-exec termux-usb -e "python $HOME/ibm_bridge.py" "$dev"
+echo "IBM display not found - is it plugged into the hub?"

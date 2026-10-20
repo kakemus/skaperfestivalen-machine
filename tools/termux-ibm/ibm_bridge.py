@@ -182,7 +182,24 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def probe(fd):
+    """Is this the IBM display? Reads only the device descriptor (no claim, no writes)."""
+    ctx, h = ctypes.c_void_p(), ctypes.c_void_p()
+    usb.libusb_set_option(None, 2)
+    usb.libusb_init(ctypes.byref(ctx))
+    if usb.libusb_wrap_sys_device(ctx, fd, ctypes.byref(h)) != 0:
+        return False
+    dev = control_in(h, 0x80, 6, 0x0100, 0, 18)
+    return (dev[8] | dev[9] << 8, dev[10] | dev[11] << 8) == (0x04B3, 0x4526)
+
+
 if __name__ == "__main__":
+    if "--probe" in sys.argv:
+        try:
+            print("IBM" if probe(int(sys.argv[-1])) else "other")
+        except Exception as e:
+            print("other", e)
+        sys.exit(0)
     DISPLAY = Display(int(sys.argv[-1]))
     DISPLAY.clear()
     DISPLAY.glyphs()

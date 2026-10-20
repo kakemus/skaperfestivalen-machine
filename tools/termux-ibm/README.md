@@ -14,7 +14,9 @@ report descriptor says usage 0x2600 and not 0xA000 (the firmware-upgrade one).
 `adb reverse tcp:8999` and `python3 -m http.server 8999` in a folder with these files.
 
 **Start it (after every phone restart, or when the display was unplugged):** open
-Termux and run `bash ~/start-display.sh /dev/bus/usb/001/009`, tap Allow. The
-display shows KVITTERINGSSPILLET / KLAR. Termux can't read the USB list itself; the
-path comes from `adb shell dumpsys usb` (the entry with product_id=17702) and can
-change when things are plugged in in another order.
+Termux and run `bash ~/start-display.sh` (the phone panel has a Copy button), tap
+Allow. The display shows KVITTERINGSSPILLET / KLAR. Termux can't read the USB list
+itself, so the script tries each device from `termux-usb -l` with `ibm_bridge.py
+--probe` (reads only the device descriptor) until one is 04b3:4526, the last path
+that worked first; Android may ask Allow once per device. Updates: phone_server.py
+serves these two files, and the panel's second Copy button fetches them.
