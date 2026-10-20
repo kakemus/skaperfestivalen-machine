@@ -56,7 +56,7 @@ export function topp(tittel) {
 
 /** One scroll screen per question (belt/strip.js draws them): the picture's
  *  description in a box until the real pictures exist, the price, the question,
- *  and which button means what. Screen 0 (START) also says how to start. */
+ *  and which button means what. Screen 0 (START) also says that answering starts. */
 export function skjermer(manus) {
   const n = manus.sporsmal.length;
   return manus.sporsmal.map((s, i) => {
@@ -68,7 +68,7 @@ export function skjermer(manus) {
       price: s.pris != null ? `${s.pris} kr` : "",
       lines: s.tekst,
       answers: plain ? "JA   ·   NEI" : `JA = ${ja}   NEI = ${nei}`,
-      foot: i === 0 ? "Start: trykk JA + NEI samtidig" : "",
+      foot: i === 0 ? "Svar JA eller NEI for å begynne" : "",
     };
   });
 }

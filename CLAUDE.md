@@ -387,12 +387,14 @@ the life game on this branch. `game/kvitteringMotor.js` (the rules, moved unchan
 prototype `kvitteringsspillet/kvitteringsspillet.html`, plus `svarLinje` / `tidenErUte`),
 `game/manus.js` (the script; only change: question 10 "Nei" = "Vil du ha kvitteringen?") and
 `game/kvittering.js` (the game, same shape as `createLifeGame(io)`; also needs `io.now/after/cancel`
-so it runs in Node): a life is 60 s = 67 years, counted only while the player decides; the receipt
+so it runs in Node): question 1 stands ready (state `ready`, nothing printed, no clock) and the
+first answer starts the game — `start()` is only the power-on rewind; a life is 60 s = 67 years,
+counted from the first answer and only while the player decides; the receipt
 prints line by line, `LINJE_MS` 0.5 s per line (blank lines ¼ of that) so players read as it
 comes out (the simulator plays `printSound()` from game/sound.js per line), and a printer that doesn't answer is waited for once
 (20 s), then only the reading pace is kept until a print gets through; each answer
 is printed with the age; JA = a question's first answer, NEI = its second; after the end: cut,
-5 s in which presses are ignored, rewind, attract; every wait on printer/belt has a limit. All in
+5 s in which presses are ignored, then the rewind (`rewinding`), then question 1 ready again; every wait on printer/belt has a limit. All in
 sw.js + phone_server.py (cache v16). `simulator.html` (`start-simulator.command`) runs the same game
 with an on-screen machine, black and white (JA black, NEI white); the time left shows only on the
 receipt, the testing panel (D) shows kroner, venner, age, time and which answers can still win. `node tests/kvittering.test.mjs`: all 55 paths identical to the
@@ -404,11 +406,17 @@ exactly 32 across (all-capital lines bold) with no margins, since the game print
 and the pieces must join seamlessly; `topp()` the big title + date, `skjermer(manus)` one
 scroll screen per question. `belt/strip.js` gained `cfg.screens[i]` = { head, box, price, lines,
 answers, foot } drawn inside the window area (screens/README.md, minus the cabinet's 2 mm); without
-it the strip is drawn as before (main.js unchanged). Screen 0 = question 1 + "Start: trykk JA + NEI
-samtidig"; pictures are boxes with their description until real ones exist. The phone panel's Game
+it the strip is drawn as before (main.js unchanged). Screen 0 = question 1 + "Svar JA eller NEI for
+å begynne"; pictures are boxes with their description until real ones exist. The phone panel's Game
 section: Preview strip / Print strip; the old cards/seconds/final-text settings are gone. The
 "Start" label matters: its title line → `topp()`, its "=====" line is skipped (topp has a rule);
-`io.cut` feeds 15 mm past the blade first. Cache v17. Verified in Chrome with no hardware: a whole
+`io.cut` feeds 15 mm past the blade first. Cache v17.
+**No start press (2026-10-20, Aksel):** question 1 stands ready, the first answer starts; the game
+still sends the header as its own "Start" print just before the first answer, so `topp()` works
+as before. phone.js calls `game.start()` once on load (the power-on rewind) and `game.reset()`
+when the micro:bit (re)connects while the machine stands ready, so the board finds START even if
+it wasn't there at load; COIN, the C key and the panel's Coin button are gone (nothing to start).
+The operator screen shows "KLAR · 1. …" instead of the attract lines. Cache v18. Verified in Chrome with no hardware: a whole
 game by keyboard to time-up, cut, pause and back to attract, every printed piece collected and
 stitched (one seamless receipt); the strip rendered and looked at; `node tests/kvittering.test.mjs`
 all ok. Not tried on the real printer: whether 30+ separate small jobs per game print smoothly.

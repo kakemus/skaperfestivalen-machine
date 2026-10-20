@@ -164,39 +164,60 @@ function lagMaskin({ skriverHenger = false } = {}) {
     },
     bell() {}, flash() {}, hurry() {}, celebrate() {},
     log: s => m.logg.push(s),
-    onState: s => m.tilstander.push(s.state),
+    tilstandTider: [],
+    onState: s => { m.tilstander.push(s.state); m.tilstandTider.push({ state: s.state, t }); },
   };
   return m;
 }
 
-/** Spiller fram til spørsmålet venter, eller til spillet er tilbake i attract. */
+/** Lar tiden gå til et spørsmål venter på svar ("deciding"), eller maskinen står klar ("ready"). */
 async function tilSvar(m, spill, maks = 120000) {
-  for (let i = 0; i < maks / 5 && spill.state !== "deciding" && spill.state !== "attract"; i++) await m.gå(5);
+  for (let i = 0; i < maks / 5 && spill.state !== "deciding" && spill.state !== "ready"; i++) await m.gå(5);
 }
+/** Slår på maskinen: beltet til START, så står spørsmål 1 klart. */
+async function klar(m, spill) {
+  spill.start();
+  await tilSvar(m, spill);
+  assert.equal(spill.state, "ready");
+}
+/** Når en tilstand først ble nådd etter tidspunktet `fra`. */
+const førsteGang = (m, tilstand, fra = 0) => m.tilstandTider.find(x => x.state === tilstand && x.t >= fra)?.t;
 
 console.log("Spillet (falsk klokke og maskin)");
-await sjekkAsync("et spill med JA på alt: alder ved hvert svar, slutt, kutt, pause, tilbake til start", async () => {
+await sjekkAsync("maskinen står klar på spørsmål 1: ingen utskrift og ingen klokke før noen svarer", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
-  assert.equal(spill.state, "starting");
+  await klar(m, spill);
+  await m.gå(3600 * 1000);                   // en time uten spillere
+  assert.equal(spill.state, "ready");
+  assert.equal(m.utskrift.length, 0);
+  assert.equal(spill.igjenMs, LIVSTID_MS);
+});
+await sjekkAsync("et spill med JA på alt: første svar starter, alder ved hvert svar, slutt, kutt, pause, spoling, klar igjen", async () => {
+  const m = lagMaskin(), spill = createKvitteringGame(m);
+  await klar(m, spill);
+  await m.gå(5000);                          // tiden før første svar teller ikke
+  spill.answer(true);
+  assert.equal(spill.state, "answering");
   await tilSvar(m, spill);
-  for (let i = 0; spill.state === "deciding"; i++) {
-    await m.gå(2000);                       // 2 sekunder å bestemme seg = 2,2 år
+  while (spill.state === "deciding") {
+    await m.gå(2000);                        // 2 sekunder å bestemme seg = 2,2 år
     spill.answer(true);
     await tilSvar(m, spill);
   }
+  assert.deepEqual(m.utskrift.slice(0, 2), ["KVITTERINGSSPILLET", "=".repeat(ny.BREDDE)]);
   const svar = m.utskrift.filter(l => /^\d+\. /.test(l));
   assert.ok(svar.length >= 3, "for få svar: " + svar.length);
-  svar.forEach((l, i) => assert.ok(l.endsWith(` ${Math.floor((i + 1) * 2000 * LEVEALDER / LIVSTID_MS)} år`), l));
+  svar.forEach((l, i) => assert.ok(l.endsWith(` ${Math.floor(i * 2000 * LEVEALDER / LIVSTID_MS)} år`), l));
   assert.equal(m.kutt, 1);
-  assert.equal(spill.state, "attract");
-  assert.ok(m.tilstander.includes("pause"));
+  assert.equal(spill.state, "ready");
+  assert.equal(spill.nr, 0);
   assert.ok(m.now() > 30000, "spillet var for kort til å teste skrivervakten");
   assert.ok(!m.logg.includes("Skriveren svarer ikke"), "en skriver som virker ble meldt som hengt");
 });
 await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
+  await klar(m, spill);
+  spill.answer(true);
   await tilSvar(m, spill);
   await m.gå(6000); spill.answer(true);     // 6 s = 6 år
   const svart = m.now();
@@ -209,7 +230,8 @@ await sjekkAsync("klokka står stille mens maskinen skriver og flytter beltet", 
 });
 await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje, og livet står stille imens", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
+  await klar(m, spill);
+  spill.answer(true);
   await tilSvar(m, spill);
   await m.gå(3000); spill.answer(true);
   const fra = m.tider.length;
@@ -226,9 +248,10 @@ await sjekkAsync("kvitteringen skrives linje for linje, LINJE_MS per tekstlinje,
   }
   assert.ok(LIVSTID_MS - 3000 - spill.igjenMs < 100, `${spill.igjenMs} ms igjen`);   // < 100 ms inn i neste spørsmål
 });
-await sjekkAsync("ingen svar: etter 60 s er tiden ute, «Du ble 67 år», kutt og tilbake til start", async () => {
+await sjekkAsync("ingen svar etter det første: etter 60 s er tiden ute, «Du ble 67 år», kutt, klar igjen", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
+  await klar(m, spill);
+  spill.answer(true);
   await tilSvar(m, spill);
   await m.gå(LIVSTID_MS - 100);
   assert.equal(spill.state, "deciding");
@@ -237,43 +260,47 @@ await sjekkAsync("ingen svar: etter 60 s er tiden ute, «Du ble 67 år», kutt o
   await m.gå(20000);                         // sluttkvitteringen skrives, linje for linje
   assert.ok(m.utskrift.includes("Tiden er ute. Du ble 67 år."), m.utskrift.slice(-8).join("\n"));
   assert.equal(m.kutt, 1);
-  await m.gå(PAUSE_ETTER_SLUTT_MS + 1000);
-  assert.equal(spill.state, "attract");
+  await tilSvar(m, spill);
+  assert.equal(spill.state, "ready");
 });
-await sjekkAsync("trykk i pausen etter slutt starter ikke et nytt spill før pausen er over", async () => {
+await sjekkAsync("etter slutt: 5 s pause der trykk ignoreres, så spoles beltet tilbake, så er spørsmål 1 klart", async () => {
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
+  await klar(m, spill);
+  spill.answer(true);
   await tilSvar(m, spill);
   await m.gå(LIVSTID_MS + 100);              // tiden går ut
-  while (spill.state === "over") await m.gå(100);
-  const pauseStart = m.now();
-  while (spill.state !== "attract") {
+  while (spill.state === "over") await m.gå(10);
+  const pauseStart = m.now(), spolingFør = m.spoling, utskrevet = m.utskrift.length;
+  assert.equal(spill.state, "pause");
+  while (spill.state !== "ready") {
     const før = spill.state;
-    spill.start();
-    assert.equal(spill.state, før);
-    spill.answer(true); spill.answer(false);
-    await m.gå(500);
+    spill.answer(true); spill.answer(false); spill.start();
+    assert.equal(spill.state, før, "et trykk ble ikke ignorert");
+    await m.gå(10);
   }
-  assert.ok(m.now() - pauseStart >= PAUSE_ETTER_SLUTT_MS, `bare ${m.now() - pauseStart} ms pause`);
+  const spolingStart = førsteGang(m, "rewinding", pauseStart);
+  assert.ok(spolingStart - pauseStart >= PAUSE_ETTER_SLUTT_MS, `beltet spolte etter bare ${spolingStart - pauseStart} ms`);
+  assert.equal(m.spoling, spolingFør + 1);
+  assert.equal(m.utskrift.length, utskrevet, "noe ble skrevet ut i pausen");
   assert.equal(m.kutt, 1);
 });
 await sjekkAsync("spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier", async () => {
   const vei = ny.vinnerveier(MANUS, ny.nyttSpill(), 0).find(v => v[9] === "Nei");
   const m = lagMaskin(), spill = createKvitteringGame(m);
-  spill.start();
-  await tilSvar(m, spill);
+  await klar(m, spill);
   for (const v of vei) {
-    await m.gå(1000);
     spill.answer(v === Object.keys(MANUS.sporsmal[spill.nr].svar)[0]);
     await tilSvar(m, spill);
+    await m.gå(1000);
   }
   assert.ok(m.utskrift.includes("Vil du ha kvitteringen?"));
   assert.ok(m.utskrift.includes("DU KLARTE DET!"));
 });
 await sjekkAsync("en skriver som henger stopper ikke spillet, og venter bare én gang på den", async () => {
   const m = lagMaskin({ skriverHenger: true }), spill = createKvitteringGame(m);
-  spill.start();
-  await m.gå(25000);                         // 20 s venting på skriveren, så videre
+  await klar(m, spill);
+  spill.answer(true);
+  await m.gå(35000);                         // 20 s venting på skriveren, så videre i lesetempo
   assert.equal(spill.state, "deciding");
   const fra = m.now();
   spill.answer(true);
@@ -282,20 +309,21 @@ await sjekkAsync("en skriver som henger stopper ikke spillet, og venter bare én
   assert.ok(m.now() - fra < 30000, `svaret tok ${m.now() - fra} ms med en skriver som henger`);
   assert.equal(m.logg.filter(l => l === "Skriveren svarer ikke").length, 1);
 });
-await sjekkAsync("en hel festivaldag (10 timer) med tilfeldige trykk: hvert spill ender, kuttes én gang og starter på nytt", async () => {
+await sjekkAsync("en hel festivaldag (10 timer) med tilfeldige trykk: hvert spill ender, kuttes én gang og blir klart igjen", async () => {
   let frø = 42;
   const tilfeldig = () => (frø = (frø * 1103515245 + 12345) % 2147483648) / 2147483648;
   const m = lagMaskin(), spill = createKvitteringGame(m);
+  await klar(m, spill);
   let spillTotalt = 0, lengst = 0, startTid = 0;
   while (m.now() < 10 * 3600 * 1000) {
-    const r = tilfeldig();
-    if (r < 0.15) { if (spill.state === "attract") { spill.start(); spillTotalt++; startTid = m.now(); } }
-    else if (r < 0.55) spill.answer(true);
-    else if (r < 0.95) spill.answer(false);
-    else if (r < 0.951) spill.reset();
+    const r = tilfeldig(), varKlar = spill.state === "ready";
+    if (r < 0.48) spill.answer(true);
+    else if (r < 0.96) spill.answer(false);
+    else if (r < 0.961) spill.reset();
+    if (varKlar && spill.state === "answering") { spillTotalt++; startTid = m.now(); }
     await m.gå(Math.floor(tilfeldig() * 4000));
-    if (spill.state !== "attract") lengst = Math.max(lengst, m.now() - startTid);
-    assert.ok(m.now() - startTid < 10 * 60 * 1000 || spill.state === "attract", `et spill har vart ${m.now() - startTid} ms (${spill.state})`);
+    if (spill.state !== "ready") lengst = Math.max(lengst, m.now() - startTid);
+    assert.ok(m.now() - startTid < 10 * 60 * 1000 || spill.state === "ready", `et spill har vart ${m.now() - startTid} ms (${spill.state})`);
   }
   assert.ok(spillTotalt > 100, "bare " + spillTotalt + " spill");
   assert.ok(!m.logg.includes("Skriveren svarer ikke"), "en skriver som virker ble meldt som hengt");

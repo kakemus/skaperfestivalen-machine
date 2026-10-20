@@ -1,8 +1,12 @@
 // Kvitteringsspillet på maskinen (Aksels manus, 2026-10-20): et helt liv på 60 sekunder.
 //
-//   attract ──JA+NEI──▶ starting: belt to START, receipt header
-//      ▲                    │
-//      │                    ▼
+//   start() once at power-on ──▶ starting: belt to START
+//                                    │
+//      ┌─────────────────────────────▼
+//      │   ready: question 1 on the scroll, no clock — the machine just waits
+//      │      │ the first JA / NEI starts the game: receipt header + answer,
+//      │      │   and the life clock from then on
+//      │      ▼
 //      │      ┌── deciding: question n on the scroll, the life clock runs ──┐
 //      │      │ JA / NEI: the answer's steps → receipt lines with your age, │
 //      │      │   green + ding + belt one screen up ──▶ next question       │
@@ -10,7 +14,7 @@
 //      │      │   or the 60 s used up ("Tiden er ute. Du ble 67 år.")       │
 //      │      └──────────────▶ over: ending printed, cut ─────────────────┘
 //      │                              │
-//      └───── 5 s for the player to take the receipt, belt back to START ◀─┘
+//      └── rewinding: belt back to START ◀── 5 s to take the receipt ◀───┘
 //
 // The receipt is printed line by line, LINJE_MS per line, so the player can
 // read it as it comes out. The life clock only runs while the player is
@@ -113,19 +117,24 @@ export function createKvitteringGame(io, manus = MANUS) {
     if (!still(id)) return;
     await within(PRINT_LIMIT_MS, io.cut());
     if (!still(id)) return;
-    // the player gets the receipt; meanwhile the belt goes back to START
+    // the player gets 5 s to take the receipt, then the belt goes back to START
     setState("pause");
-    await Promise.all([wait(PAUSE_ETTER_SLUTT_MS), within(BELT_LIMIT_MS, io.belt.rewind())]);
+    await wait(PAUSE_ETTER_SLUTT_MS);
     if (!still(id)) return;
-    toAttract();
+    setState("rewinding");
+    await within(BELT_LIMIT_MS, io.belt.rewind());
+    if (!still(id)) return;
+    toReady();
   }
 
-  function toAttract() {
+  // Question 1 waits on the scroll; nothing is printed and no clock runs until
+  // someone answers it, so the machine can stand ready all day.
+  function toReady() {
     stopTimers();
     nr = 0;
     brukt = 0;
     spill = motor.nyttSpill();
-    setState("attract");
+    setState("ready");
     io.idle?.();
   }
 
@@ -137,47 +146,49 @@ export function createKvitteringGame(io, manus = MANUS) {
     /** ms of life left, counting the question being decided right now */
     get igjenMs() { return LIVSTID_MS - brukt - (state === "deciding" ? io.now() - startet : 0); },
 
-    /** JA + NEI together (or a coin): a new game. Only from attract, so the
-     *  5 s after a game always belong to the player who just finished. */
+    /** Power-on (once, by the page): belt to START, then question 1 stands ready.
+     *  After every game the machine gets ready again by itself. */
     async start() {
       if (state !== "attract") return false;
       const id = ++run;
-      stopTimers();
-      nr = 0;
-      brukt = 0;
-      spill = motor.nyttSpill();
       setState("starting");
-      io.log("Nytt spill");
-      await Promise.all([
-        within(BELT_LIMIT_MS, io.belt.rewind()),
-        print(id, "Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]),
-      ]);
-      decide(id);
+      await within(BELT_LIMIT_MS, io.belt.rewind());
+      if (!still(id)) return false;
+      toReady();
       return true;
     },
 
-    /** JA (true) or NEI (false). Ignored unless a question is waiting for an answer. */
+    /** JA (true) or NEI (false). The first answer to question 1 starts the game;
+     *  otherwise ignored unless a question is waiting for an answer — so the 5 s
+     *  after a game always belong to the player who just finished. */
     async answer(yes) {
-      if (state !== "deciding") return;
+      if (state !== "deciding" && state !== "ready") return;
       const s = manus.sporsmal[nr], valg = valgFor(s);
       const v = valg.length === 1 ? valg[0] : valg[yes ? 0 : 1];
       if (!v) return;
-      const id = run;
+      const first = state === "ready";
+      const id = first ? ++run : run;
       stopTimers();
-      brukt = Math.min(LIVSTID_MS, brukt + io.now() - startet);
+      if (!first) brukt = Math.min(LIVSTID_MS, brukt + io.now() - startet);
       setState("answering");
+      if (first) io.log("Nytt spill");
       const lines = ["", motor.svarLinje(s.nr, v, alder()), ...motor.spillSvar(spill, s, v)];
+      // the receipt header is its own "Start" print (the phone draws it as the big top)
+      const printAnswer = async () => {
+        if (first) await print(id, "Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]);
+        await print(id, `Svar ${s.nr}`, lines);
+      };
       io.log(`${s.nr}. ${v} (${alder()} år)`);
       nr++;
       if (spill.tapt || nr >= manus.sporsmal.length) {
-        await print(id, `Svar ${s.nr}`, lines);
+        await printAnswer();
         if (!still(id)) return;
         return over(id);
       }
       io.flash?.(true);
       io.bell?.(1);
       // the belt shows the next question while the answer is still printing
-      await Promise.all([print(id, `Svar ${s.nr}`, lines), within(BELT_LIMIT_MS, io.belt.step())]);
+      await Promise.all([printAnswer(), within(BELT_LIMIT_MS, io.belt.step())]);
       decide(id);
     },
 
@@ -188,7 +199,7 @@ export function createKvitteringGame(io, manus = MANUS) {
       setState("resetting");
       await within(BELT_LIMIT_MS, io.belt.rewind());
       if (!still(id)) return;
-      toAttract();
+      toReady();
     },
   };
 }

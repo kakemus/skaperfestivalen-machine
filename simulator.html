@@ -116,8 +116,8 @@
   </div>
   <div class="status" id="status"></div>
   <div class="hjelp">
-    <span><kbd>J</kbd> + <kbd>N</kbd> samtidig = start · <kbd>J</kbd> JA · <kbd>N</kbd> NEI</span>
-    <button class="lenke" id="start" type="button">Start</button>
+    <span><kbd>J</kbd> JA · <kbd>N</kbd> NEI</span>
+    <button class="lenke" id="start" type="button">Start på nytt</button>
     <button class="lenke" id="feilApne" type="button">Feiltesting</button>
   </div>
 </section>
@@ -244,18 +244,17 @@ game = createKvitteringGame({
   bell(n) { if (lydPa()) ding(n); },
   flash(riktig) { lys(riktig ? "gronn" : "rod", 900); },
   celebrate() { lys("regnbue", 6000); },
-  idle() { visStor("TRYKK JA + NEI FOR Å STARTE", "", true); },
   log(t) { logg.unshift(`${new Date().toLocaleTimeString()}  ${t}`); logg.length = Math.min(logg.length, 40); },
   onState({ state, nr, sporsmal, spill, valg }) {
     $("jaTekst").textContent = state === "deciding" && valg[0] && !/^ja$/i.test(valg[0]) ? valg[0] : "";
     $("neiTekst").textContent = state === "deciding" && valg[1] && !/^nei$/i.test(valg[1]) ? valg[1] : "";
-    if (state === "deciding") { visSporsmal(nr, sporsmal); lys(); }
+    if (state === "deciding" || state === "ready") { visSporsmal(nr, sporsmal); lys(); }
     // the belt moves on while the answer prints: the next question must already be on the strip
     if (state === "answering" && MANUS.sporsmal[nr + 1]) visSporsmal(nr + 1, MANUS.sporsmal[nr + 1]);
-    if (state === "starting") { valgt = []; visStor("START", "Beltet spoles til start …"); }
+    if (state === "starting") visStor("START", "Beltet spoles til start …");
     if (state === "over") visStor(spill.tapt ? "SPILLET ER TAPT" : "DU KLARTE DET!", "Kvitteringen skrives ut …");
     if (state === "pause") pauseSlutt = performance.now() + PAUSE_ETTER_SLUTT_MS;
-    if (state === "attract") { skjermer.slice(1).forEach(el => el.remove()); skjermer.length = 1; }
+    if (state === "ready") { valgt = []; skjermer.slice(1).forEach(el => el.remove()); skjermer.length = 1; }
     oppdaterFeil();
   },
 });
@@ -263,12 +262,14 @@ game = createKvitteringGame({
 // ---------- the status line ----------
 function tegn() {
   $("status").textContent = {
-    attract: "Venter på en spiller.",
-    starting: "Starter …",
+    attract: "",
+    starting: "Beltet spoles til start …",
+    ready: "Velg JA eller NEI for å begynne.",
     deciding: "Velg JA eller NEI.",
     answering: "Kvitteringen skrives ut …",
     over: "Spillet er over. Sluttkvitteringen skrives ut …",
-    pause: `Ta kvitteringen! Ny runde om ${Math.max(0, Math.ceil((pauseSlutt - performance.now()) / 1000))} s.`,
+    pause: `Ta kvitteringen! Beltet spoles tilbake om ${Math.max(0, Math.ceil((pauseSlutt - performance.now()) / 1000))} s.`,
+    rewinding: "Beltet spoles tilbake …",
     resetting: "Tilbake til start …",
   }[game.state] || game.state;
   requestAnimationFrame(tegn);
@@ -288,7 +289,7 @@ function navneliste(venner) {
 function oppdaterFeil() {
   if ($("feil").hidden || !game) return;
   const { spill, nr, state } = game;
-  const iSpill = !["attract", "starting"].includes(state);
+  const iSpill = !["attract", "starting", "ready"].includes(state);
   const veier = spill.tapt || nr >= MANUS.sporsmal.length ? [] : vinnerveier(MANUS, spill, nr);
   const igjen = Math.max(0, game.igjenMs);
   const rader = MANUS.sporsmal.map((s, i) => {
@@ -336,17 +337,9 @@ $("feilLukk").onclick = () => visFeil(false);
 $("feilApne").onclick = () => visFeil($("feil").hidden);
 setInterval(() => { if (game.state === "deciding") oppdaterFeil(); }, 250);   // the time left ticks
 
-// ---------- buttons: JA and NEI together start a game, like on the machine ----------
-const SAMTIDIG_MS = 400;
-const sist = { ja: -1e9, nei: -1e9 };
+// ---------- buttons: question 1 stands ready, the first answer starts the game ----------
 function trykk(knapp) {
-  const t = performance.now(), annen = knapp === "ja" ? "nei" : "ja";
-  sist[knapp] = t;
-  if (game.state === "attract") {
-    if (t - sist[annen] < SAMTIDIG_MS) game.start();
-    return;
-  }
-  if (game.state === "deciding") {
+  if (game.state === "deciding" || game.state === "ready") {
     // for the testing panel: would a win still be possible after this answer?
     const s = MANUS.sporsmal[game.nr], valg = Object.keys(s.svar);
     const v = valg.length === 1 ? valg[0] : valg[knapp === "ja" ? 0 : 1];
@@ -360,20 +353,19 @@ function trykk(knapp) {
 }
 $("ja").onclick = () => trykk("ja");
 $("nei").onclick = () => trykk("nei");
-$("start").onclick = () => game.start();
+$("start").onclick = () => game.reset();
 document.addEventListener("keydown", e => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (k === "j") trykk("ja");
   else if (k === "n") trykk("nei");
   else if (k === "d") visFeil($("feil").hidden);
-  else if (k === " " || k === "c") { e.preventDefault(); game.start(); }
 });
 
 let feilApen = false;
 try { feilApen = localStorage.getItem("kvitteringsspillet.feil") === "1"; } catch {}
 visFeil(feilApen);
-visStor("TRYKK JA + NEI FOR Å STARTE", "", true);
+game.start();   // power-on: belt to START, then question 1 stands ready
 tegn();
 </script>
 </body>

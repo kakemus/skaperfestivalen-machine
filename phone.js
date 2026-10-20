@@ -16,7 +16,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 kvittering";
+const VERSION = "phone 2026-10-20 kvittering b";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -71,21 +71,6 @@ function runTimer(seconds, from = 1) {
   fill.style.transform = "scaleX(0)";
 }
 
-// attract mode: a few lines taking turns until a coin comes
-const ATTRACT = ["TRYKK JA + NEI FOR Å STARTE", "HELE LIVET PÅ EN KVITTERING", "60 SEKUNDER. 67 ÅR."];
-let attractTimer = null, attractI = 0;
-function attract(on) {
-  if (attractTimer) { cancel(attractTimer); attractTimer = null; }
-  if (!on) return;
-  const next = () => {
-    const lines = ATTRACT, i = attractI++ % lines.length;
-    shown = [lines[i], { blink: i === 0 }];             // the first line ("insert coin") blinks
-    show(...shown);
-  };
-  next();
-  attractTimer = every(3500, next);
-}
-
 // ---------- belt + game ----------
 const belt = createBelt({ canvas: document.createElement("canvas"), send: line => controller.send(line) });
 // one screen per question (START = question 1), so the strip has questions − 1 levels above START
@@ -118,39 +103,44 @@ const game = createKvitteringGame({
   flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
   celebrate() { controller.send("LED:WIN"); },
-  idle() { runTimer(0); showLevels(0); attract(true); },
+  idle() { runTimer(0); showLevels(0); },
   log,
   onState({ state, nr, sporsmal, spill, alder, igjenMs, valg }) {
     showLevels(nr);
     runTimer(state === "deciding" ? igjenMs / 1000 : 0, igjenMs / LIVSTID_MS);
     if (state === "over" && !spill.tapt) notify("Noen klarte Kvitteringsspillet!");
     if (state === "attract") return;
-    attract(false);
     // the phone's screen is only for the operator: what the scroll shows, the age, the balance
     const status = `${alder} ÅR · ${spill.kroner} KR · ${spill.venner.length} VENNER`;
     const what = {
-      starting: "NYTT SPILL",
+      starting: "TIL START",
+      ready: sporsmal ? `KLAR · ${sporsmal.nr}. ${sporsmal.tekst[sporsmal.tekst.length - 1]}` : "KLAR",
       deciding: sporsmal ? `${sporsmal.nr}. ${sporsmal.tekst[sporsmal.tekst.length - 1]}\nJA = ${valg[0]} · NEI = ${valg[1] || valg[0]}` : "",
       answering: "SKRIVER UT …",
       over: spill.tapt ? "TAPT" : "DU KLARTE DET!",
       pause: "TA KVITTERINGEN",
+      rewinding: "SPOLER TILBAKE",
       resetting: "TILBAKE TIL START",
     }[state] || state;
     shown = [what + "\n" + status, {}];
     show(...shown);
   },
 });
-// the board's Find START must know how many screens the strip has
-on("controller:connected", () => after(2500, () => controller.send(`SET:screens:${MANUS.sporsmal.length}`)));
+// the board's Find START must know how many screens the strip has; and a board that
+// (re)connects while the machine stands ready is sent to START, since the power-on
+// rewind may have run before it was there
+on("controller:connected", () => after(2500, () => {
+  controller.send(`SET:screens:${MANUS.sporsmal.length}`);
+  if (game.state === "ready") game.reset();
+}));
 showLevels(0);
-attract(true);
+game.start();   // power-on: belt to START, then question 1 stands ready
 
 // ---------- hardware ----------
 on("controller:raw", ({ line }) => {
   belt.handleLine(line);
   if (line === "ANSWER:YES") game.answer(true);
   else if (line === "ANSWER:NO") game.answer(false);
-  else if (line.startsWith("COIN")) game.start();
   const pos = line.match(/^(?:BELT:DONE|HB:\w+:W\d):(-?\d+)/);
   if (pos) $("sPos").textContent = pos[1] === "-1" ? "unknown" : pos[1] === "0" ? "START" : "screen " + pos[1];
   // heartbeats, live light readings and trace samples would flood the log
@@ -200,7 +190,6 @@ $("close").onclick = () => { $("panel").hidden = true; after(100, showAgain); };
 
 $("connectPrinter").onclick = () => printer.connect();
 $("connectMicrobit").onclick = () => controller.connect();
-$("tCoin").onclick = () => game.start();
 $("tYes").onclick = () => game.answer(true);
 $("tNo").onclick = () => game.answer(false);
 $("tStep").onclick = () => controller.send("BELT:STEP") || log("No micro:bit connected");
@@ -225,11 +214,11 @@ $("ntfy").value = settings.ntfyTopic;
 $("ntfy").onchange = () => { settings.ntfyTopic = $("ntfy").value.trim(); save(); };
 $("ntfyTest").onclick = () => settings.ntfyTopic ? notify("Test fra maskinen") : log("Type a topic name first");
 
-// keyboard, for testing on a computer: C = coin, J = ja, N = nei
+// keyboard, for testing on a computer: J = ja, N = nei
 window.addEventListener("keydown", e => {
   if (e.target.closest?.("input, textarea")) return;
   const k = e.key.toLowerCase();
-  if (k === "c") game.start(); else if (k === "j") game.answer(true); else if (k === "n") game.answer(false);
+  if (k === "j") game.answer(true); else if (k === "n") game.answer(false);
 });
 
 // ---------- offline copy (sw.js) ----------

@@ -45,6 +45,8 @@ tap.
 - **Gjort: motoren og manuset er ES-moduler.** `game/kvitteringMotor.js` (reglene) og
   `game/manus.js` (historien), og begge er med i offline-kopien (`sw.js`, `phone_server.py`).
 - **Gjort: spillet på maskinen, `game/kvittering.js`** (samme form som `createLifeGame(io)`):
+  - **Spørsmål 1 står klart** så snart maskinen er ledig. Det første svaret starter spillet
+    (overskrift + svar skrives ut), og klokka går fra da av. Ingenting skrives ut før noen svarer.
   - Et liv er **60 sekunder = 67 år**. Klokka går bare mens spilleren velger, ikke mens maskinen
     skriver ut eller flytter beltet.
   - Kvitteringen skrives **linje for linje, et halvt sekund per linje** (tomme linjer en firedel
@@ -55,8 +57,8 @@ tap.
   - Er de 60 sekundene brukt opp, er spillet over: «Tiden er ute. Du ble 67 år.»
   - **JA = første svar, NEI = andre** (spørsmål 2: JA = Venner, NEI = Penger).
   - Spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier.
-  - Etter slutt: kvitteringen kuttes, spilleren får **5 sekunder** (trykk ignoreres), beltet
-    spoles tilbake, og maskinen venter på neste spiller (JA + NEI samtidig).
+  - Etter slutt: kvitteringen kuttes, spilleren får **5 sekunder** (trykk ignoreres), **så**
+    spoles beltet tilbake, og spørsmål 1 står klart for neste spiller.
   - Alle ventinger på skriver og belte har en tidsgrense, så en skriver som henger stopper ikke
     spillet.
 - **Simulator:** `simulator.html` (dobbeltklikk `start-simulator.command`) kjører det samme spillet
