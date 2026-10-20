@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 t";
+const VERSION = "phone 2026-10-20 u";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -150,8 +150,17 @@ showLevels(0);
 game.start();   // power-on: belt to START, then question 1 stands ready
 
 // ---------- hardware ----------
+// A calibration — JA + NEI held 5 s on the machine, or the panel's button — ends with the
+// board finding START by itself; then the game is put back on START too (it lost its place).
+let calibrated = false;
 on("controller:raw", ({ line }) => {
   belt.handleLine(line);
+  if (line.startsWith("CAL:OK")) calibrated = true;
+  if (line.startsWith("CAL:FAIL") || (calibrated && line.startsWith("BELT:"))) {
+    calibrated = false;
+    log("Calibrated — the game goes back to START");
+    game.reset();
+  }
   if (line === "ANSWER:YES") game.answer(true);
   else if (line === "ANSWER:NO") game.answer(false);
   const pos = line.match(/^(?:BELT:DONE|HB:\w+:W\d):(-?\d+)/);
