@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 a";
+const VERSION = "phone 2026-10-21 b";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -113,10 +113,15 @@ const game = createKvitteringGame({
   // feed the end past the blade (it sits above the print head), then cut
   cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
-  // a right answer blinks green 3 times; losing blinks red 12 times (~3.6 s), so it's unmistakable
-  flash(right) { controller.send(right ? "LED:FLASH:G" : "LED:FLASH:R:12"); },
+  // A right answer blinks green once (3 blinks, ~0.9 s). Losing has to be unmistakable, so the
+  // board's red flash is sent 4 times back to back (~3.6 s); and a win's 6 s rainbow is sent again
+  // after 5 s (~11 s) — longer without touching the micro:bit's program (2026-10-21).
+  flash(right) {
+    if (right) return controller.send("LED:FLASH:G");
+    for (let i = 0; i < 4; i++) after(i * 900, () => controller.send("LED:FLASH:R"));
+  },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
-  celebrate() { controller.send("LED:WIN"); },
+  celebrate() { controller.send("LED:WIN"); after(5000, () => controller.send("LED:WIN")); },
   idle() { runTimer(0); showLevels(0); },
   log,
   onState({ state, nr, sporsmal, spill, alder, igjenMs, valg }) {

@@ -695,7 +695,7 @@ def bell_tick(now):
 FLASH_COLOURS = {"G": (0, 1, 0), "R": (1, 0, 0)}
 FLASH_ON, FLASH_OFF, FLASH_TIMES = 180, 120, 3
 flash = {"left": 0, "on": False, "next": 0, "rgb": (0, 0, 0), "then": [], "win": 0}
-WIN_MS = 10000      # the rainbow after a win (6 s until 2026-10-21: a little longer)
+WIN_MS = 6000
 
 
 hurry = {"end": 0, "dim": False, "next": 0}
@@ -726,12 +726,12 @@ def hurry_tick(now):
         hurry["next"] = now + 70
 
 
-def start_flash(now, colour, times=FLASH_TIMES):
+def start_flash(now, colour):
     hurry_off()
     v = min(LED_MAX, max(40, S["backlight"] * 2))       # brighter than the backlight, so it reads
     c = FLASH_COLOURS.get(colour, (1, 1, 1))
     flash["rgb"] = (v * c[0], v * c[1], v * c[2])
-    flash["left"], flash["on"], flash["next"] = times, False, now
+    flash["left"], flash["on"], flash["next"] = FLASH_TIMES, False, now
 
 
 def wheel(h, v):
@@ -899,8 +899,7 @@ def handle(line, now):
         elif parts[1] == "RGB":
             leds_fill(int(parts[2]), int(parts[3]), int(parts[4]))
         elif parts[1] == "FLASH":
-            # LED:FLASH:R:12 = 12 blinks (losing: longer than an answer's 3)
-            start_flash(now, parts[2] if len(parts) > 2 else "G", int(parts[3]) if len(parts) > 3 else FLASH_TIMES)
+            start_flash(now, parts[2] if len(parts) > 2 else "G")
         elif parts[1] == "WIN":
             start_win(now)
         elif parts[1] == "HURRY":
