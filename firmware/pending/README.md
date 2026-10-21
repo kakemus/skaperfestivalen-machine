@@ -6,12 +6,14 @@ everything in it (2026-10-21). Until then `firmware/machine.py` stays exactly wh
 on the board. Apply these with `git apply firmware/pending/<file>.patch`, check with
 the firmware simulator, then update the board once.
 
-- `calibrate-5s.patch` — hold JA + NEI **5 s** = auto-calibrate + find START (was
-  10 s); the old service mode is no longer reached from the buttons (the phone panel
-  has hold-to-wind). The phone already resets the game after any calibration
-  (`CAL:OK` → the board's find-START reply), so nothing else is needed. After applying,
-  update the texts that say 10 s: phone.html (Auto-calibrate hint), belt.html (the
-  "On the machine" hint), CLAUDE.md (Buttons / service mode).
+- `no-service-mode.patch` — a 5 s hold of JA + NEI does **nothing** any more (it used to
+  switch on the old service mode, S on the display, with YES / NO winding the belt — the
+  phone panel has hold-to-wind now); **10 s** still = auto-calibrate + find START, and the
+  phone puts the game back on START after it. (Replaces an earlier 5 s-calibrate patch:
+  the maker settled on 10 s, 5 s nothing — 2026-10-21.) Checked in the firmware simulator:
+  6 s hold → only a COIN on release (which the game ignores), 11 s → CAL:OK and
+  BELT:DONE:0, a quick press of both → COIN, one button → ANSWER. After applying, update
+  belt.html's "On the machine" hint and CLAUDE.md (Buttons / service mode).
 - `flash-count-longer-win.patch` — `LED:FLASH:R:12` = a red flash with a blink count,
   and the win rainbow 10 s (`WIN_MS`). Optional: the phone already gets the same effect
   by repeating `LED:FLASH:R` 4 times and `LED:WIN` after 5 s (phone.js `flash` /
