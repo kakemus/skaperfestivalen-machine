@@ -12,12 +12,12 @@ import { after, every, cancel } from "./core/clock.js";
 import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
 import { MANUS } from "./game/manus.js";
 import * as tegning from "./game/kvitteringTegning.js";
-import { lcdLinjer } from "./game/kvitteringDisplay.js";
+import { lcdLinjer, LOKK_ETTER_MS } from "./game/kvitteringDisplay.js";
 import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 j";
+const VERSION = "phone 2026-10-21 k";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -236,6 +236,22 @@ every(1000, async () => {
   resetting = false;
 });
 
+// ---------- the lure: a minute standing ready with nobody playing ----------
+// The display blinks TRYKK JA ELLER NEI (kvitteringDisplay.js); every 30 s the light blinks white a
+// few times and the bell rings twice (2026-10-21, after the user test). The machine stands still
+// then, so a flash can't disturb a belt move; a press starts the game as usual.
+const LOKK_HVER_MS = 30000;
+let klarSiden = Date.now(), forrigeState = "", sisteLokk = 0;
+every(1000, () => {
+  const now = Date.now();
+  if (game.state !== forrigeState) { forrigeState = game.state; klarSiden = now; }
+  if (game.state !== "ready" || now - klarSiden < LOKK_ETTER_MS || now - sisteLokk < LOKK_HVER_MS) return;
+  sisteLokk = now;
+  controller.send("LED:FLASH:W:6");
+  controller.send("BELL:2");
+  ding(2);
+});
+
 // ---------- the IBM till display, through the helper in Termux (tools/termux-ibm/) ----------
 // Android's Chrome has no WebHID; the helper owns the display and listens on 127.0.0.1:8765.
 // Four times a second the game's two lines go there (the helper skips unchanged lines).
@@ -245,7 +261,7 @@ let lcdUp = null, lcdNext = 0, lcdShown = "";
 every(250, () => {
   const now = Date.now();
   if (lcdUp === false && now < lcdNext) return;
-  const [top, bottom] = lcdLinjer(game, now), key = top + "|" + bottom;
+  const [top, bottom] = lcdLinjer(game, now, game.state === "ready" ? now - klarSiden : 0), key = top + "|" + bottom;
   if (lcdUp && key === lcdShown) return;
   fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}`, { cache: "no-store" })
     .then(r => {

@@ -50,7 +50,8 @@ export function topp(tittel) {
   return makeTicket(ctx => {
     let y = 14;
     y = centered(ctx, String(tittel).toUpperCase(), y, 60, { weight: "900" }) + 4;
-    y = centered(ctx, stamp(), y, 22, { weight: "normal", family: MONO }) + 8;
+    y = centered(ctx, stamp(), y, 22, { weight: "normal", family: MONO }) + 6;
+    y = centered(ctx, "MÅL: IKKE GÅ I MINUS", y, 30, { weight: "bold", family: MONO }) + 8;   // the goal, said once (user test, 2026-10-21)
     return rule(ctx, y, { dashed: true, thick: 2 }) + 6;
   }, { feedMm: 0 });
 }
