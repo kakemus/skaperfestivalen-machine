@@ -55,37 +55,43 @@ export function printSound(ms = 220) {
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
 
-// The losing sound (2026-10-21, tuned in the maker's user test): a buzzing two-tone alarm,
-// "eeh – aawh" three times, all the same. Each tone is two square waves a few Hz apart, so it
-// buzzes; eeh = 294 Hz (D4), aawh = 220 Hz (A3) — low enough not to shriek, high enough for a
-// phone speaker (a 120 Hz buzz didn't come through; a high vowel-like version was too shrill).
+// The losing sound (2026-10-21, tuned with the maker in the user test): a deep, mechanical
+// buzzer, "eeh – aawh" three times. Two square waves a few Hz apart per tone (the buzz), eeh
+// 150 Hz, aawh 110 Hz, chopped 50 times a second (a square LFO on the gain) — the rattle of an
+// old electric buzzer's vibrating armature. Deep, so it wants a real speaker (the maker has one);
+// a phone's own speaker plays mostly the overtones.
 export function buzzer(ctx) {
   try {
     if (!ctx) { audio ??= new AudioContext(); audio.resume(); ctx = audio; }
     const start = ctx.currentTime + 0.02;
-    const lp = ctx.createBiquadFilter(), out = ctx.createGain();
+    const lp = ctx.createBiquadFilter(), env = ctx.createGain(), chop = ctx.createGain();
     lp.type = "lowpass";
-    lp.frequency.value = 3000;
-    out.gain.value = 0.0001;
-    lp.connect(out).connect(ctx.destination);
+    lp.frequency.value = 2500;
+    env.gain.value = 0.0001;
+    chop.gain.value = 0.6;                                   // the rattle: 0.6 ± 0.4
+    const rattle = ctx.createOscillator(), depth = ctx.createGain();
+    rattle.type = "square";
+    rattle.frequency.value = 50;
+    depth.gain.value = 0.4;
+    rattle.connect(depth).connect(chop.gain);
+    lp.connect(chop).connect(env).connect(ctx.destination);
     const a = ctx.createOscillator(), b = ctx.createOscillator();
     a.type = b.type = "square";
     a.connect(lp);
     b.connect(lp);
     let t = start;
     for (let n = 0; n < 3; n++) {
-      for (const [f, len] of [[294, 0.3], [220, 0.45]]) {    // eeh, aawh
+      for (const [f, len] of [[150, 0.32], [110, 0.48]]) {    // eeh, aawh
         a.frequency.setValueAtTime(f, t);
-        b.frequency.setValueAtTime(f + 7, t);                // a few Hz apart: the buzz
-        out.gain.setValueAtTime(0.0001, t);
-        out.gain.exponentialRampToValueAtTime(0.45, t + 0.01);
-        out.gain.setValueAtTime(0.45, t + len - 0.03);
-        out.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        b.frequency.setValueAtTime(f + 4, t);
+        env.gain.setValueAtTime(0.0001, t);
+        env.gain.exponentialRampToValueAtTime(0.6, t + 0.008);
+        env.gain.setValueAtTime(0.6, t + len - 0.02);
+        env.gain.exponentialRampToValueAtTime(0.0001, t + len);
         t += len;
       }
-      t += 0.12;                                             // a breath between the three
+      t += 0.12;
     }
-    a.start(start); b.start(start);
-    a.stop(t); b.stop(t);
+    for (const o of [a, b, rattle]) { o.start(start); o.stop(t); }
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
