@@ -14,7 +14,7 @@ export function ding(times = 1) {
         const osc = audio.createOscillator(), g = audio.createGain();
         osc.frequency.value = 880 * ratio;
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(gain * 0.4, t0 + 0.005);
+        g.gain.exponentialRampToValueAtTime(gain * 1.0, t0 + 0.005);   // was 0.4: too quiet on the BT speaker (2026-10-21)
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4 / ratio ** 0.3);
         osc.connect(g).connect(audio.destination);
         osc.start(t0);

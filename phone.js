@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 n";
+const VERSION = "phone 2026-10-21 o";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
