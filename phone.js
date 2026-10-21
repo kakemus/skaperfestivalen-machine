@@ -13,11 +13,11 @@ import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
 import { MANUS } from "./game/manus.js";
 import * as tegning from "./game/kvitteringTegning.js";
 import { lcdLinjer } from "./game/kvitteringDisplay.js";
-import { ding } from "./game/sound.js";
+import { ding, buzzer } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 d";
+const VERSION = "phone 2026-10-21 e";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -118,6 +118,7 @@ const game = createKvitteringGame({
   // after 5 s (~11 s) — longer without touching the micro:bit's program (2026-10-21).
   flash(right) {
     if (right) return controller.send("LED:FLASH:G");
+    buzzer();                                             // and the wrong-answer buzzer on the phone's speaker
     for (let i = 0; i < 4; i++) after(i * 900, () => controller.send("LED:FLASH:R"));
   },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },

@@ -54,3 +54,29 @@ export function printSound(ms = 220) {
     src.stop(t0 + len + 0.02);
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
+
+// The wrong-answer buzzer for losing (2026-10-21): a hard, low "BZZZT" of about a second,
+// like a game show's. Two square waves slightly apart (120 / 127 Hz) beat against each other
+// for the rasp; a low-pass takes the fizz off so a small phone speaker doesn't just crackle.
+export function buzzer(ctx) {
+  try {
+    if (!ctx) { audio ??= new AudioContext(); audio.resume(); ctx = audio; }
+    const t0 = ctx.currentTime + 0.02, len = 1.0;
+    const out = ctx.createGain(), lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 1800;
+    out.gain.setValueAtTime(0.0001, t0);
+    out.gain.exponentialRampToValueAtTime(0.35, t0 + 0.01);
+    out.gain.setValueAtTime(0.35, t0 + len - 0.08);
+    out.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    lp.connect(out).connect(ctx.destination);
+    for (const f of [120, 127]) {
+      const osc = ctx.createOscillator();
+      osc.type = "square";
+      osc.frequency.value = f;
+      osc.connect(lp);
+      osc.start(t0);
+      osc.stop(t0 + len + 0.02);
+    }
+  } catch { /* no sound available — the game doesn't depend on it */ }
+}
