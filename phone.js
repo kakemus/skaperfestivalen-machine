@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 p";
+const VERSION = "phone 2026-10-21 q";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -27,7 +27,9 @@ const settings = (() => {
   // answerFeedMm: paper fed after each answer (the print head sits well below the slot)
   // ntfyTopic: the maker's own channel (2026-10-20); an empty saved one falls back to it too,
   // since the field used to start empty and that empty value was saved with every setting
-  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40 };
+  // phoneDing: the phone's speaker dings along with the real bell — off (2026-10-21: the bell
+  // alone); a backup for if the bell breaks
+  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40, phoneDing: false };
   let s = d;
   try { s = { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch {}
   if (!s.ntfyTopic) s.ntfyTopic = d.ntfyTopic;
@@ -112,7 +114,7 @@ const game = createKvitteringGame({
   },
   // feed the end past the blade (it sits above the print head), then cut
   cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
-  bell(times) { ding(times); controller.send(`BELL:${times}`); },
+  bell(times) { if (settings.phoneDing) ding(times); controller.send(`BELL:${times}`); },
   // A right answer blinks green once (3 blinks, ~0.9 s). Losing has to be unmistakable, so the
   // board's red flash is sent 4 times back to back (~3.6 s); and a win's 6 s rainbow is sent again
   // after 5 s (~11 s) — longer without touching the micro:bit's program (2026-10-21).
@@ -249,7 +251,7 @@ every(1000, () => {
   sisteLokk = now;
   controller.send("LED:FLASH:W:6");
   controller.send("BELL:2");
-  ding(2);
+  if (settings.phoneDing) ding(2);
 });
 
 // ---------- the IBM till display, through the helper in Termux (tools/termux-ibm/) ----------
@@ -382,10 +384,12 @@ window.addEventListener("blur", holdEnd);
 document.addEventListener("visibilitychange", () => { if (document.hidden) holdEnd(); });
 $("stop").onclick = () => { holdEnd(); toBoard("STOP") && log("STOP sent"); };
 $("tPrint").onclick = () => print("Test", () => tegning.linjer(["1. Ja -------------------- 0 år", "Barnetrygd               1900 kr", "", "TESTUTSKRIFT"]));
-$("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
+$("tBell").onclick = () => controller.send("BELL:1") || log("No micro:bit connected");
 // the phone's own sounds, to check the speaker and its volume (they need a tap first anyway)
 $("tLoseSound").onclick = () => { preloadSounds(); buzzer(); };
 $("tDing").onclick = () => ding(3);
+$("phoneDing").checked = settings.phoneDing;
+$("phoneDing").onchange = () => { settings.phoneDing = $("phoneDing").checked; save(); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
 $("sendLog").onclick = () => fetch("results", { method: "POST", body: "GAME LOG\n" + lines.join("\n") })
