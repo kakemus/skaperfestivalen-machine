@@ -1,0 +1,32 @@
+# The machine's micro:bit settings, read off the board on 2026-10-21 (SETTINGS? reply).
+# To put them back: send each as SET:key:value (belt.html does this from its fields), or
+# write them as key=value lines into the board's settings.txt.
+cb=158
+brake=30
+markms=75
+settle=600
+upms=1025
+screens=10
+mode=1
+creep=40
+bellinv=0
+steptime=1500
+tension=55
+level=348
+idletension=0
+after=0
+cr=255
+rewind=80
+kick=80
+inv1=0
+inv2=1
+timeout=8000
+hyst=47
+feed=45
+screenms=856
+cg=215
+bellms=250
+pull=60
+tensionms=400
+mingap=300
+backlight=120
