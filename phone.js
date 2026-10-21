@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-20 v";
+const VERSION = "phone 2026-10-21 a";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -113,7 +113,8 @@ const game = createKvitteringGame({
   // feed the end past the blade (it sits above the print head), then cut
   cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
   bell(times) { ding(times); controller.send(`BELL:${times}`); },
-  flash(right) { controller.send(`LED:FLASH:${right ? "G" : "R"}`); },
+  // a right answer blinks green 3 times; losing blinks red 12 times (~3.6 s), so it's unmistakable
+  flash(right) { controller.send(right ? "LED:FLASH:G" : "LED:FLASH:R:12"); },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
   celebrate() { controller.send("LED:WIN"); },
   idle() { runTimer(0); showLevels(0); },

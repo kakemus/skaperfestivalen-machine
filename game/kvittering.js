@@ -107,12 +107,18 @@ export function createKvitteringGame(io, manus = MANUS) {
     return over(id);
   }
 
-  async function over(id) {
+  // Win or lose, the light says so at once (2026-10-20, the maker): for an answer that ends
+  // the game that's the moment it's pressed, before its receipt lines print.
+  function signalEnd() {
+    if (spill.tapt) io.flash?.(false); else { io.celebrate?.(); io.bell?.(3); }
+  }
+
+  async function over(id, signalled = false) {
     stopTimers();
     setState("over");
     const won = !spill.tapt;
     io.log(won ? "Vunnet" : `Tapt (${spill.grunn})`);
-    if (won) { io.celebrate?.(); io.bell?.(3); } else io.flash?.(false);
+    if (!signalled) signalEnd();
     await print(id, "Slutt", ["", ...motor.sluttLinjer(spill, manus.avslutning)]);
     if (!still(id)) return;
     await within(PRINT_LIMIT_MS, io.cut());
@@ -181,9 +187,10 @@ export function createKvitteringGame(io, manus = MANUS) {
       io.log(`${s.nr}. ${v} (${alder()} år)`);
       nr++;
       if (spill.tapt || nr >= manus.sporsmal.length) {
+        signalEnd();
         await printAnswer();
         if (!still(id)) return;
-        return over(id);
+        return over(id, true);
       }
       io.flash?.(true);
       io.bell?.(1);
