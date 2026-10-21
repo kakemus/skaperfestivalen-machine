@@ -55,28 +55,33 @@ export function printSound(ms = 220) {
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
 
-// The wrong-answer buzzer for losing (2026-10-21): a hard, low "BZZZT" of about a second,
-// like a game show's. Two square waves slightly apart (120 / 127 Hz) beat against each other
-// for the rasp; a low-pass takes the fizz off so a small phone speaker doesn't just crackle.
+// The wrong-answer buzzer for losing (2026-10-21): a game show's "BZZT — BZZZZT". Pitched where
+// a phone's small speaker still plays it (a first version at 120 Hz was too low to come through
+// clearly in the user test): two square waves at 220 / 233 Hz beating for the rasp, a low-pass at
+// 3.5 kHz, loud — a short blast, a gap, a long one (~1.2 s in all).
 export function buzzer(ctx) {
   try {
     if (!ctx) { audio ??= new AudioContext(); audio.resume(); ctx = audio; }
-    const t0 = ctx.currentTime + 0.02, len = 1.0;
+    const start = ctx.currentTime + 0.02;
     const out = ctx.createGain(), lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
-    lp.frequency.value = 1800;
-    out.gain.setValueAtTime(0.0001, t0);
-    out.gain.exponentialRampToValueAtTime(0.35, t0 + 0.01);
-    out.gain.setValueAtTime(0.35, t0 + len - 0.08);
-    out.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    lp.frequency.value = 3500;
+    out.gain.value = 0.0001;
     lp.connect(out).connect(ctx.destination);
-    for (const f of [120, 127]) {
+    for (const [t0, len] of [[0, 0.32], [0.42, 0.8]]) {
+      const a = start + t0;
+      out.gain.setValueAtTime(0.0001, a);
+      out.gain.exponentialRampToValueAtTime(0.5, a + 0.01);
+      out.gain.setValueAtTime(0.5, a + len - 0.05);
+      out.gain.exponentialRampToValueAtTime(0.0001, a + len);
+    }
+    for (const f of [220, 233]) {
       const osc = ctx.createOscillator();
       osc.type = "square";
       osc.frequency.value = f;
       osc.connect(lp);
-      osc.start(t0);
-      osc.stop(t0 + len + 0.02);
+      osc.start(start);
+      osc.stop(start + 1.25);
     }
   } catch { /* no sound available — the game doesn't depend on it */ }
 }

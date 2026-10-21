@@ -9,13 +9,17 @@
 //   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 80 ÅR
 import { LIVSTID_MS, LEVEALDER } from "./kvittering.js";
 export const LCD_BREDDE = 20;
-const LES = "^ LES KVITTERINGEN ^", TA = "^ TA KVITTERINGEN! ^";   // 20 characters each; ^ = up, at the printer
+// 20 characters each; ^ = up, at the printer. The arrows blink, the words stand still.
+const pil = (tekst, on) => on ? `^ ${tekst} ^` : `  ${tekst}  `;
+const LES = on => pil("LES KVITTERINGEN", on), TA = on => pil("TA KVITTERINGEN!", on);
 
 const midt = t => { t = t.slice(0, LCD_BREDDE); const p = Math.floor((LCD_BREDDE - t.length) / 2); return " ".repeat(p) + t; };
 
 /** [top, bottom] for the game's state right now. `ms` = a clock for the blinking and turns. */
 export function lcdLinjer(game, ms) {
   const sp = game.spill, igjen = game.igjenMs, skift = Math.floor(ms / 2000) % 2 === 1;
+  const blink = Math.floor(ms / 500) % 2 === 0;                    // arrows on / off
+  const runde = (...ord) => midt(ord[Math.floor(ms / 1000) % ord.length]);   // the result: a word a second
   // the age live, from the life used so far — the game's own age only moves on with an answer
   const alder = Math.max(0, Math.min(LEVEALDER, Math.floor((LIVSTID_MS - igjen) * LEVEALDER / LIVSTID_MS)));
   const saldo = sp.visning === "venner" ? `${sp.venner.length} VENNER` : `${sp.kroner} KR`;
@@ -25,16 +29,18 @@ export function lcdLinjer(game, ms) {
     case "deciding":
       if (igjen <= 10000 && Math.floor(ms / 500) % 2) return [midt("SKYND DEG!"), midt(saldo)];
       return [midt(`DU ER ${alder} ÅR`), midt(saldo)];
-    // The receipt is the point, so the display points up at it (the printer sits above it):
-    // while an answer prints, at the end, and while the belt rewinds (the maker, 2026-10-21).
+    // From the moment an answer is pressed the display says how it went and points up at the
+    // receipt (the printer sits above it): three screens talking at once confused people in the
+    // maker's user test (2026-10-21), so this one sends them to the receipt.
     case "answering":
-      return [midt(`DU ER ${alder} ÅR`), skift ? LES : midt(saldo)];
+      return [sp.tapt ? runde("GAME OVER", "FEIL VALG") : runde("RIKTIG VALG!", "DU LEVER VIDERE"), LES(blink)];
     case "over":
-      return [midt(sp.grunn === "tid" ? "TIDEN ER UTE!" : sp.tapt ? "SPILLET ER TAPT" : "DU KLARTE DET!"),
-        skift ? LES : midt(`DU BLE ${game.alder} ÅR`)];
+      if (!sp.tapt) return [runde("DU KLARTE DET!", `DU BLE ${game.alder} ÅR`), LES(blink)];
+      return [sp.grunn === "tid" ? runde("TIDEN ER UTE!", "TILBAKE TIL START")
+        : runde("GAME OVER", "FEIL VALG", "TILBAKE TIL START"), LES(blink)];
     case "pause":
     case "rewinding":
-      return [TA, midt(skift ? "TAKK FOR SPILLET" : "OG TA DEN MED DEG")];
+      return [TA(blink), midt(skift ? "TAKK FOR SPILLET" : "OG TA DEN MED DEG")];
     default:                                              // starting, rewinding, resetting
       return [midt("KVITTERINGSSPILLET"), midt("SPOLER TILBAKE ...")];
   }

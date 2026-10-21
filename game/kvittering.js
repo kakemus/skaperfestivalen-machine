@@ -33,6 +33,7 @@ export const LEVEALDER = 80;              // … is 80 years (67 until 2026-10-2
 export const PAUSE_ETTER_SLUTT_MS = 5000;
 export const LINJE_MS = 500;              // per printed line of text (io.linjeMs() can change it)
 const TOM_LINJE_ANDEL = 0.25;             // a blank line is only spacing: a quarter of that
+export const ROD_MS = 4000;              // a loss: the red flashing (phone.js: 4 x 0.9 s), then the belt rewinds
 const HURRY_MS = 10000;                   // the light flickers faster for the last 10 s of life
 const PRINT_LIMIT_MS = 20000;             // longest wait for a print or a cut
 const BELT_LIMIT_MS = 70000;              // belt.js gives up on the board after 15 s / 60 s itself
@@ -109,8 +110,14 @@ export function createKvitteringGame(io, manus = MANUS) {
 
   // Win or lose, the light says so at once (2026-10-20, the maker): for an answer that ends
   // the game that's the moment it's pressed, before its receipt lines print.
-  function signalEnd() {
-    if (spill.tapt) io.flash?.(false); else { io.celebrate?.(); io.bell?.(3); }
+  // A loss rewinds the belt as soon as the red flashing is over (the maker's user test,
+  // 2026-10-21), while the receipt still prints — not after the pause; a win keeps its pause.
+  let tilbake = null;
+  function signalEnd(id) {
+    if (spill.tapt) {
+      io.flash?.(false);
+      tilbake = wait(ROD_MS).then(() => still(id) ? within(BELT_LIMIT_MS, io.belt.rewind()) : null);
+    } else { io.celebrate?.(); io.bell?.(3); }
   }
 
   async function over(id, signalled = false) {
@@ -118,7 +125,7 @@ export function createKvitteringGame(io, manus = MANUS) {
     setState("over");
     const won = !spill.tapt;
     io.log(won ? "Vunnet" : `Tapt (${spill.grunn})`);
-    if (!signalled) signalEnd();
+    if (!signalled) signalEnd(id);
     await print(id, "Slutt", ["", ...motor.sluttLinjer(spill, manus.avslutning)]);
     if (!still(id)) return;
     await within(PRINT_LIMIT_MS, io.cut());
@@ -128,7 +135,9 @@ export function createKvitteringGame(io, manus = MANUS) {
     await wait(PAUSE_ETTER_SLUTT_MS);
     if (!still(id)) return;
     setState("rewinding");
-    await within(BELT_LIMIT_MS, io.belt.rewind());
+    const early = tilbake;
+    tilbake = null;
+    await (early || within(BELT_LIMIT_MS, io.belt.rewind()));
     if (!still(id)) return;
     toReady();
   }
@@ -187,13 +196,13 @@ export function createKvitteringGame(io, manus = MANUS) {
       io.log(`${s.nr}. ${v} (${alder()} år)`);
       nr++;
       if (spill.tapt || nr >= manus.sporsmal.length) {
-        signalEnd();
+        signalEnd(id);
         await printAnswer();
         if (!still(id)) return;
         return over(id, true);
       }
       io.flash?.(true);
-      io.bell?.(1);
+      io.bell?.(3);                       // three dings for a right answer (user test, 2026-10-21)
       // the answer is printed first, then the belt moves on to the next question (2026-10-20,
       // the maker: the player reads the receipt, and the next question doesn't run ahead of it)
       await printAnswer();

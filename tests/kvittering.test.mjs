@@ -15,7 +15,7 @@ import vm from "node:vm";
 import assert from "node:assert/strict";
 import { MANUS } from "../game/manus.js";
 import * as ny from "../game/kvitteringMotor.js";
-import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS } from "../game/kvittering.js";
+import { createKvitteringGame, LIVSTID_MS, LEVEALDER, PAUSE_ETTER_SLUTT_MS, LINJE_MS, ROD_MS } from "../game/kvittering.js";
 
 const rot = fileURLToPath(new URL("..", import.meta.url));
 const html = readFileSync(rot + "kvitteringsspillet/kvitteringsspillet.html", "utf8");
@@ -340,6 +340,22 @@ await sjekkAsync("etter slutt: 5 s pause der trykk ignoreres, så spoles beltet 
   assert.ok(spolingStart - pauseStart >= PAUSE_ETTER_SLUTT_MS, `beltet spolte etter bare ${spolingStart - pauseStart} ms`);
   assert.equal(m.spoling, spolingFør + 1);
   assert.equal(m.utskrift.length, utskrevet, "noe ble skrevet ut i pausen");
+  assert.equal(m.kutt, 1);
+});
+await sjekkAsync("tap: beltet spoles tilbake så snart det røde blinket er over (ROD_MS), mens kvitteringen skrives", async () => {
+  const m = lagMaskin(), spill = createKvitteringGame(m);
+  await klar(m, spill);
+  spill.answer(true);
+  await tilSvar(m, spill);
+  const spolingFør = m.spoling;
+  await m.gå(LIVSTID_MS + 100);                             // tiden går ut: tapt
+  const tapt = førsteGang(m, "over", 0);
+  await m.gå(ROD_MS - (m.now() - tapt) - 50);
+  assert.equal(m.spoling, spolingFør, "beltet spolte før det røde var over");
+  await m.gå(100);
+  assert.equal(m.spoling, spolingFør + 1, "beltet spolte ikke rett etter det røde");
+  while (spill.state !== "ready") await m.gå(50);
+  assert.equal(m.spoling, spolingFør + 1, "beltet ble spolt to ganger");
   assert.equal(m.kutt, 1);
 });
 await sjekkAsync("spørsmål 10 «Nei» skriver «Vil du ha kvitteringen?» og er en seier", async () => {
