@@ -515,12 +515,50 @@ def display_holder_parts():
     return (plate, HOLDER_W, HOLDER_H, 0, 0), (arm, HOLDER_W, depth + T, 0, 0)
 
 
+# The arms only keep the pole upright; the display's weight would hang on the strap's grip
+# alone and could creep down. So a small shelf goes under the display (its underside is flat):
+# a back plate glued to the front panel, the shelf (two layers) tabbed into it, two triangle
+# braces under it. The display just rests on it — that sets the height too.
+SHELF_W, SHELF_D = 70.0, 50.0
+SHELF_BACK_H = 50.0
+SHELF_BRACE = 35.0
+
+
+def display_shelf_parts():
+    tabs = (-20.0, 20.0)
+    back = [rect(0, 0, SHELF_W, SHELF_BACK_H)]
+    for tx in tabs:                                                  # the shelf's tabs, near the top
+        back.append(rect(SHELF_W / 2 + tx - (ARM_TAB + 0.2) / 2, 6 - 0.1, ARM_TAB + 0.2, ARM_T + 0.2))
+    under = 6 + ARM_T                                                # the shelf's underside on the back plate
+    for bx in (6.0, SHELF_W - 6.0 - T):                             # the braces' tabs: 16–31 mm below their top
+        back.append(rect(bx - 0.1, under + SHELF_BRACE - 19 - 0.1, T + 0.2, 15.2))
+    back.append(text(4, SHELF_BACK_H - 4, "DISPLAY SHELF - this face out", 3.5))
+    half = SHELF_W / 2
+    pts = [(-half, 0)]
+    for tx in tabs:
+        pts += [(tx - ARM_TAB / 2, 0), (tx - ARM_TAB / 2, -T), (tx + ARM_TAB / 2, -T), (tx + ARM_TAB / 2, 0)]
+    pts += [(half, 0), (half, SHELF_D), (-half, SHELF_D)]
+    shelf = [poly([(x + half, z + T) for x, z in pts])]
+    # brace: a right triangle, its upright edge against the back plate (with a tab into it),
+    # its top edge under the shelf
+    b = SHELF_BRACE
+    brace = [poly([(T, 0), (T + b, 0), (T, b), (T, b - 4), (0, b - 4), (0, b - 19), (T, b - 19)])]
+    return (back, SHELF_W, SHELF_BACK_H, 0, 0), (shelf, SHELF_W, SHELF_D + T, 0, 0), (brace, b + T, b, 0, 0)
+
+
 def display_holder_sheet():
     plate, arm = display_holder_parts()
     sh = Sheet("cabinet_14_display_holder_3mm.svg", "3 mm MDF: holder for the IBM display's pole - mounting plate + 4 arm layers (glue them in pairs)")
     sh.add(plate, M, M)
     for i in range(4):
         sh.add(arm, M + HOLDER_W + G + (i % 2) * (HOLDER_W + G), M + (i // 2) * (arm[2] + G))
+    back, shelf, brace = display_shelf_parts()
+    y0 = M + 2 * (arm[2] + G)
+    sh.add(back, M, y0)
+    sh.add(shelf, M + SHELF_W + G, y0)
+    sh.add(shelf, M + 2 * (SHELF_W + G), y0)
+    sh.add(brace, M + 3 * (SHELF_W + G), y0)
+    sh.add(brace, M + 3 * (SHELF_W + G) + brace[1] + G, y0)
     sh.write()
 
 
