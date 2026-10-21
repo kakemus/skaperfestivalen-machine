@@ -13,11 +13,11 @@ import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
 import { MANUS } from "./game/manus.js";
 import * as tegning from "./game/kvitteringTegning.js";
 import { lcdLinjer } from "./game/kvitteringDisplay.js";
-import { ding, buzzer } from "./game/sound.js";
+import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 i";
+const VERSION = "phone 2026-10-21 j";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -283,6 +283,7 @@ $("tapToStart").addEventListener("click", async () => {
   try { await document.documentElement.requestFullscreen?.(); } catch {}
   keepAwake();
   ding(0);                                                // unlocks sound for later
+  preloadSounds();                                        // the losing sound's file, decoded once
   after(300, showAgain);
 });
 
