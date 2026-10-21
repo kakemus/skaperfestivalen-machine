@@ -17,7 +17,7 @@ import { ding } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 b";
+const VERSION = "phone 2026-10-21 c";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -27,7 +27,7 @@ const settings = (() => {
   // answerFeedMm: paper fed after each answer (the print head sits well below the slot)
   // ntfyTopic: the maker's own channel (2026-10-20); an empty saved one falls back to it too,
   // since the field used to start empty and that empty value was saved with every setting
-  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 30 };
+  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 50 };
   let s = d;
   try { s = { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch {}
   if (!s.ntfyTopic) s.ntfyTopic = d.ntfyTopic;
