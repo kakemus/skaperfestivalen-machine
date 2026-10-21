@@ -16,9 +16,9 @@ const sider = (l, rt) => (l + " ".repeat(Math.max(1, LCD_BREDDE - l.length - rt.
 const tid = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 const midt = t => { t = t.slice(0, LCD_BREDDE); const p = Math.floor((LCD_BREDDE - t.length) / 2); return " ".repeat(p) + t; };
 
-// A minute standing ready with nobody playing: the display turns into a lure (the light and the
+// Five minutes standing ready with nobody playing: the display turns into a lure (the light and the
 // bell join in from phone.js), until someone presses.
-export const LOKK_ETTER_MS = 60000;
+export const LOKK_ETTER_MS = 300000;   // 5 min (1 min was too eager, 2026-10-21)
 
 /** [top, bottom] for the game's state right now. `ms` = a clock for the blinking and turns;
  *  `klarMs` = how long the machine has stood ready (for the lure). */

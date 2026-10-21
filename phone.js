@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 o";
+const VERSION = "phone 2026-10-21 p";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -236,7 +236,7 @@ every(1000, async () => {
   resetting = false;
 });
 
-// ---------- the lure: a minute standing ready with nobody playing ----------
+// ---------- the lure: 5 minutes standing ready with nobody playing ----------
 // The display blinks TRYKK JA ELLER NEI (kvitteringDisplay.js); every 30 s the light blinks white a
 // few times and the bell rings twice (2026-10-21, after the user test). The machine stands still
 // then, so a flash can't disturb a belt move; a press starts the game as usual.
@@ -305,7 +305,7 @@ $("tapToStart").addEventListener("click", async () => {
 
 // ---------- operator panel: the small ⚙ button top-left ----------
 $("gear").onclick = () => { $("panel").hidden = false; };
-$("close").onclick = () => { $("panel").hidden = true; after(100, showAgain); };
+$("close").onclick = () => { $("panel").hidden = true; setLight(false); after(100, showAgain); };
 
 $("connectPrinter").onclick = () => printer.connect();
 $("connectMicrobit").onclick = () => controller.connect();
@@ -330,6 +330,29 @@ $("tResetBoard").onclick = async () => {
   log("micro:bit: resetting it by hand");
   if (await controller.resetBoard()) log("Reset sent — its LEDs should flash and show M again in a few seconds");
 };
+// live light reading (the board's STREAM:ON sends LIGHT:n every 150 ms) — for checking the
+// backlight and the sensor's wiring; stops when the panel closes, so it doesn't run in games
+let lightOn = false, lightLevel = null;
+function setLight(on) {
+  if (on && !toBoard("STREAM:ON")) return;
+  if (!on && lightOn) controller.send("STREAM:OFF");
+  lightOn = on;
+  $("tLight").textContent = `Live light reading: ${on ? "on" : "off"}`;
+  $("tLight").classList.toggle("on", on);
+  $("lightBox").hidden = !on;
+  if (on) controller.send("SETTINGS?");                    // for the threshold line
+}
+$("tLight").onclick = () => setLight(!lightOn);
+on("controller:raw", ({ line }) => {
+  if (line.startsWith("LIGHT:") && lightOn) {
+    const v = Number(line.slice(6));
+    $("sLight").textContent = String(v);
+    $("lightBar").style.width = `${Math.min(100, v / 10.23)}%`;
+  } else if (line.startsWith("SETTINGS:")) {
+    const m = line.match(/(?:^|[:,])level=(\d+)/);
+    if (m) { lightLevel = Number(m[1]); $("lightLevel").style.left = `${Math.min(100, lightLevel / 10.23)}%`; $("lightLevel").style.display = "block"; }
+  }
+});
 $("tTighten").onclick = () => toBoard("TENSION") && log("Tightening the paper");
 $("tCal").onclick = () => toBoard("CALIBRATE") && log("Auto-calibrating — the belt runs up, measures and finds START again");
 // hold-to-run: HOLD:±1 every 250 ms while pressed (the board stops by itself 600 ms
