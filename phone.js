@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 m";
+const VERSION = "phone 2026-10-21 n";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -360,6 +360,9 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) holdE
 $("stop").onclick = () => { holdEnd(); toBoard("STOP") && log("STOP sent"); };
 $("tPrint").onclick = () => print("Test", () => tegning.linjer(["1. Ja -------------------- 0 år", "Barnetrygd               1900 kr", "", "TESTUTSKRIFT"]));
 $("tBell").onclick = () => { ding(1); controller.send("BELL:1") || log("No micro:bit connected"); };
+// the phone's own sounds, to check the speaker and its volume (they need a tap first anyway)
+$("tLoseSound").onclick = () => { preloadSounds(); buzzer(); };
+$("tDing").onclick = () => ding(3);
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
 $("sendLog").onclick = () => fetch("results", { method: "POST", body: "GAME LOG\n" + lines.join("\n") })
