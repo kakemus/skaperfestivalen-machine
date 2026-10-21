@@ -3,8 +3,8 @@
 // (tools/termux-ibm/), since Android's Chrome has no WebHID; phone.js sends these two
 // lines a few times a second, the helper skips lines that haven't changed.
 //   ready      KVITTERINGSSPILLET / SVAR JA ELLER NEI (taking turns with a teaser)
-//   deciding   DU ER 23 ÅR / 1900 KR — no countdown (the maker, 2026-10-20): just the age, as of
-//              the last answer; "SKYND DEG!" blinks in the last 10 s
+//   deciding   DU ER 23 ÅR    2:41 / 1900 KR — the age as of the last answer, and the life's
+//              clock counting down; "SKYND DEG!" blinks in the last 10 s
 //   answering  the same, the age standing still while the machine prints
 //   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 80 ÅR
 export const LCD_BREDDE = 20;
@@ -12,6 +12,8 @@ export const LCD_BREDDE = 20;
 const pil = (tekst, on) => on ? `^ ${tekst} ^` : `  ${tekst}  `;
 const LES = on => pil("LES KVITTERINGEN", on), TA = on => pil("TA KVITTERINGEN!", on);
 
+const sider = (l, rt) => (l + " ".repeat(Math.max(1, LCD_BREDDE - l.length - rt.length)) + rt).slice(0, LCD_BREDDE);
+const tid = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
 const midt = t => { t = t.slice(0, LCD_BREDDE); const p = Math.floor((LCD_BREDDE - t.length) / 2); return " ".repeat(p) + t; };
 
 // A minute standing ready with nobody playing: the display turns into a lure (the light and the
@@ -36,12 +38,13 @@ export function lcdLinjer(game, ms, klarMs = 0) {
         return blink ? [midt("TRYKK JA ELLER NEI"), midt("FOR Å STARTE!")] : ["", ""];
       return [midt(blink ? "LES SPØRSMÅLET >>>" : "LES SPØRSMÅLET    "), midt("JA/NEI FOR Å STARTE")];
     case "deciding":
-      if (igjen <= 10000 && Math.floor(ms / 500) % 2) return [midt("SKYND DEG!"), midt(saldo)];
-      return [midt(`DU ER ${alder} ÅR`), midt(saldo)];
+      // the age (as of the last answer) and the life's clock counting down (2026-10-21)
+      if (igjen <= 10000 && Math.floor(ms / 500) % 2) return [sider("SKYND DEG!", tid(igjen)), midt(saldo)];
+      return [sider(`DU ER ${alder} ÅR`, tid(igjen)), midt(saldo)];
     // From the moment an answer is pressed the display says how it went and points up at the
     // receipt (the printer sits above it): three screens talking at once confused people in the
     // maker's user test (2026-10-21), so this one sends them to the receipt.
-    case "answering":
+    case "answering":                                      // (the clock stands still meanwhile)
       if (game.nr === 1 && !sp.tapt) return [runde("LIVET ER I GANG!", "IKKE GÅ I MINUS!"), LES(blink)];   // the first answer: the goal
       return [sp.tapt ? runde("GAME OVER", "FEIL VALG") : runde("RIKTIG VALG!", "DU LEVER VIDERE"), LES(blink)];
     case "over":
