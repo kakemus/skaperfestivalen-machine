@@ -467,7 +467,48 @@ def build():
     test_sheet()
     lid_ramp_sheet()
     display_holder_sheet()
+    button_signs_sheet()
     return sheets
+
+
+# ---------- JA / NEI signs for the console (2026-10-21) ----------
+# The user test: people didn't know which button was which. Two 30 x 20 mm plaques, glued next to
+# the buttons (JA = left, NEI = right, seen from the front). The letters are engraved FILLED (blue
+# fill = engrave/fill layer), drawn as plain block-letter polygons — no font needed in the laser
+# software. Glue them on after painting, so the burnt letters stay dark on the bare MDF.
+SIGN_W, SIGN_H = 30.0, 20.0
+CAP, STEM = 11.0, 2.4      # letter height, stroke
+LETTERS = {               # each letter: (width, [polygons]); y down from the letter's top
+    "J": (6.5, [[(4.1, 0), (6.5, 0), (6.5, 8.2), (5.4, 10.4), (3.25, 11), (1.1, 10.4), (0, 8.2), (0, 7.4),
+                 (2.4, 7.4), (2.4, 8.2), (3.25, 8.6), (4.1, 8.2)]]),
+    "A": (8.4, [[(3.0, 0), (5.4, 0), (8.4, 11), (6.0, 11), (5.4, 8.8), (3.0, 8.8), (2.4, 11), (0, 11)],
+                [(4.2, 2.6), (4.95, 6.6), (3.45, 6.6)]]),                     # the counter (a hole)
+    "N": (7.6, [[(0, 0), (2.4, 0), (5.2, 6.9), (5.2, 0), (7.6, 0), (7.6, 11), (5.2, 11), (2.4, 4.1), (2.4, 11), (0, 11)]]),
+    "E": (6.4, [[(0, 0), (6.4, 0), (6.4, 2.4), (2.4, 2.4), (2.4, 4.3), (5.6, 4.3), (5.6, 6.7), (2.4, 6.7),
+                 (2.4, 8.6), (6.4, 8.6), (6.4, 11), (0, 11)]]),
+    "I": (2.4, [[(0, 0), (2.4, 0), (2.4, 11), (0, 11)]]),
+}
+ENGRAVE_FILL = 'fill="#0000ff" fill-rule="evenodd" stroke="none"'
+
+
+def sign(word):
+    gap = 1.6
+    width = sum(LETTERS[c][0] for c in word) + gap * (len(word) - 1)
+    x, y = (SIGN_W - width) / 2, (SIGN_H - CAP) / 2
+    parts = [rect(0, 0, SIGN_W, SIGN_H, r=2)]
+    for c in word:
+        w, polys = LETTERS[c]
+        d = " ".join("M" + " L".join(f"{x + px:.3f},{y + py:.3f}" for px, py in poly) + " Z" for poly in polys)
+        parts.append(f'<path d="{d}" {ENGRAVE_FILL}/>')
+        x += w + gap
+    return parts, SIGN_W, SIGN_H, 0, 0
+
+
+def button_signs_sheet():
+    sh = Sheet("cabinet_15_button_signs_3mm.svg", "3 mm MDF: JA / NEI signs (30 x 20 mm), two of each - letters engraved filled (blue), outline cut (red)")
+    for i, word in enumerate(["JA", "NEI", "JA", "NEI"]):              # a spare of each
+        sh.add(sign(word), M + (i % 2) * (SIGN_W + G), M + (i // 2) * (SIGN_H + G))
+    sh.write()
 
 
 # ---------- a holder for the IBM display's pole (2026-10-21) ----------
