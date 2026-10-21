@@ -154,11 +154,10 @@ headers and always serves its own folder).
     learning comes back after one step down from a known position.
   - **Bell** rings from the main loop (`bell_tick`), so the belt keeps moving while it rings (it
     used to sleep 550 ms per ding).
-  - **Buttons** polled every 20 ms (debounce). **Hold YES+NO 5 s** (2026-10-20; was 10 s) =
-    auto-calibrate, then find START, and the phone puts the game back on START when that ends
-    (A+B 3 s does the same). The old **service mode** (`S` on the display, YES/NO wind the
-    belt) is no longer reached from the buttons — the phone panel has hold-to-wind; its code
-    stays.
+  - **Buttons** polled every 20 ms (debounce). **Service mode**: hold YES+NO (or A+B) 5 s → `S`
+    on the display, `SERVICE:ON`; hold YES/NO = wind up/down (`hold()`), coin = Find START;
+    presses aren't sent as answers; 5 s again to leave. On the arcade buttons because the
+    micro:bit's own A/B will be inside the closed box.
   - **Cut**: radio (stray micro:bits at a maker festival could move the belt; re-adding = feed
     `radio.receive()` into `safe_handle()` with a secret prefix), `SPEEDS/SNUG/MARKLEVEL/
     STOPMODE`, `LED:TEST`. `mode` now defaults to marks (timed = fallback).
