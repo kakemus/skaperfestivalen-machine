@@ -3,11 +3,10 @@
 // (tools/termux-ibm/), since Android's Chrome has no WebHID; phone.js sends these two
 // lines a few times a second, the helper skips lines that haven't changed.
 //   ready      KVITTERINGSSPILLET / SVAR JA ELLER NEI (taking turns with a teaser)
-//   deciding   DU ER 23 ÅR / 1900 KR — no countdown (the maker, 2026-10-20): just the age,
-//              ticking up while the player thinks; "SKYND DEG!" blinks in the last 10 s
+//   deciding   DU ER 23 ÅR / 1900 KR — no countdown (the maker, 2026-10-20): just the age, as of
+//              the last answer; "SKYND DEG!" blinks in the last 10 s
 //   answering  the same, the age standing still while the machine prints
 //   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 80 ÅR
-import { LIVSTID_MS, LEVEALDER } from "./kvittering.js";
 export const LCD_BREDDE = 20;
 // 20 characters each; ^ = up, at the printer. The arrows blink, the words stand still.
 const pil = (tekst, on) => on ? `^ ${tekst} ^` : `  ${tekst}  `;
@@ -25,8 +24,9 @@ export function lcdLinjer(game, ms, klarMs = 0) {
   const sp = game.spill, igjen = game.igjenMs, skift = Math.floor(ms / 2000) % 2 === 1;
   const blink = Math.floor(ms / 500) % 2 === 0;                    // arrows on / off
   const runde = (...ord) => midt(ord[Math.floor(ms / 1000) % ord.length]);   // the result: a word a second
-  // the age live, from the life used so far — the game's own age only moves on with an answer
-  const alder = Math.max(0, Math.min(LEVEALDER, Math.floor((LIVSTID_MS - igjen) * LEVEALDER / LIVSTID_MS)));
+  // the age as of the last answer — not ticking live: a changing number distracted players in
+  // the user test (2026-10-21), so it moves on only when they choose
+  const alder = game.alder;
   const saldo = sp.visning === "venner" ? `${sp.venner.length} VENNER` : `${sp.kroner} KR`;
   switch (game.state) {
     // Waiting: the display points right, at the question in the scroll window (user test,
