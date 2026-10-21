@@ -83,10 +83,9 @@
   <div class="pill"><span>micro:bit</span><b id="sMicrobit" class="dim">–</b></div>
   <div class="pill"><span>Belt position</span><b id="sPos" class="dim">–</b></div>
   <div class="pill"><span>IBM display</span><b id="sLcd" class="dim">–</b></div>
-  <p class="dim" style="margin-top:6px">Not running? Open Termux, paste this, Enter, tap Allow:
+  <p class="dim" style="margin-top:6px">Not running? Open Termux, paste this, Enter, tap Allow (no Mac needed):
     <code id="lcdCmd" style="color:#fff">bash ~/start-display.sh</code></p>
-  <button id="copyLcdCmd">Copy the Termux command</button>
-  <button id="copyLcdUpdate">Copy: update the helper from the Mac, then start it</button>
+  <button id="copyLcdCmd">Copy the start command for Termux</button>
   <div class="two" style="margin-top:8px"><button id="connectPrinter">Connect printer</button><button id="connectMicrobit">Connect micro:bit</button></div>
 
   <h2>Belt</h2>
@@ -132,6 +131,8 @@
       JA = a question's first answer, NEI = its second.</p>
     <p class="dim" style="margin-top:12px">Push to your phone when someone wins (optional): an ntfy topic name — subscribe to the same name in the ntfy app or at ntfy.sh/app. Needs internet.</p>
     <div class="two"><input id="ntfy" placeholder="secret-topic-name" style="padding:10px;font-size:16px;background:#000;color:#fff;border:1px solid #444;border-radius:6px"><button id="ntfyTest" style="margin-top:0">Test push</button></div>
+    <p class="dim" style="margin-top:12px">Only if Claude has changed the IBM display's helper (needs the Mac on the same Wi-Fi):</p>
+    <button id="copyLcdUpdate" style="margin-top:4px">Copy: update the helper from the Mac, then start it</button>
     <button id="beltPage">All belt settings (light sensor, motors, bell, backlight, repeat test) →</button>
     <p class="dim" style="margin-top:10px" id="version"></p>
   </details>
