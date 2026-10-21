@@ -466,7 +466,62 @@ def build():
     front_mirrored_sheet()
     test_sheet()
     lid_ramp_sheet()
+    display_holder_sheet()
     return sheets
+
+
+# ---------- a holder for the IBM display's pole (2026-10-21) ----------
+# The display hangs from its pole (foot up, head down — the text then reads the right way),
+# its top edge ~100 mm under the box's top edge, so the foot ends up ~11 cm above the box and
+# clear of the lid. The foot can't come off and the head is at the other end, so the pole can't
+# go through closed rings: two U-shaped arms open at the front, the pole pressed in and held by
+# a strap (velcro / cable tie) through slots in the arms. The arms are two layers each (6 mm),
+# tabbed into a mounting plate that is glued to the front panel's top where the maker wants it.
+POLE_D = 39.0
+POLE_GAP = 1.0           # the U is this much wider than the pole
+POLE_OUT = 30.0          # the pole's axis from the mounting plate's front face
+HOLDER_W, HOLDER_H = 70.0, 85.0
+ARM_LEVELS = (12.0, 70.0)    # the arms' middles, from the mounting plate's top edge
+ARM_T = 2 * T            # two layers glued
+ARM_TABS = (-18.0, 18.0)     # tab centres across the arm
+ARM_TAB = 15.0
+
+
+def display_holder_parts():
+    import math
+    r = (POLE_D + POLE_GAP) / 2
+    plate = [rect(0, 0, HOLDER_W, HOLDER_H)]
+    for lv in ARM_LEVELS:
+        for tx in ARM_TABS:
+            plate.append(rect(HOLDER_W / 2 + tx - (ARM_TAB + 0.2) / 2, lv - (ARM_T + 0.2) / 2, ARM_TAB + 0.2, ARM_T + 0.2))
+    plate.append(text(4, HOLDER_H - 9, "POLE HOLDER", 4))
+    plate.append(text(4, HOLDER_H - 4, "this face out, top up", 4))
+    # an arm seen from above: x across (0 = middle), z forward from the plate; tabs stick back
+    depth = POLE_OUT + r * 0.75 + 6                                # the horns reach past the pole's middle
+    half = HOLDER_W / 2
+    pts = [(-half, 0)]
+    for tx in ARM_TABS:
+        pts += [(tx - ARM_TAB / 2, 0), (tx - ARM_TAB / 2, -T), (tx + ARM_TAB / 2, -T), (tx + ARM_TAB / 2, 0)]
+    pts += [(half, 0), (half, depth), (r, depth), (r, POLE_OUT)]
+    for i in range(1, 24):                                          # the round back of the U
+        a = math.pi * i / 24
+        pts.append((r * math.cos(a), POLE_OUT - r * math.sin(a)))
+    pts += [(-r, POLE_OUT), (-r, depth), (-half, depth)]
+    sx = lambda x, z: (x + half, z + T)                             # into SVG coordinates
+    arm = [poly([sx(x, z) for x, z in pts])]
+    hx = (half + r) / 2                                             # strap slots, in the horns
+    for x in (-hx, hx):
+        arm.append(rect(*sx(x - 2, POLE_OUT), 4, 10, r=1))
+    return (plate, HOLDER_W, HOLDER_H, 0, 0), (arm, HOLDER_W, depth + T, 0, 0)
+
+
+def display_holder_sheet():
+    plate, arm = display_holder_parts()
+    sh = Sheet("cabinet_14_display_holder_3mm.svg", "3 mm MDF: holder for the IBM display's pole - mounting plate + 4 arm layers (glue them in pairs)")
+    sh.add(plate, M, M)
+    for i in range(4):
+        sh.add(arm, M + HOLDER_W + G + (i % 2) * (HOLDER_W + G), M + (i // 2) * (arm[2] + G))
+    sh.write()
 
 
 # ---------- the new lid with a paper ramp (2026-10-21) ----------
