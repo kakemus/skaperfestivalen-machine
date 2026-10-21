@@ -55,33 +55,39 @@ export function printSound(ms = 220) {
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
 
-// The wrong-answer buzzer for losing (2026-10-21): a game show's "BZZT — BZZZZT". Pitched where
-// a phone's small speaker still plays it (a first version at 120 Hz was too low to come through
-// clearly in the user test): two square waves at 220 / 233 Hz beating for the rasp, a low-pass at
-// 3.5 kHz, loud — a short blast, a gap, a long one (~1.2 s in all).
+// The losing sound (2026-10-21): "eeh – aawh", three times, each a little lower — a bright
+// high note, then a lower one sliding down and going dark, like a sad robot. A sawtooth through
+// a low-pass whose cutoff moves gives the vowels: open (ee) on the first note, closing (aw) on
+// the second. Pitched for a phone's small speaker (a low 120 Hz buzz didn't come through, and
+// the maker wanted "eeh aawh" rather than a buzz).
 export function buzzer(ctx) {
   try {
     if (!ctx) { audio ??= new AudioContext(); audio.resume(); ctx = audio; }
     const start = ctx.currentTime + 0.02;
-    const out = ctx.createGain(), lp = ctx.createBiquadFilter();
+    const osc = ctx.createOscillator(), lp = ctx.createBiquadFilter(), out = ctx.createGain();
+    osc.type = "sawtooth";
     lp.type = "lowpass";
-    lp.frequency.value = 3500;
+    lp.Q.value = 6;                                       // a resonant peak: reads as a vowel
     out.gain.value = 0.0001;
-    lp.connect(out).connect(ctx.destination);
-    for (const [t0, len] of [[0, 0.32], [0.42, 0.8]]) {
-      const a = start + t0;
-      out.gain.setValueAtTime(0.0001, a);
-      out.gain.exponentialRampToValueAtTime(0.5, a + 0.01);
-      out.gain.setValueAtTime(0.5, a + len - 0.05);
-      out.gain.exponentialRampToValueAtTime(0.0001, a + len);
+    osc.connect(lp).connect(out).connect(ctx.destination);
+    let t = start;
+    for (const k of [1, 0.94, 0.88]) {                    // each "eeh aawh" a little lower
+      // eeh: high, bright
+      osc.frequency.setValueAtTime(440 * k, t);
+      lp.frequency.setValueAtTime(2600, t);
+      out.gain.setValueAtTime(0.0001, t);
+      out.gain.exponentialRampToValueAtTime(0.45, t + 0.02);
+      out.gain.setValueAtTime(0.45, t + 0.2);
+      // aawh: lower, sliding down, the vowel closing
+      osc.frequency.setValueAtTime(330 * k, t + 0.24);
+      osc.frequency.exponentialRampToValueAtTime(250 * k, t + 0.62);
+      lp.frequency.setValueAtTime(1500, t + 0.24);
+      lp.frequency.exponentialRampToValueAtTime(600, t + 0.62);
+      out.gain.setValueAtTime(0.45, t + 0.5);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + 0.66);
+      t += 0.78;
     }
-    for (const f of [220, 233]) {
-      const osc = ctx.createOscillator();
-      osc.type = "square";
-      osc.frequency.value = f;
-      osc.connect(lp);
-      osc.start(start);
-      osc.stop(start + 1.25);
-    }
+    osc.start(start);
+    osc.stop(t);
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
