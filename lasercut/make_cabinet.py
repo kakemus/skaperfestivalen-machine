@@ -465,7 +465,70 @@ def build():
     button_recut()
     front_mirrored_sheet()
     test_sheet()
+    lid_ramp_sheet()
     return sheets
+
+
+# ---------- the new lid with a paper ramp (2026-10-21) ----------
+# On the machine the receipt came up out of the slot and fell backwards, flat on the lid.
+# A backrest just behind the slot, leaning back RAMP_LEAN, holds it up facing the player;
+# two triangle braces behind it hold the angle. The lever cut-out is gone. The paper slot is
+# centred across the lid and smaller (the maker, from a photo of the old lid: "depth is good",
+# the printer can be shifted to line up), with its centre line where the old slot's was.
+# Lid-local u = from its left edge, v = from its front edge; the engraving reads from the front.
+SLOT_W, SLOT_D = 92.0, 32.0   # the paper slot (paper 80 mm wide; the old cut-out was 104 x 39)
+RAMP_H = 120.0           # backrest height (along its face)
+RAMP_LEAN = 15.0         # leaning back from upright, degrees
+RAMP_MARGIN = 10.0       # backrest wider than the slot on each side
+BRACE_BASE = 50.0        # triangle braces: their foot on the lid
+BRACE_H = 90.0           # … and how far up the backrest they reach
+
+
+def lid_ramp_parts():
+    import math
+    lx, lz, lw, ld = LID
+    mw, md = SLOT_W, SLOT_D
+    mu = (lw - mw) / 2                                              # centred across the lid
+    mv = PR_Z + MOUTH_FROM_FRONT - lz + MOUTH_D / 2 - md / 2       # same centre line as the old slot
+    c, r = lw / 2, 13
+    lid = [f'<path d="M0,0 H{lw:.3f} V{ld:.3f} H{c + r:.3f} A{r},{r} 0 0 0 {c - r:.3f},{ld:.3f} H0 Z" {CUT}/>',
+           rect(mu, mv, mw, md, r=2)]
+    # the backrest stands on the lid just behind the slot; its tabs go through at the lean,
+    # so their slots are wider than the plate is thick
+    pw = mw + 2 * RAMP_MARGIN
+    pu, pv = mu - RAMP_MARGIN, mv + md + 4.0                       # its left end, its front face's foot (4 mm of lid left behind the slot)
+    lean = math.radians(RAMP_LEAN)
+    slot_v = T / math.cos(lean) + T * math.tan(lean) + 0.4
+    tabs = (25.0, pw - 25.0)
+    for t in tabs:
+        lid.append(rect(pu + t - (TAB_L + 0.2) / 2, pv, TAB_L + 0.2, slot_v))
+    # brace slots: just inside the backrest's ends, running back from it
+    bv0 = pv + T / math.cos(lean)                                  # behind the backrest at the foot
+    for bu in (pu + T, pu + pw - 2 * T):
+        lid.append(rect(bu - 0.1, bv0 + BRACE_BASE / 2 - (TAB_L + 0.2) / 2, T + 0.2, TAB_L + 0.2))
+    # turned 180°, so it reads standing in front of the machine
+    lid.append(f'<g transform="rotate(180 {lw / 2:.3f} {ld / 2:.3f})">{text(30, 20, "LID - this face up. Ramp behind the paper slot, notch at the back.", 4.5)}</g>')
+    plate = [poly(tabbed(pw, RAMP_H, bottom=list(tabs))), text(6, 12, "RAMP - smooth face to the front", 4.5)]
+    # brace: foot BRACE_BASE on the lid, front edge along the backrest's back (leaning back)
+    top_u = BRACE_H * math.tan(lean)
+    pts = [(0, 0), (BRACE_BASE / 2 - TAB_L / 2, 0), (BRACE_BASE / 2 - TAB_L / 2, -T), (BRACE_BASE / 2 + TAB_L / 2, -T),
+           (BRACE_BASE / 2 + TAB_L / 2, 0), (BRACE_BASE, 0), (top_u, BRACE_H)]
+    brace_w = max(BRACE_BASE, top_u)
+    brace = [poly([(x, BRACE_H - y) for x, y in pts])]              # y up → SVG y down
+    return (lid, lw, ld, 0, 0), (plate, pw, RAMP_H, 0, 0), (brace, brace_w, BRACE_H, 0, 0)
+
+
+def lid_ramp_sheet():
+    lid, plate, brace = lid_ramp_parts()
+    sh = Sheet("cabinet_13_lid_ramp_3mm.svg", "3 mm MDF: new printer lid with a paper ramp (backrest + 2 braces) + 4 cleats")
+    sh.add(lid, M, M)
+    x = M + LID[2] + G
+    _, y = sh.add((plate[0], plate[1], plate[2] + T, 0, 0), x, M)   # +T: the tabs stick out below
+    sh.add((brace[0], brace[1], brace[2] + T, 0, 0), x, y + G)
+    sh.add((brace[0], brace[1], brace[2] + T, 0, 0), x + brace[1] + G, y + G)
+    for i in range(4):
+        sh.add(([rect(0, 0, 12, 12)], 12, 12, 0, 0), M + i * (12 + G), M + LID[3] + G)
+    sh.write()
 
 
 def test_sheet():
