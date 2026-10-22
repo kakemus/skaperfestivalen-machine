@@ -203,8 +203,17 @@ def tap_to_start(page):
 
 
 def helper_up():
-    adb("forward", f"tcp:{HELPER}", f"tcp:{HELPER}")
-    return http(f"http://127.0.0.1:{HELPER}/ping") == "ok"
+    """Asked from inside Termux over ssh. Never through an adb forward of port 8765: a game page
+    open in any browser on this Mac would then write to the real display too, and its old lure
+    text fought the phone's on the display (2026-10-22, the "two screens" flicker)."""
+    code, out = ssh(f"curl -s -m 2 http://127.0.0.1:{HELPER}/ping")
+    if code == 0:
+        return out.strip() == "ok"
+    adb("forward", f"tcp:{HELPER}", f"tcp:{HELPER}")        # no ssh: a quick look, then close it again
+    try:
+        return http(f"http://127.0.0.1:{HELPER}/ping") == "ok"
+    finally:
+        adb("forward", "--remove", f"tcp:{HELPER}")
 
 
 def push_helper_files():
