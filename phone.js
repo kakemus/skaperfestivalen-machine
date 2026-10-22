@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-21 r";
+const VERSION = "phone 2026-10-22 a";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -416,6 +416,20 @@ window.addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
   if (k === "j") game.answer(true); else if (k === "n") game.answer(false);
 });
+
+// ---------- for the Mac's rescue script (tools/rescue.py, 2026-10-22) ----------
+// It reads this over Chrome's remote debugging (adb), so the machine can be checked and
+// fixed from the Mac on the hotspot without opening the cabinet.
+window.maskin = {
+  status: () => ({
+    version: VERSION, state: game.state, started: $("tapToStart").hidden, fullscreen: !!document.fullscreenElement,
+    otherTab: !$("otherTab").hidden, printer: printer.isConnected(),
+    microbit: controller.isConnected() && Date.now() - lastHeard < 6000, display: lcdUp === true,
+    position: $("sPos").textContent, log: lines.slice(-40),
+  }),
+  connect: () => { printer.connect({ auto: true }); controller.connect({ auto: true }); },
+  log,
+};
 
 // ---------- offline copy (sw.js) ----------
 $("version").textContent = VERSION;

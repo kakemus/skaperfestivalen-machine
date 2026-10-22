@@ -5,7 +5,7 @@
 termux-wake-lock
 pkill -f ibm_bridge.py 2>/dev/null; sleep 0.5
 last=$(cat ~/.ibm_display_path 2>/dev/null)
-all=$(termux-usb -l | grep -o '/dev/bus/usb/[0-9/]*')
+all=$(termux-usb -l | grep -o '/dev/bus/usb/[0-9/]*' | sort -r)   # newest first: a re-plugged display gets the highest number
 for dev in ${1:-$last} $all; do
   [ -n "$dev" ] || continue
   termux-usb -r "$dev" >/dev/null 2>&1 || continue
