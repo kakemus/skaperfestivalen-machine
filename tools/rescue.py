@@ -13,7 +13,7 @@ would drop the game's full screen):
   phone not found      -> looks for it on the hotspot (adb port 5555) and connects
   phone server down    -> starts phone_server.py on this Mac (port 8131)
   IBM display helper   -> restarts it over ssh into Termux, or reopens Termux (whose
-                          ~/.bashrc starts it); an Allow box for USB still needs a finger
+                          ~/.bashrc starts it); taps OK on Android's Allow-USB boxes
   page missing, stuck, -> restarts Chrome on the game page and taps TRYKK FOR Å STARTE
   or not drawing          (a white screen while the game runs: Chrome stops drawing
                           after many hours, 2026-10-21)
@@ -220,6 +220,38 @@ def push_helper_files():
             pass
 
 
+def allow_usb_box():
+    """Taps OK on Android's "Allow Termux:API to access the USB device?" box, if it's in front.
+    Needs Xiaomi's "USB debugging (Security settings)" (on since 2026-10-22). uiautomator can't
+    read the screen while the game animates, so OK is tapped where it sits on the Redmi
+    (1080 x 2340: 887, 1335) — scaled for another screen."""
+    if "UsbPermissionActivity" not in adb("shell", "dumpsys", "window").split("mCurrentFocus", 1)[-1][:200]:
+        return False
+    m = re.search(r"(\d+)x(\d+)", adb("shell", "wm", "size"))
+    w, h = (int(m.group(1)), int(m.group(2))) if m else (1080, 2340)
+    adb("shell", "input", "tap", str(round(w * 887 / 1080)), str(round(h * 1335 / 2340)))
+    return True
+
+
+def choose_device(page, button):
+    """After an unplug Android takes Chrome's USB permission away, so a device needs Chrome's
+    chooser again: a click with a user gesture opens it, then the first device, Connect and
+    Android's OK are tapped (positions on the Redmi, scaled; tested 2026-10-22)."""
+    m = re.search(r"(\d+)x(\d+)", adb("shell", "wm", "size"))
+    w, h = (int(m.group(1)), int(m.group(2))) if m else (1080, 2340)
+    at = lambda x, y: adb("shell", "input", "tap", str(round(w * x / 1080)), str(round(h * y / 2340)))
+    page.call("Runtime.evaluate", expression=f'document.getElementById("{button}").click()', userGesture=True)
+    time.sleep(2)
+    at(131, 284)            # the first device in the list
+    time.sleep(0.8)
+    at(923, 1113)           # Connect
+    for _ in range(4):
+        time.sleep(1)
+        if allow_usb_box():
+            break
+    time.sleep(3)
+
+
 def start_helper():
     say("  starting the IBM display helper …")
     push_helper_files()
@@ -231,14 +263,15 @@ def start_helper():
         adb("shell", "am", "force-stop", "com.termux")
         time.sleep(1)
         adb("shell", "am", "start", "-n", "com.termux/.app.TermuxActivity")
-    for _ in range(30):
+    for _ in range(40):
         time.sleep(1)
+        if allow_usb_box():
+            say("  tapped OK on Android's Allow-USB box")
         if helper_up():
             return True
     code, out = ssh("tail -5 ~/display.log")
     if code == 0:
         say("  helper says: " + out.strip().replace("\n", " | "))
-    say("  (if Android shows an Allow box for USB on the phone, someone has to tap it once)")
     return False
 
 
@@ -316,6 +349,10 @@ def main():
         say("✓ IBM display helper started" if start_helper() else "✗ IBM display helper still not running — is the display plugged in?")
         back_to_chrome()
 
+    # Chrome draws only while it's in front: a page behind the home screen would look "white"
+    if "com.android.chrome" not in adb("shell", "dumpsys", "window").split("mCurrentFocus", 1)[-1][:200]:
+        say("• Chrome wasn't in front — bringing it back")
+        back_to_chrome()
     page = open_page()
     st = status(page) if page else None
     if not page or not st:
@@ -351,6 +388,16 @@ def main():
             st = status(page)
             if st["printer"] and st["microbit"]:
                 break
+        # still not: the device was unplugged, Chrome lost its permission — the chooser again
+        if not st["printer"]:
+            say("  reconnecting the printer through Chrome's chooser …")
+            choose_device(page, "connectPrinter")
+        if not page.eval("maskin.status().microbit") and not page.eval(
+                "navigator.usb.getDevices().then(d => d.some(x => x.vendorId === 0x0d28))"):
+            say("  reconnecting the micro:bit through Chrome's chooser …")
+            choose_device(page, "connectMicrobit")
+            time.sleep(6)
+        st = status(page)
     say(("✓" if st["printer"] else "✗") + " Printer " + ("connected" if st["printer"] else
         "not connected — is it on and plugged into the hub? (if it's new to the phone, it needs one tap on Connect)"))
     say(("✓" if st["microbit"] else "✗") + " micro:bit " + ("connected and answering" if st["microbit"] else
