@@ -135,13 +135,36 @@ function drawScreen(ctx, sc, top) {
   let y = top + WIN.y, bottom = top + WIN.y + WIN.h;
   ctx.textBaseline = "top";
   const line = (text, size, opts) => { fitSize(ctx, text, w, size, opts); ctx.fillText(text, cx, y); y += Math.round(size * 1.2); };
-  if (sc.head) { line(sc.head, 26, { weight: "bold" }); y += 8; }
+  // the head ("1 / 10"): the window is seen a little from above, so its top edge hides
+  // the first few mm — set lower and bigger (2026-10-22, the maker's photo)
+  if (sc.head) { y += 22; line(sc.head, 38, { weight: "900" }); y += 6; }
   if (sc.foot) {
     fitSize(ctx, sc.foot, w, 24, { weight: "normal" });
     ctx.fillText(sc.foot, cx, bottom - 26);
     bottom -= 40;
   }
-  if (sc.answers) {
+  if (Array.isArray(sc.answers)) {
+    // [JA, NEI] side by side, like the buttons: JA white with black letters (a frame round
+    // it), NEI black with white letters (2026-10-22)
+    const two = sc.answers.some(a => a.includes("\n")), bw = (w - 16) / 2, bh = two ? 104 : 74, by = bottom - bh;
+    ctx.lineWidth = 6;
+    ctx.strokeRect(x0 + 3, by + 3, bw - 6, bh - 6);
+    ctx.fillRect(x0 + bw + 16, by, bw, bh);
+    // "JA\nVENNER": the button's word big, what it means smaller under it
+    const label = (text, bx, color) => {
+      const [a, b] = text.split("\n");
+      ctx.fillStyle = color;
+      const size = fitSize(ctx, a, bw - 20, 46, { weight: "900" });
+      if (!b) return ctx.fillText(a, bx + bw / 2, by + bh / 2 - size / 2);
+      ctx.fillText(a, bx + bw / 2, by + 10);
+      fitSize(ctx, b, bw - 20, 34, { weight: "900" });
+      ctx.fillText(b, bx + bw / 2, by + 58);
+    };
+    label(sc.answers[0], x0, "#000");
+    label(sc.answers[1], x0 + bw + 16, "#fff");
+    ctx.fillStyle = "#000";
+    bottom -= bh + 16;
+  } else if (sc.answers) {
     ctx.fillRect(x0, bottom - 74, w, 74);              // the answers, reversed out of a black band
     ctx.fillStyle = "#fff";
     fitSize(ctx, sc.answers, w - 24, 46, { weight: "900" });
@@ -166,7 +189,7 @@ function drawScreen(ctx, sc, top) {
   const text = (sc.lines || []).join("\n");
   let size = 64, wrapped;
   for (;;) {
-    wrapped = text.split("\n").flatMap(p => wrapLines(ctx, p, w, size, "bold"));
+    wrapped = text.split("\n").flatMap(p => wrapBalanced(ctx, p, w, size));
     if (size <= 20 || wrapped.length * size * 1.18 <= bottom - y - 10) break;
     size -= 2;
   }
@@ -175,6 +198,20 @@ function drawScreen(ctx, sc, top) {
   ctx.font = font(size, { weight: "bold" });
   for (const l of wrapped) { ctx.fillText(l, cx, ty); ty += lh; }
   ctx.textBaseline = "middle";
+}
+
+/** Like wrapLines, but the lines as even as they can be in the same number of lines: no
+ *  lone last word ("Livet er mange / valg." → "Livet er / mange valg."). The narrowest width
+ *  that still gives as few lines is found by halving. */
+function wrapBalanced(ctx, text, width, size) {
+  const lines = wrapLines(ctx, text, width, size);
+  if (lines.length < 2) return lines;
+  let lo = 1, hi = width;
+  while (hi - lo > 2) {
+    const mid = (lo + hi) / 2;
+    if (wrapLines(ctx, text, mid, size).length <= lines.length && wrapLines(ctx, text, mid, size).every(l => ctx.measureText(l).width <= mid)) hi = mid; else lo = mid;
+  }
+  return wrapLines(ctx, text, hi, size);
 }
 
 function wrapLines(ctx, text, width, size, weight = "bold") {

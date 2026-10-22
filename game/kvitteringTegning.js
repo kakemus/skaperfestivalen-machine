@@ -183,7 +183,7 @@ export function skjermer(manus, bilder = {}) {
       image: bilder[s.nr] ? forbered(bilder[s.nr], JUSTER[s.nr]) : null,
       price: s.pris != null ? `${s.pris} kr` : "",
       lines: s.tekst,
-      answers: plain ? "JA   ·   NEI" : `JA = ${ja}   NEI = ${nei}`,
+      answers: plain || !nei ? ["JA", "NEI"] : [`JA\n${ja}`.toUpperCase(), `NEI\n${nei}`.toUpperCase()],
       foot: i === 0 ? "Svar JA eller NEI for å begynne" : "",
     };
   });
