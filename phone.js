@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 h";
+const VERSION = "phone 2026-10-22 i";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -307,13 +307,16 @@ every(1000, () => {
 // Four times a second the game's two lines go there (the helper skips unchanged lines).
 // Not running: a quiet retry every 5 s, so the game never waits for it.
 const LCD = "http://127.0.0.1:8765";
-let lcdUp = null, lcdNext = 0, lcdShown = "";
+let lcdUp = null, lcdNext = 0, lcdShown = "", lcdSent = 0;
 every(250, () => {
   const now = Date.now();
   if (lcdUp === false && now < lcdNext) return;
   // pil: Kvitteringsspillet's big arrow in the right 2 columns (the helper draws it, slots 4–7)
   const [top, bottom, pil] = lcdLinjer(game, now, game.state === "ready" && settings.lure ? now - klarSiden : 0), key = top + "|" + bottom + "|" + pil;
-  if (lcdUp && key === lcdShown) return;
+  // unchanged lines are sent again every 5 s anyway: a restarted helper shows its own start
+  // text until told otherwise (it skips lines that haven't changed, so this costs nothing)
+  if (lcdUp && key === lcdShown && now - lcdSent < 5000) return;
+  lcdSent = now;
   fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}${pil !== undefined ? "&pil=" + (pil || "none") : ""}`, { cache: "no-store" })
     .then(r => {
       if (!r.ok) throw new Error("helper answered " + r.status);

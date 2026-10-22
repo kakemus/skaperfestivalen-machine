@@ -14,7 +14,10 @@ Every write is a 23-byte output report: [command, length, up to 21 data bytes].
                      Redefining a slot changes every copy already on screen at once.
   0x20               brought back the power-on "OK" screen once (may have been the
                      loose cable) — avoid
-  0x10               unknown (cursor tests inconclusive so far)
+  0x01 len            the cursor's place = the length byte: 0-19 along the top row,
+                     40 = off the screen (hidden); 60 is rejected. Every line write puts
+                     the cursor back at the bottom row's start. (2026-10-22, by trial)
+  0x10 len           the cursor's shape: length 0 = underline, 1+ = blinking block
 The display answers each write with an 8-byte status: 01 ... = accepted, 80 ... = rejected.
 About 30 line writes per second get through.
 """

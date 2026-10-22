@@ -192,7 +192,8 @@ function drawScreen(ctx, sc, top) {
   }
   if (sc.price) line(sc.price, 52, { weight: "900" });
   if (sc.small) {                                   // lead-in text, smaller than the question itself
-    for (const p of sc.small) for (const l of wrapBalanced(ctx, p, w, 34)) { ctx.fillText(l, cx, y); y += 40; }
+    // 44 px (34 was too small on the machine, 2026-10-22); the question itself stays bigger
+    for (const p of sc.small) for (const l of wrapBalanced(ctx, p, w, 44)) { ctx.fillText(l, cx, y); y += 52; }
     y += 12;
   }
   // the question: largest size at which all of it fits between y and bottom (at most
