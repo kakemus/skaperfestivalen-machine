@@ -42,7 +42,9 @@ const BELT_LIMIT_MS = 70000;              // belt.js gives up on the board after
 // "For å starte: JA · NEI") before question 1. Then a first press only starts the game — the
 // receipt's top prints and the belt moves on to question 1 — instead of also answering it
 // ("Vil du bli født?" was answered by the press meant to start). Question n is then on screen n.
-export function createKvitteringGame(io, manus = MANUS, { intro = false } = {}) {
+// finale (2026-10-22): a last screen after the last question ("Gratulerer! Spilleieren er nå
+// på vei …"); a win moves the belt on to it while the end of the receipt prints.
+export function createKvitteringGame(io, manus = MANUS, { intro = false, finale = false } = {}) {
   let state = "attract";
   let nr = 0;                 // index of the question being decided (= the screen the scroll shows)
   let spill = motor.nyttSpill();
@@ -130,9 +132,12 @@ export function createKvitteringGame(io, manus = MANUS, { intro = false } = {}) 
     const won = !spill.tapt;
     io.log(won ? "Vunnet" : `Tapt (${spill.grunn})`);
     if (!signalled) signalEnd(id);
+    const tilFinale = won && finale ? within(BELT_LIMIT_MS, io.belt.step()) : null;
     await print(id, "Slutt", ["", ...motor.sluttLinjer(spill, manus.avslutning)]);
     if (!still(id)) return;
     await within(PRINT_LIMIT_MS, io.cut());
+    if (!still(id)) return;
+    await tilFinale;
     if (!still(id)) return;
     // the player gets 5 s to take the receipt, then the belt goes back to START
     setState("pause");

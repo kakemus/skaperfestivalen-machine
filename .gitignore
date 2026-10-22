@@ -5,3 +5,4 @@ __pycache__/
 *.log
 firmware/names.txt
 rescue-report/
+bilder/original/

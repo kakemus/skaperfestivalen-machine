@@ -85,9 +85,13 @@ export const BILDE = { w: 400, h: 240 };      // as wide as the strip's content 
 const JUSTER = {
   5: { kant: true },                      // white microscope on white paper
   6: { gamma: 0.6 },                      // the red chair went almost solid: lighter, so its tubes show
-  10: { gamma: 0.6, kontrast: 1.3 },      // brown MDF: mid grey on mid grey, came out heavy
+  10: { hoyde: 320 },                     // the machine itself, upright (2026-10-22): a taller picture area
 };
-const bildefil = s => s.bildefil && "bilder/" + s.bildefil.split("/").pop().replace(/\.\w+$/, ".png");
+// A picture swapped for a newer one without touching manus.js (tests/ keeps it equal to
+// Aksel's script): question 10 is now the maker's photo of the finished machine (2026-10-22;
+// the full-size original is in bilder/original/, not in git).
+const NYTT_BILDE = { 10: "bilder/10-kvitteringsspillet2.png" };
+const bildefil = s => NYTT_BILDE[s.nr] || (s.bildefil && "bilder/" + s.bildefil.split("/").pop().replace(/\.\w+$/, ".png"));
 
 /** Loads the pictures that exist: { questionNr: Image }. A missing one keeps its text box. */
 export function lastBilder(manus) {
@@ -103,7 +107,7 @@ const ferdige = new Map();
 const BAKGRUNN = 246;                     // lighter than this, and touching the edge = background
 
 /** A picture ready for the printer: BILDE.w × BILDE.h, black and white. */
-export function forbered(img, { lys = 1, kontrast = 1, gamma = 0.85, kant = false } = {}) {
+export function forbered(img, { lys = 1, kontrast = 1, gamma = 0.85, kant = false, hoyde = BILDE.h } = {}) {
   if (ferdige.has(img)) return ferdige.get(img);
   // 1. the background: near-white pixels connected to the picture's edge
   const sw = img.naturalWidth, sh = img.naturalHeight;
@@ -137,7 +141,7 @@ export function forbered(img, { lys = 1, kontrast = 1, gamma = 0.85, kant = fals
   if (x1 < 0) { x0 = 0; y0 = 0; x1 = sw - 1; y1 = sh - 1; }   // nothing found: the whole picture
 
   // 2. cropped to the object, fitted into the picture area
-  const { w, h } = BILDE, ow = x1 - x0 + 1, oh = y1 - y0 + 1, k = Math.min(w / ow, h / oh);
+  const w = BILDE.w, h = hoyde, ow = x1 - x0 + 1, oh = y1 - y0 + 1, k = Math.min(w / ow, h / oh);
   const dw = Math.round(ow * k), dh = Math.round(oh * k), dx = Math.round((w - dw) / 2), dy = Math.round((h - dh) / 2);
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
@@ -179,8 +183,14 @@ export function skjermer(manus, bilder = {}) {
   const n = manus.sporsmal.length;
   const start = {
     lines: [manus.tittel.toUpperCase().replace("KVITTERINGS", "KVITTERINGS-\n")],
-    after: [["Ikke gå i minus!", 46, "900"], ["For å starte:", 32, "bold"]],
+    after: [["Ikke gå i minus!", 46, "900"], ["Vil du starte?", SPORSMAL_PX, "bold"]],   // as big as the questions
     answers: ["JA", "NEI"],
+    maxSize: 72,
+  };
+  // after the last question: where a win ends (kvittering.js's finale)
+  const slutt = {
+    lines: ["GRATULERER!"],
+    after: [["Spilleieren er nå", 44, "bold"], ["på vei for å", 44, "bold"], ["gratulere deg.", 44, "bold"]],
     maxSize: 72,
   };
   return [start, ...manus.sporsmal.map(s => {
@@ -198,5 +208,5 @@ export function skjermer(manus, bilder = {}) {
       // came off the buttons — which is which is clear from the boxes' places and colours)
       answers: plain || !nei ? ["JA", "NEI"] : [ja.toUpperCase(), nei.toUpperCase()],
     };
-  })];
+  }), slutt];
 }

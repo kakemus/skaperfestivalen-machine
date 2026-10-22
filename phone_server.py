@@ -18,7 +18,7 @@ FILES = {
     "core/clock.js", "core/clockWorker.js", "core/controller.js", "core/eventBus.js", "core/printer.js",
     "core/raster.js", "core/singleTab.js", "core/usbSerial.js",
     "game/game.js", "game/lang.js", "game/life.js", "game/cards.js", "game/receipt.js", "game/kvittering.js", "game/kvitteringMotor.js", "game/kvitteringTegning.js", "lyder/tap.mp3", "game/kvitteringDisplay.js", "game/tankeleser.js", "game/tankeleserData.js", "game/tankeleserTegning.js", "game/tankeleserDisplay.js", "bilder/dyr-katt.png", "bilder/dyr-hund.png", "bilder/dyr-hest.png", "bilder/dyr-elefant.png", "bilder/dyr-love.png", "bilder/dyr-ugle.png", "bilder/dyr-hai.png", "bilder/dyr-snegle.png", "bilder/dyr-lurt.png", "tools/termux-ibm/ibm_bridge.py", "tools/termux-ibm/start-display.sh",
-    "bilder/03-labubu.png", "bilder/04-vaffeljern.png", "bilder/05-binokularlupe.png", "bilder/06-ekstremstol.png", "bilder/07-romaskin.png", "bilder/08-seilbat.png", "bilder/09-urne.png", "bilder/10-kvitteringsspillet.png", "game/manus.js", "game/questions.js", "game/sound.js",
+    "bilder/03-labubu.png", "bilder/04-vaffeljern.png", "bilder/05-binokularlupe.png", "bilder/06-ekstremstol.png", "bilder/07-romaskin.png", "bilder/08-seilbat.png", "bilder/09-urne.png", "bilder/10-kvitteringsspillet2.png", "game/manus.js", "game/questions.js", "game/sound.js",
     "belt/belt.js", "belt/strip.js",
     "tickets/index.js", "tickets/draw.js", "tickets/code128.js", "tickets/fortune.js", "tickets/plain.js",
     "tickets/prize.js", "tickets/reward.js", "tickets/scannerSetup.js",
