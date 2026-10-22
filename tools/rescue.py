@@ -350,7 +350,7 @@ def main():
         back_to_chrome()
 
     # Chrome draws only while it's in front: a page behind the home screen would look "white"
-    if "com.android.chrome" not in adb("shell", "dumpsys", "window").split("mCurrentFocus", 1)[-1][:200]:
+    if not CHECK_ONLY and "com.android.chrome" not in adb("shell", "dumpsys", "window").split("mCurrentFocus", 1)[-1][:200]:
         say("• Chrome wasn't in front — bringing it back")
         back_to_chrome()
     page = open_page()
@@ -408,7 +408,8 @@ def main():
     os.makedirs(REPORT, exist_ok=True)
     with open(os.path.join(REPORT, "log.txt"), "w") as f:
         f.write("\n".join(st["log"]) + "\n")
-    page.eval(f'maskin.log("Rescue from the Mac: checked{"" if CHECK_ONLY else " and fixed"}")')
+    if not CHECK_ONLY:
+        page.eval('maskin.log("Rescue from the Mac: checked and fixed")')
     page.close()
     say(f"• Screenshot and the game's log: {screenshot('screen.png')}, rescue-report/log.txt")
 
