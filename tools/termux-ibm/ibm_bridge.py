@@ -30,6 +30,8 @@ usb.libusb_claim_interface.argtypes = [ctypes.c_void_p, ctypes.c_int]
 usb.libusb_set_auto_detach_kernel_driver.argtypes = [ctypes.c_void_p, ctypes.c_int]
 usb.libusb_release_interface.argtypes = [ctypes.c_void_p, ctypes.c_int]
 usb.libusb_strerror.restype = ctypes.c_char_p
+usb.libusb_clear_halt.argtypes = [ctypes.c_void_p, ctypes.c_ubyte]
+LIBUSB_ERROR_PIPE = -9
 WIDTH = 20
 # The display's own font has no Æ Ø Å (2026-10-20: "Å" didn't show), so they're drawn as
 # custom characters 1-3 (5 x 8 pixels, bit 4 = the left pixel) and swapped in for the letters.
@@ -39,22 +41,38 @@ GLYPHS = {
     "Æ": (3, [0x0F, 0x14, 0x14, 0x1F, 0x14, 0x14, 0x17, 0x00]),
 }
 
-# Kvitteringsspillet's big arrow (2026-10-22): one arrow over the right 2 columns of both rows,
-# 10 x 16 pixels = 4 custom characters in slots 4-7 (top-left, top-right, bottom-left,
-# bottom-right). The page puts characters 4-7 there and says which arrow (?pil=); the slots
-# are redefined only when the arrow changes.
+# Kvitteringsspillet's big arrow (2026-10-22): one arrow over the right 3 columns of both rows,
+# 15 x 16 pixels. The page sends 17 characters of text per row and which arrow (?pil=); the
+# helper adds the arrow. Its 6 cells need at most 4 different custom characters (slots 4-7;
+# blank cells are spaces, equal cells share a slot), redefined only when the arrow changes.
+# (Two columns at first — too small, the maker said.)
+PIL_TEKST = 17
 PIL_SLOTS = (4, 5, 6, 7)
 PIL_FORM = {
-    "up": lambda x, y: (y <= 7 and abs(x - 4.5) <= y * 0.62 + 0.5) or (8 <= y <= 14 and abs(x - 4.5) <= 1.5),
-    "down": lambda x, y: (y >= 8 and abs(x - 4.5) <= (15 - y) * 0.62 + 0.5) or (1 <= y <= 7 and abs(x - 4.5) <= 1.5),
-    "right": lambda x, y: (x >= 5 and abs(y - 7.5) <= (9 - x) * 1.6 + 0.5) or (1 <= x <= 4 and abs(y - 7.5) <= 1.5),
+    "up": lambda x, y: (y <= 7 and abs(x - 7) <= y * 0.95 + 0.5) or (8 <= y <= 15 and abs(x - 7) <= 1.5),
+    "down": lambda x, y: (y >= 8 and abs(x - 7) <= (15 - y) * 0.95 + 0.5) or (0 <= y <= 7 and abs(x - 7) <= 1.5),
+    "right": lambda x, y: (x >= 10 and abs(y - 7.5) <= (14 - x) * 1.75 + 0.5) or (x <= 9 and abs(y - 7.5) <= 1.5),
 }
 
 
-def pil_tegn(kind):
-    on = PIL_FORM.get(kind, lambda x, y: False)
-    return [[sum(1 << (4 - i) for i in range(5) if on(gx + i, gy + r)) for r in range(8)]
-            for gy in (0, 8) for gx in (0, 5)]
+def pil_celler(kind):
+    """The arrow as cells: (glyphs for the slots, the 3 characters of the top row, of the bottom row)."""
+    on = PIL_FORM.get(kind)
+    if not on:
+        return [], "   ", "   "
+    glyphs, rows = [], []
+    for gy in (0, 8):
+        row = ""
+        for gx in (0, 5, 10):
+            g = [sum(1 << (4 - i) for i in range(5) if on(gx + i, gy + r)) for r in range(8)]
+            if not any(g):
+                row += " "
+                continue
+            if g not in glyphs:
+                glyphs.append(g)
+            row += chr(PIL_SLOTS[glyphs.index(g)])
+        rows.append(row)
+    return glyphs, rows[0], rows[1]
 
 
 def err(code):
@@ -135,6 +153,11 @@ class Display:
             if self.ep_out:
                 n = ctypes.c_int()
                 r = usb.libusb_interrupt_transfer(self.h, self.ep_out, report, 23, ctypes.byref(n), 500)
+                if r == LIBUSB_ERROR_PIPE:
+                    # a stalled endpoint, e.g. after the helper before was killed mid-write
+                    # (2026-10-22): clear it and try once more
+                    usb.libusb_clear_halt(self.h, self.ep_out)
+                    r = usb.libusb_interrupt_transfer(self.h, self.ep_out, report, 23, ctypes.byref(n), 500)
             else:                                   # SET_REPORT (output) on the control pipe
                 r = usb.libusb_control_transfer(self.h, 0x21, 0x09, 0x0200, self.iface, report, 23, 500)
                 r = 0 if r == 23 else r
@@ -158,11 +181,13 @@ class Display:
             self.shown[row] = data
 
     def pil(self, kind):
-        if getattr(self, "pil_na", None) == kind:
-            return
-        for slot, rows in zip(PIL_SLOTS, pil_tegn(kind)):
-            self.send(0x40, bytes(rows), length=slot)
-        self.pil_na = kind
+        """Defines the arrow's characters (if it changed); returns the 3 characters per row."""
+        glyphs, top, bottom = pil_celler(kind)
+        if getattr(self, "pil_na", None) != kind:
+            for slot, rows in zip(PIL_SLOTS, glyphs):
+                self.send(0x40, bytes(rows), length=slot)
+            self.pil_na = kind
+        return top, bottom
 
     def clear(self):
         self.send(0x02)
@@ -192,10 +217,12 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/ping":
                 return self.reply(200, "ok")
             if url.path == "/show":
-                if "pil" in q:
-                    DISPLAY.pil(q["pil"])
-                DISPLAY.line(0, q.get("top", ""))
-                DISPLAY.line(1, q.get("bottom", ""))
+                top, bottom = q.get("top", ""), q.get("bottom", "")
+                if "pil" in q:                       # 17 characters of text + the arrow
+                    a, b = DISPLAY.pil(q["pil"])
+                    top, bottom = top[:PIL_TEKST].ljust(PIL_TEKST) + a, bottom[:PIL_TEKST].ljust(PIL_TEKST) + b
+                DISPLAY.line(0, top)
+                DISPLAY.line(1, bottom)
                 return self.reply(200, "ok")
             if url.path == "/clear":
                 DISPLAY.clear()

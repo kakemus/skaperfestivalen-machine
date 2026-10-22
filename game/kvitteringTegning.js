@@ -169,12 +169,21 @@ export function forbered(img, { lys = 1, kontrast = 1, gamma = 0.85, kant = fals
   return c;
 }
 
-/** One scroll screen per question (belt/strip.js draws them): the picture's
- *  description in a box until the real pictures exist, the price, the question,
- *  and which button means what. Screen 0 (START) also says that answering starts. */
+/** The strip's screens: its own START screen (2026-10-22), then one per question — the
+ *  picture (or its description in a box until it exists), the price, the question, and
+ *  JA / NEI like the buttons. A question with lead-in lines ("Livet er mange valg. …") has
+ *  them smaller and only its last line — the question itself — big; every question big
+ *  is the same size (SPORSMAL_PX). */
+const SPORSMAL_PX = 56;
 export function skjermer(manus, bilder = {}) {
   const n = manus.sporsmal.length;
-  return manus.sporsmal.map((s, i) => {
+  const start = {
+    lines: [manus.tittel.toUpperCase().replace("KVITTERINGS", "KVITTERINGS-\n")],
+    after: [["Ikke gå i minus!", 46, "900"], ["For å starte:", 32, "bold"]],
+    answers: ["JA", "NEI"],
+    maxSize: 72,
+  };
+  return [start, ...manus.sporsmal.map(s => {
     const [ja, nei] = Object.keys(s.svar);
     const plain = /^ja$/i.test(ja) && /^nei$/i.test(nei || "");
     return {
@@ -182,9 +191,10 @@ export function skjermer(manus, bilder = {}) {
       box: s.bilde || "",
       image: bilder[s.nr] ? forbered(bilder[s.nr], JUSTER[s.nr]) : null,
       price: s.pris != null ? `${s.pris} kr` : "",
-      lines: s.tekst,
+      small: s.tekst.slice(0, -1),
+      lines: s.tekst.slice(-1),
+      maxSize: SPORSMAL_PX,
       answers: plain || !nei ? ["JA", "NEI"] : [`JA\n${ja}`.toUpperCase(), `NEI\n${nei}`.toUpperCase()],
-      foot: i === 0 ? "Svar JA eller NEI for å begynne" : "",
     };
-  });
+  })];
 }

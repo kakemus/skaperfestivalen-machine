@@ -264,7 +264,9 @@ def choose_device(page, button):
 def start_helper():
     say("  starting the IBM display helper …")
     push_helper_files()
-    code, _ = ssh("pkill -f ibm_bridge.py; sleep 0.5; (nohup bash ~/start-display.sh > ~/display.log 2>&1 &); sleep 0.3")
+    # "[i]bm_bridge" so pkill doesn't match (and kill) this very ssh command, whose own
+    # command line contains the name (2026-10-22: it did, and the start looked like "no ssh")
+    code, _ = ssh("pkill -f '[i]bm_bridge.py'; sleep 0.5; (nohup bash ~/start-display.sh > ~/display.log 2>&1 &); sleep 0.3")
     if code != 0:
         # no ssh (Termux not running): reopening Termux runs ~/.machine-autostart.sh, which
         # starts sshd and the helper by itself

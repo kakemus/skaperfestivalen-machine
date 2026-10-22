@@ -184,10 +184,21 @@ function drawScreen(ctx, sc, top) {
     words.forEach((l, k) => ctx.fillText(l, cx, y0 + k * lh));
     y += bh + 12;
   }
+  if (sc.after) {                                   // lines just above the answers: [text, size, weight]
+    const h = sc.after.reduce((a, [, s]) => a + Math.round(s * 1.25), 0) + 10;
+    let ay = bottom - h;
+    for (const [t, s, weight] of sc.after) { fitSize(ctx, t, w, s, { weight }); ctx.fillText(t, cx, ay); ay += Math.round(s * 1.25); }
+    bottom -= h;
+  }
   if (sc.price) line(sc.price, 52, { weight: "900" });
-  // the question: largest size at which all of it fits between y and bottom
+  if (sc.small) {                                   // lead-in text, smaller than the question itself
+    for (const p of sc.small) for (const l of wrapBalanced(ctx, p, w, 34)) { ctx.fillText(l, cx, y); y += 40; }
+    y += 12;
+  }
+  // the question: largest size at which all of it fits between y and bottom (at most
+  // sc.maxSize, so every question can be set the same size)
   const text = (sc.lines || []).join("\n");
-  let size = 64, wrapped;
+  let size = sc.maxSize || 64, wrapped;
   for (;;) {
     wrapped = text.split("\n").flatMap(p => wrapBalanced(ctx, p, w, size));
     if (size <= 20 || wrapped.length * size * 1.18 <= bottom - y - 10) break;

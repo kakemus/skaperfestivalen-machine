@@ -3,14 +3,14 @@
 // Android's Chrome has no WebHID; phone.js sends these lines a few times a second, the
 // helper skips lines that haven't changed.
 //
-// Since 2026-10-22 (after a lot of user testing — less noise): the left 18 characters are
-// text, one line per row; the right 2 columns hold ONE big arrow over both rows, drawn by
-// the helper with custom characters: up = the receipt (the printer sits above the display),
+// Since 2026-10-22 (after a lot of user testing — less noise): the left 17 characters are
+// text, one line per row; the right 3 columns hold ONE big arrow over both rows, drawn by
+// the helper with custom characters (it adds them; the page only says which arrow): up = the receipt (the printer sits above the display),
 // right = the question on the scroll, down = the buttons. Text and arrow stand still —
 // nothing blinks. While playing: what to read on top, the kroner and friends below (they
 // change once a choice is made). The life's clock shows only in its last 30 s.
 export const LCD_BREDDE = 20;
-export const TEKST_BREDDE = 18;
+export const TEKST_BREDDE = 17;           // + the arrow's 3 columns (2 at first: too small, the maker)
 export const LOKK_ETTER_MS = 300000;   // 5 min standing ready → the lure (if switched on in the panel)
 const KLOKKE_MS = 30000;               // the clock appears for the last 30 s only
 
@@ -24,17 +24,19 @@ export function saldo(sp) {
     .find(t => t.length <= TEKST_BREDDE) || `${kr}KR ${v}V`;
 }
 
-/** { top, bottom, pil } for the game's state: top/bottom are the 18-character text field,
+/** { top, bottom, pil } for the game's state: top/bottom are the 17-character text field,
  *  pil = "up" | "right" | "down" | null. `ms` is unused now (nothing blinks), kept for the
  *  caller; `klarMs` = how long the machine has stood ready (for the lure). */
 export function lcdInnhold(game, ms, klarMs = 0) {
   const sp = game.spill, igjen = game.igjenMs;
   switch (game.state) {
     case "ready":
-      if (klarMs >= LOKK_ETTER_MS) return { top: "TRYKK JA ELLER NEI", bottom: "FOR Å STARTE!", pil: "down" };
-      return { top: "LES SPØRSMÅLET", bottom: "TRYKK JA ELLER NEI", pil: "right" };
+      // the strip shows its START screen; the arrow points down at the buttons (2026-10-22)
+      return { top: "TRYKK JA/NEI", bottom: "FOR Å STARTE", pil: "down" };
+    case "opening":                                       // the belt brings question 1
+      return { top: "LES SPØRSMÅLET", bottom: saldo(sp), pil: "right" };
     case "deciding":
-      return { top: igjen <= KLOKKE_MS ? `SKYND DEG!   ${tid(igjen)}` : "LES SPØRSMÅLET", bottom: saldo(sp), pil: "right" };
+      return { top: igjen <= KLOKKE_MS ? `SKYND DEG! ${tid(igjen)}` : "LES SPØRSMÅLET", bottom: saldo(sp), pil: "right" };
     case "answering":
       return { top: "LES KVITTERINGEN", bottom: saldo(sp), pil: "up" };
     case "over":
@@ -44,18 +46,13 @@ export function lcdInnhold(game, ms, klarMs = 0) {
     case "rewinding":
       return { top: "TAKK FOR SPILLET!", bottom: "SPOLER TILBAKE", pil: null };
     default:                                              // starting, resetting
-      return { top: "KVITTERINGSSPILLET", bottom: "SPOLER TILBAKE", pil: null };
+      return { top: "SPOLER TILBAKE", bottom: "VENT LITT", pil: null };
   }
 }
 
-// The arrow's four custom characters (helper slots 4–7): top-left, top-right, bottom-left,
-// bottom-right — so the right 2 columns of both rows show one arrow.
-const PIL_TEGN = ["\u0004\u0005", "\u0006\u0007"];
-
-/** [top, bottom, pil]: the two full 20-character lines for the helper, and which arrow its
- *  slots 4–7 should hold. */
+/** [top, bottom, pil]: the two 17-character text fields for the helper, and which arrow it
+ *  draws in the 3 columns to their right ("up" | "right" | "down" | "none"). */
 export function lcdLinjer(game, ms, klarMs = 0) {
   const { top, bottom, pil } = lcdInnhold(game, ms, klarMs);
-  const hoyre = pil ? PIL_TEGN : ["  ", "  "];
-  return [felt(top) + hoyre[0], felt(bottom) + hoyre[1], pil];
+  return [felt(top), felt(bottom), pil || "none"];
 }

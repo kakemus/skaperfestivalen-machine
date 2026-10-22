@@ -38,7 +38,11 @@ const HURRY_MS = 10000;                   // the light flickers faster for the l
 const PRINT_LIMIT_MS = 20000;             // longest wait for a print or a cut
 const BELT_LIMIT_MS = 70000;              // belt.js gives up on the board after 15 s / 60 s itself
 
-export function createKvitteringGame(io, manus = MANUS) {
+// intro (2026-10-22): the strip starts with its own START screen (the title, "Ikke gå i minus!",
+// "For å starte: JA · NEI") before question 1. Then a first press only starts the game — the
+// receipt's top prints and the belt moves on to question 1 — instead of also answering it
+// ("Vil du bli født?" was answered by the press meant to start). Question n is then on screen n.
+export function createKvitteringGame(io, manus = MANUS, { intro = false } = {}) {
   let state = "attract";
   let nr = 0;                 // index of the question being decided (= the screen the scroll shows)
   let spill = motor.nyttSpill();
@@ -177,11 +181,21 @@ export function createKvitteringGame(io, manus = MANUS) {
      *  otherwise ignored unless a question is waiting for an answer — so the 5 s
      *  after a game always belong to the player who just finished. */
     async answer(yes) {
+      if (state === "ready" && intro) {
+        const id = ++run;
+        setState("opening");
+        io.log("Nytt spill");
+        io.flash?.(true);
+        await print(id, "Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]);
+        if (!still(id)) return;
+        await within(BELT_LIMIT_MS, io.belt.step());
+        return decide(id);
+      }
       if (state !== "deciding" && state !== "ready") return;
       const s = manus.sporsmal[nr], valg = valgFor(s);
       const v = valg.length === 1 ? valg[0] : valg[yes ? 0 : 1];
       if (!v) return;
-      const first = state === "ready";
+      const first = state === "ready";            // (never with intro: the start press came first)
       const id = first ? ++run : run;
       stopTimers();
       if (!first) brukt = Math.min(LIVSTID_MS, brukt + io.now() - startet);

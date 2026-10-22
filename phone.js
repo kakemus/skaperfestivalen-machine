@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 e";
+const VERSION = "phone 2026-10-22 f";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -92,7 +92,8 @@ const belt = createBelt({ canvas: document.createElement("canvas"), send: line =
 let bilder = {};
 // Which game (panel → Game, remembered; switching reloads the page). Each has its own strip.
 const TANKE = settings.spill === "tankeleser";
-const SKJERMER = TANKE ? TANKE_SKJERMER : MANUS.sporsmal.length;
+// Kvitteringsspillet: its own START screen before question 1 (2026-10-22), so questions + 1
+const SKJERMER = TANKE ? TANKE_SKJERMER : MANUS.sporsmal.length + 1;
 const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, SKJERMER - 1),
   screens: TANKE ? tanke.skjermer(bilder) : tegning.skjermer(MANUS, bilder) });
 belt.setStrip(drawStrip(stripCfg()), stripCfg());
@@ -151,6 +152,7 @@ const kvitteringIo = {
     const status = `${alder} ÅR · ${spill.kroner} KR · ${spill.venner.length} VENNER`;
     const what = {
       starting: "TIL START",
+      opening: "STARTER …",
       ready: sporsmal ? `KLAR · ${sporsmal.nr}. ${sporsmal.tekst[sporsmal.tekst.length - 1]}` : "KLAR",
       deciding: sporsmal ? `${sporsmal.nr}. ${sporsmal.tekst[sporsmal.tekst.length - 1]}\nJA = ${valg[0]} · NEI = ${valg[1] || valg[0]}` : "",
       answering: "SKRIVER UT …",
@@ -196,7 +198,7 @@ const tankeIo = {
     show(...shown);
   },
 };
-const game = TANKE ? createTankeleserGame(tankeIo) : createKvitteringGame(kvitteringIo);
+const game = TANKE ? createTankeleserGame(tankeIo) : createKvitteringGame(kvitteringIo, MANUS, { intro: true });
 const lcdLinjer = TANKE ? tankeLcd : kvitteringLcd;
 if (TANKE && sjekkTre().length) log("Tankeleseren: check the question tree in tankeleserData.js: " + sjekkTre().join(", "));
 
