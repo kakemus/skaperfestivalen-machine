@@ -17,7 +17,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 a";
+const VERSION = "phone 2026-10-22 b";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -29,7 +29,8 @@ const settings = (() => {
   // since the field used to start empty and that empty value was saved with every setting
   // phoneDing: the phone's speaker dings along with the real bell — off (2026-10-21: the bell
   // alone); a backup for if the bell breaks
-  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40, phoneDing: false };
+  // lure: the 5-minute lure (below) — off while testing at home (2026-10-22: annoying), on at the festival
+  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40, phoneDing: false, lure: false };
   let s = d;
   try { s = { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch {}
   if (!s.ntfyTopic) s.ntfyTopic = d.ntfyTopic;
@@ -247,7 +248,7 @@ let klarSiden = Date.now(), forrigeState = "", sisteLokk = 0;
 every(1000, () => {
   const now = Date.now();
   if (game.state !== forrigeState) { forrigeState = game.state; klarSiden = now; }
-  if (game.state !== "ready" || now - klarSiden < LOKK_ETTER_MS || now - sisteLokk < LOKK_HVER_MS) return;
+  if (!settings.lure || game.state !== "ready" || now - klarSiden < LOKK_ETTER_MS || now - sisteLokk < LOKK_HVER_MS) return;
   sisteLokk = now;
   controller.send("LED:FLASH:W:6");
   controller.send("BELL:2");
@@ -263,7 +264,7 @@ let lcdUp = null, lcdNext = 0, lcdShown = "";
 every(250, () => {
   const now = Date.now();
   if (lcdUp === false && now < lcdNext) return;
-  const [top, bottom] = lcdLinjer(game, now, game.state === "ready" ? now - klarSiden : 0), key = top + "|" + bottom;
+  const [top, bottom] = lcdLinjer(game, now, game.state === "ready" && settings.lure ? now - klarSiden : 0), key = top + "|" + bottom;
   if (lcdUp && key === lcdShown) return;
   fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}`, { cache: "no-store" })
     .then(r => {
@@ -390,6 +391,8 @@ $("tLoseSound").onclick = () => { preloadSounds(); buzzer(); };
 $("tDing").onclick = () => ding(3);
 $("phoneDing").checked = settings.phoneDing;
 $("phoneDing").onchange = () => { settings.phoneDing = $("phoneDing").checked; save(); };
+$("lure").checked = settings.lure;
+$("lure").onchange = () => { settings.lure = $("lure").checked; save(); log("Lure after 5 min: " + (settings.lure ? "on" : "off")); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
 // the game log, to the Mac's phone_server.py (getting text off the phone is awkward)
 $("sendLog").onclick = () => fetch("results", { method: "POST", body: "GAME LOG\n" + lines.join("\n") })
