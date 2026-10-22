@@ -32,7 +32,8 @@ export function lcdInnhold(game, ms, klarMs = 0) {
   switch (game.state) {
     case "ready":
       // the strip shows its START screen; the arrow points down at the buttons (2026-10-22)
-      return { top: "TRYKK JA/NEI", bottom: "FOR Å STARTE", pil: "down" };
+      // (no JA/NEI: the signs came off the buttons, 2026-10-22)
+      return { top: "TRYKK PÅ EN KNAPP", bottom: "FOR Å STARTE", pil: "down" };
     case "opening":                                       // the belt brings question 1
       return { top: "LES SPØRSMÅLET", bottom: saldo(sp), pil: "right" };
     case "deciding":
