@@ -3,7 +3,8 @@
 // brukertesting med barn (maskinmakeren godkjente endringene): kortere og enklere tekster,
 // både kroner og venner vises alltid (ingen "visning"-steg), du taper bare ved å gå tom for
 // penger eller venner (romaskinen «Nei» gir en dyr redningsskøyte i stedet for døden), og
-// begge svar på spørsmål 1 gir familien og barnetrygden. "format" forklarer stegene; reglene
+// begge svar på spørsmål 1 gir familien og barnetrygden; spørsmål 2 er nytt: lommeboka (beholder
+// du pengene, forsvinner farmor — den nyeste vennen — fra stabelen). "format" forklarer stegene; reglene
 // som utfører dem ligger i kvitteringMotor.js, og klokka (3 minutter = 80 år) i kvittering.js.
 export const MANUS = {
   "tittel": "Kvitteringsspillet",
@@ -73,13 +74,29 @@ export const MANUS = {
     {
       "nr": 2,
       "tekst": [
-        "Hva vil du spare på?",
-        "Venner eller penger?"
+        "Du finner en lommebok på bakken.",
+        "Det ligger 2000 kr i den.",
+        "Beholder du pengene?"
       ],
       "bilde": null,
       "pris": null,
       "svar": {
-        "Venner": [
+        "Ja": [
+          {
+            "kroner": 2000,
+            "post": "Funnet lommebok"
+          },
+          {
+            "no": "Lommeboka var farmors. Hun er veldig skuffet."
+          },
+          {
+            "venner": -1
+          }
+        ],
+        "Nei": [
+          {
+            "no": "Du leverer den til politiet. Eieren blir så glad at hun spanderer pizza på hele klassen."
+          },
           {
             "venner": [
               "Emma",
@@ -88,18 +105,6 @@ export const MANUS = {
               "Ali",
               "Nora"
             ]
-          },
-          {
-            "no": "Venner inviterer deg med på ting, og hjelper deg når du trenger det."
-          }
-        ],
-        "Penger": [
-          {
-            "kroner": 1000,
-            "post": "Sparing"
-          },
-          {
-            "no": "Penger kan du bruke på det du vil."
           }
         ]
       }

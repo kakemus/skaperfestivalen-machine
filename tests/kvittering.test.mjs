@@ -1,7 +1,8 @@
 // Test for Kvitteringsspillet. Kjør med:  node tests/kvittering.test.mjs
 // Ingen avhengigheter. Sjekker at
 //   1. game/manus.js er Aksels manus fra kvitteringsspillet/kvitteringsspillet.html, skrevet om
-//      2026-10-22 (enklere tekster, ingen død, begge saldoer vises): samme spørsmål og priser,
+//      2026-10-22 (enklere tekster, ingen død, begge saldoer vises, nytt spørsmål 2): ellers
+//      samme spørsmål og priser,
 //      og hvert tap kommer av penger eller venner,
 //   2. game/kvitteringMotor.js gir de samme kvitteringene som den originale motoren i HTML-fila
 //      der saldoen aldri er under null, og følger den nye regelen ellers: saldoen sjekkes
@@ -71,8 +72,8 @@ const veier = alleVeier(MANUS);
 const gamleVeier = alleVeier(gammeltManus);
 
 console.log("Manus");
-sjekk("game/manus.js: de samme spørsmålene, prisene og bildene som i HTML-fila (tekstene skrevet om 2026-10-22)", () => {
-  const del = m => m.sporsmal.map(({ nr, tekst, bilde, pris }) => ({ nr, tekst, bilde, pris }));
+sjekk("game/manus.js: de samme spørsmålene, prisene og bildene som i HTML-fila, utenom det nye spørsmål 2 (2026-10-22)", () => {
+  const del = m => m.sporsmal.filter(s => s.nr !== 2).map(({ nr, tekst, bilde, pris }) => ({ nr, tekst, bilde, pris }));
   assert.deepEqual(del(MANUS), del(gammeltManus));
 });
 sjekk("ingen død og ingen «visning» i manuset: begge saldoer vises, og man taper bare på penger eller venner", () => {
@@ -133,7 +134,7 @@ sjekk("døden stopper svaret med en gang (det gamle manuset; det nye har ingen d
   assert.equal(s.grunn, "død");
 });
 sjekk("romaskinen «Nei»: redningsskøyta koster mer enn noen kan ha, så det er alltid tap på penger", () => {
-  const s = spillerVed(22100, 5);                     // mest mulig penger før spørsmål 7
+  const s = spillerVed(23100, 5);                     // mest mulig penger før spørsmål 7
   ny.spillSvar(s, MANUS.sporsmal[6], "Nei");
   assert.equal(s.tapt, true);
   assert.equal(s.grunn, "kroner");
