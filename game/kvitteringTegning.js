@@ -194,7 +194,9 @@ export function skjermer(manus, bilder = {}) {
       small: s.tekst.slice(0, -1),
       lines: s.tekst.slice(-1),
       maxSize: SPORSMAL_PX,
-      answers: plain || !nei ? ["JA", "NEI"] : [`JA\n${ja}`.toUpperCase(), `NEI\n${nei}`.toUpperCase()],
+      // the left button / the right one; "Venner" / "Penger" alone (2026-10-22: the JA/NEI signs
+      // came off the buttons — which is which is clear from the boxes' places and colours)
+      answers: plain || !nei ? ["JA", "NEI"] : [ja.toUpperCase(), nei.toUpperCase()],
     };
   })];
 }
