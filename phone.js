@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 k";
+const VERSION = "phone 2026-10-22 l";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -122,8 +122,10 @@ const kvitteringIo = {
     if (label === "Start") return lines[0] && lines[0][0] !== "=" ? print(label, () => tegning.topp(lines[0])) : Promise.resolve();
     return print(label, () => tegning.linjer(lines));
   },
-  // feed the end past the blade (it sits above the print head), then cut
-  cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
+  // feed the end past the blade (it sits above the print head), then cut — and on up out of
+  // the slot as far as an answer is (answerFeedMm): the end of a lost game stayed inside where
+  // nobody saw it (2026-10-22)
+  cut: () => print("Feed", () => tegning.linjer([], { feedMm: 15 + settings.answerFeedMm })).then(() => printer.cut()).catch(e => log("Cut: " + e.message)),
   bell(times) { if (settings.phoneDing) ding(times); controller.send(`BELL:${times}`); },
   // A right answer blinks green once (3 blinks, ~0.9 s). Losing has to be unmistakable, so the
   // board's red flash is sent 4 times back to back (~3.6 s); and a win's 6 s rainbow is sent again

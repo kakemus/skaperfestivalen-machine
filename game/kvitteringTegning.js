@@ -17,7 +17,7 @@ function sizeFor(ctx) {
   return monoSize;
 }
 
-// all-capital lines ("SPILLET ER TAPT", "DU KLARTE DET!") are headings: bold
+// all-capital lines ("DU GIKK TOM FOR PENGER!", "DU KLARTE DET!") are headings: bold
 const heading = l => /\p{Lu}/u.test(l) && !/\p{Ll}/u.test(l);
 // A clearer hierarchy (2026-10-22, after user testing): each answer starts with its line
 // ("3. Ja ------- 23 år") reversed out of a black band; the entries (a name or a post with a

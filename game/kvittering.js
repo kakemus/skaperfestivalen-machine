@@ -206,7 +206,8 @@ export function createKvitteringGame(io, manus = MANUS, { intro = false, finale 
       if (!first) brukt = Math.min(LIVSTID_MS, brukt + io.now() - startet);
       setState("answering");
       if (first) io.log("Nytt spill");
-      const lines = ["", motor.svarLinje(s.nr, v, alder()), ...motor.spillSvar(spill, s, v)];
+      const [hode, status] = motor.svarHode(s, v, alder());
+      const lines = ["", motor.svarLinje(s.nr, hode, alder()), ...(status ? [status] : []), ...motor.spillSvar(spill, s, v)];
       // the receipt header is its own "Start" print (the phone draws it as the big top)
       const printAnswer = async () => {
         if (first) await print(id, "Start", [manus.tittel.toUpperCase(), "=".repeat(motor.BREDDE)]);

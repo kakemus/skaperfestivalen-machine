@@ -46,7 +46,7 @@ export function lcdInnhold(game, ms, klarMs = 0) {
       return { top: "LES KVITTERINGEN", bottom: saldo(sp), pil: "up" };
     case "over":
     case "pause":
-      return { top: sp.tapt ? (sp.grunn === "tid" ? "TIDEN ER UTE!" : "SPILLET ER TAPT") : "DU KLARTE DET!",
+      return { top: !sp.tapt ? "DU KLARTE DET!" : { kroner: "TOM FOR PENGER!", venner: "TOM FOR VENNER!", tid: "TIDEN ER UTE!" }[sp.grunn] || "SPILLET ER TAPT",
         bottom: "TA KVITTERINGEN", pil: "up" };
     case "rewinding":
       return { top: "TAKK FOR SPILLET", bottom: "SPOLER TILBAKE", pil: null };

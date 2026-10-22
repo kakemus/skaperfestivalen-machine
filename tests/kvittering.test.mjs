@@ -316,7 +316,7 @@ await sjekkAsync("ingen svar etter det første: når livstiden er brukt opp er t
   await m.gå(200);
   assert.equal(spill.state, "over");
   await m.gå(20000);                         // sluttkvitteringen skrives, linje for linje
-  assert.ok(m.utskrift.includes(`Tiden er ute. Du ble ${LEVEALDER} år.`), m.utskrift.slice(-8).join("\n"));
+  assert.ok(m.utskrift.includes("TIDEN ER UTE!") && m.utskrift.includes(`Du ble ${LEVEALDER} år.`), m.utskrift.slice(-8).join("\n"));   // overskrift + linje (2026-10-22)
   assert.equal(m.kutt, 1);
   await tilSvar(m, spill);
   assert.equal(spill.state, "ready");

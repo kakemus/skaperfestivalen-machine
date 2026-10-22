@@ -137,6 +137,19 @@ export function spillSvar(spill, sporsmal, valg) {
   return ut;
 }
 
+/** Overskrift og status for et svar (2026-10-22: kvitteringen skal si hva du gjorde, ikke bare
+ *  «Ja»/«Nei»): på kjøpespørsmål (de med pris) står tingen i overskriften og «KJØPT» /
+ *  «IKKE KJØPT» på linja under; andre spørsmål beholder svaret («Ja», «Venner»). Tingens navn
+ *  er Ja-svarets første utgift (kjøpet), kortet ned på hele ord til det får plass. */
+export function svarHode(sporsmal, valg, alder) {
+  const navn = ((sporsmal.svar.Ja || []).find(s => s.kroner < 0 && s.post) || {}).post;   // the purchase itself
+  if (sporsmal.pris == null || !navn || !/^(ja|nei)$/i.test(valg)) return [valg, null];
+  const plass = BREDDE - `${sporsmal.nr}. `.length - ` ${alder} år`.length - 3;   // minst 2 streker
+  let kort = navn;
+  while (kort.length > plass && kort.includes(" ")) kort = kort.slice(0, kort.lastIndexOf(" "));
+  return [kort.slice(0, plass), /^ja$/i.test(valg) ? "KJØPT" : "IKKE KJØPT"];
+}
+
 /** Overskriften over et svar, med alderen til høyre: "3. Ja --------------------- 23 år" */
 export function svarLinje(nr, valg, alder) {
   const venstre = `${nr}. ${valg} `, hoyre = ` ${alder} år`;
@@ -154,13 +167,15 @@ export function tidenErUte(spill, alder) {
 export function sluttLinjer(spill, avslutning) {
   const ut = ["=".repeat(BREDDE)];
   if (spill.tapt) {
-    const grunn = {
-      kroner: "Du gikk i minus på kroner.",
-      venner: "Du gikk tom for venner.",
-      død: "Du døde.",
-      tid: `Tiden er ute. Du ble ${spill.alder} år.`,
+    // Grunnen står øverst, stort (2026-10-22, brukertesting): tapet skal tydelig komme av
+    // penger eller venner, ikke bare «SPILLET ER TAPT».
+    const [overskrift, grunn] = {
+      kroner: ["DU GIKK TOM FOR PENGER!", `Du endte på ${spill.kroner} kr.`],
+      venner: ["DU GIKK TOM FOR VENNER!", "Du har ingen venner igjen."],
+      død: ["SPILLET ER TAPT", "Du døde."],
+      tid: ["TIDEN ER UTE!", `Du ble ${spill.alder} år.`],
     }[spill.grunn];
-    ut.push("SPILLET ER TAPT", ...brytTekst(grunn));
+    ut.push(overskrift, ...brytTekst(grunn));
   } else {
     ut.push("DU KLARTE DET!");
   }
