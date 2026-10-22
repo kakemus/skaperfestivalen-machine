@@ -6,13 +6,13 @@
 // first version served the copy first and refreshed in the background, which
 // needed two reloads per update and confused things on the phone.)
 // A new file for the phone version = add it to FILES (and to phone_server.py's list).
-const CACHE = "machine-phone-v58";
+const CACHE = "machine-phone-v59";
 const WAIT_MS = 1500;
 const FILES = [
   "./", "phone.html", "phone.js", "manifest.json", "icon.svg", "phonecheck.html", "belt.html", "belt.js",
   "core/clock.js", "core/clockWorker.js", "core/controller.js", "core/eventBus.js", "core/printer.js",
   "core/raster.js", "core/singleTab.js", "core/usbSerial.js",
-  "game/game.js", "game/lang.js", "game/life.js", "game/cards.js", "game/receipt.js", "game/kvittering.js", "game/kvitteringMotor.js", "game/kvitteringTegning.js", "lyder/tap.mp3", "game/kvitteringDisplay.js",
+  "game/game.js", "game/lang.js", "game/life.js", "game/cards.js", "game/receipt.js", "game/kvittering.js", "game/kvitteringMotor.js", "game/kvitteringTegning.js", "lyder/tap.mp3", "game/kvitteringDisplay.js", "game/tankeleser.js", "game/tankeleserData.js", "game/tankeleserTegning.js", "game/tankeleserDisplay.js",
   "bilder/03-labubu.png", "bilder/04-vaffeljern.png", "bilder/05-binokularlupe.png", "bilder/06-ekstremstol.png", "bilder/07-romaskin.png", "bilder/08-seilbat.png", "bilder/09-urne.png", "bilder/10-kvitteringsspillet.png", "game/manus.js", "game/questions.js", "game/sound.js",
   "belt/belt.js", "belt/strip.js",
   "tickets/index.js", "tickets/draw.js", "tickets/code128.js", "tickets/fortune.js", "tickets/plain.js",

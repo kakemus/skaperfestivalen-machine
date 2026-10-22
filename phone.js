@@ -12,12 +12,15 @@ import { after, every, cancel } from "./core/clock.js";
 import { createKvitteringGame, LIVSTID_MS } from "./game/kvittering.js";
 import { MANUS } from "./game/manus.js";
 import * as tegning from "./game/kvitteringTegning.js";
-import { lcdLinjer, LOKK_ETTER_MS } from "./game/kvitteringDisplay.js";
+import { lcdLinjer as kvitteringLcd, LOKK_ETTER_MS } from "./game/kvitteringDisplay.js";
+import { createTankeleserGame, SKJERMER as TANKE_SKJERMER, sjekkTre } from "./game/tankeleser.js";
+import * as tanke from "./game/tankeleserTegning.js";
+import { lcdLinjer as tankeLcd } from "./game/tankeleserDisplay.js";
 import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 b";
+const VERSION = "phone 2026-10-22 c";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -30,7 +33,8 @@ const settings = (() => {
   // phoneDing: the phone's speaker dings along with the real bell — off (2026-10-21: the bell
   // alone); a backup for if the bell breaks
   // lure: the 5-minute lure (below) — off while testing at home (2026-10-22: annoying), on at the festival
-  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40, phoneDing: false, lure: false };
+  // spill: which game runs — "kvittering" (Aksel's) or "tankeleser" (plan B for children, 2026-10-22)
+  const d = { ntfyTopic: "kvitteringsspillet-c26433ea", answerFeedMm: 40, phoneDing: false, lure: false, spill: "kvittering" };
   let s = d;
   try { s = { ...d, ...JSON.parse(localStorage.getItem("phoneSettings")) }; } catch {}
   if (!s.ntfyTopic) s.ntfyTopic = d.ntfyTopic;
@@ -86,9 +90,13 @@ const belt = createBelt({ canvas: document.createElement("canvas"), send: line =
 // one screen per question (START = question 1), so the strip has questions − 1 levels above START
 // the pictures load in the background; until then (or if one is missing) its screen shows a text box
 let bilder = {};
-const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, MANUS.sporsmal.length - 1), screens: tegning.skjermer(MANUS, bilder) });
+// Which game (panel → Game, remembered; switching reloads the page). Each has its own strip.
+const TANKE = settings.spill === "tankeleser";
+const SKJERMER = TANKE ? TANKE_SKJERMER : MANUS.sporsmal.length;
+const stripCfg = () => ({ ...DEFAULT_STRIP, levels: Math.max(1, SKJERMER - 1),
+  screens: TANKE ? tanke.skjermer(bilder) : tegning.skjermer(MANUS, bilder) });
 belt.setStrip(drawStrip(stripCfg()), stripCfg());
-tegning.lastBilder(MANUS).then(b => { bilder = b; belt.setStrip(drawStrip(stripCfg()), stripCfg()); });
+(TANKE ? tanke.lastBilder() : tegning.lastBilder(MANUS)).then(b => { bilder = b; belt.setStrip(drawStrip(stripCfg()), stripCfg()); });
 
 const print = (label, build) => printer.print({ label, build }).catch(e => log("Print failed: " + e.message));
 
@@ -102,7 +110,7 @@ function notify(text) {
 // the game moves the belt on only once an answer is printed: first feed that answer up out of
 // the printer's slot (the head sits well below it), so it can be read while the next question comes
 const feedAnswer = () => settings.answerFeedMm > 0 ? print("Feed", () => tegning.linjer([], { feedMm: settings.answerFeedMm })) : null;
-const game = createKvitteringGame({
+const kvitteringIo = {
   now: () => performance.now(),
   after,
   cancel,
@@ -154,12 +162,49 @@ const game = createKvitteringGame({
     shown = [what + "\n" + status, {}];
     show(...shown);
   },
-});
+};
+
+// Tankeleseren's lights and sounds: an answer blinks green; the guess appears with a white blink
+// and one ring; guessed right = the rainbow and five rings; fooled = the rainbow and the buzzer.
+const tankeIo = {
+  now: () => performance.now(), after, cancel, log,
+  belt: { up: n => belt.up(n), rewind: () => belt.rewind() },
+  print(label, what, ...args) {
+    const build = { topp: tanke.topp, svar: tanke.svar, bevis: d => tanke.bevis(d, bilder), diplom: tanke.diplom }[what];
+    return print(label, () => build(...args));
+  },
+  cut: kvitteringIo.cut,
+  bell: kvitteringIo.bell,
+  flash(kind) {
+    if (kind === true) return controller.send("LED:FLASH:G");
+    if (kind === "white") return controller.send("LED:FLASH:W:3");
+    if (kind === "fooled") { controller.send("LED:WIN"); buzzer(); }
+  },
+  celebrate() { controller.send("LED:WIN"); after(5000, () => controller.send("LED:WIN")); kvitteringIo.bell(5); },
+  idle() { runTimer(0); showLevels(0); },
+  onState({ state, nr, node, dyr, riktig }) {
+    showLevels(0);
+    runTimer(0);
+    if (state === "over" || (state === "result" && riktig === true)) notify(`Tankeleseren gjettet ${dyr.navn}!`);
+    const what = {
+      starting: "TIL START", ready: "TANKELESEREN · KLAR", asking: `${nr}. ${node.kort}`,
+      thinking: "TENKER …", guessing: `ER DET EN ${dyr && dyr.navn}?`,
+      result: riktig === true ? `RIKTIG: ${dyr.navn}` : riktig === false ? "LURT!" : "INGEN SVARTE",
+      pause: "TA KVITTERINGEN", rewinding: "SPOLER TILBAKE", resetting: "TILBAKE TIL START",
+    }[state] || state;
+    shown = [what, {}];
+    show(...shown);
+  },
+};
+const game = TANKE ? createTankeleserGame(tankeIo) : createKvitteringGame(kvitteringIo);
+const lcdLinjer = TANKE ? tankeLcd : kvitteringLcd;
+if (TANKE && sjekkTre().length) log("Tankeleseren: check the question tree in tankeleserData.js: " + sjekkTre().join(", "));
+
 // the board's Find START must know how many screens the strip has; and a board that
 // (re)connects while the machine stands ready is sent to START, since the power-on
 // rewind may have run before it was there
 on("controller:connected", () => after(2500, () => {
-  controller.send(`SET:screens:${MANUS.sporsmal.length}`);
+  controller.send(`SET:screens:${SKJERMER}`);
   if (game.state === "ready") game.reset();
 }));
 showLevels(0);
@@ -221,12 +266,12 @@ every(1000, async () => {
   }
   autoResetUsed = true;
   resetting = true;
-  const still = ["ready", "deciding"].includes(game.state), screen = belt.position;
+  const still = ["ready", "deciding", "asking", "guessing"].includes(game.state), screen = belt.position;
   log(`micro:bit silent for ${Math.round(quiet / 1000)} s (game: ${game.state}, screen ${screen}) — resetting it`);
   pill("sMicrobit", "not answering — resetting", false);
   if (await controller.resetBoard()) {
     await new Promise(r => after(3000, r));                  // it starts up again
-    controller.send(`SET:screens:${MANUS.sporsmal.length}`);
+    controller.send(`SET:screens:${SKJERMER}`);
     if (still) {
       controller.send(`POS:${screen}`);
       log(`micro:bit reset — told it it's on screen ${screen}; the game goes on`);
@@ -391,6 +436,8 @@ $("tLoseSound").onclick = () => { preloadSounds(); buzzer(); };
 $("tDing").onclick = () => ding(3);
 $("phoneDing").checked = settings.phoneDing;
 $("phoneDing").onchange = () => { settings.phoneDing = $("phoneDing").checked; save(); };
+$("spill").value = settings.spill;
+$("spill").onchange = () => { settings.spill = $("spill").value; save(); location.reload(); };
 $("lure").checked = settings.lure;
 $("lure").onchange = () => { settings.lure = $("lure").checked; save(); log("Lure after 5 min: " + (settings.lure ? "on" : "off")); };
 $("tWin").onclick = () => controller.send("LED:WIN") || log("No micro:bit connected");
@@ -403,7 +450,7 @@ $("tReset").onclick = () => { $("panel").hidden = true; game.reset(); };
 $("beltPage").onclick = () => { location.href = "belt.html"; };
 
 // the scroll: one screen per question — preview here, or print it (one long strip)
-$("stripInfo").textContent = `${MANUS.sporsmal.length} questions → ${MANUS.sporsmal.length} screens · strip ≈ ${stripLengthCm(stripCfg()).toFixed(0)} cm`;
+$("stripInfo").textContent = `${TANKE ? "Tankeleseren" : MANUS.sporsmal.length + " questions"} → ${SKJERMER} screens · strip ≈ ${stripLengthCm(stripCfg()).toFixed(0)} cm`;
 $("previewStrip").onclick = () => { $("stripImg").src = drawStrip(stripCfg()).toDataURL(); $("stripImg").hidden = false; };
 $("printStrip").onclick = () => printer.print({ label: "Paper strip", build: () => drawStrip(stripCfg()), slow: false })
   .catch(e => log("Print failed: " + e.message));

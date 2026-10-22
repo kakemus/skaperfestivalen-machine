@@ -68,6 +68,9 @@ export function createBelt({ canvas, send }) {
       view();
     },
     step() { return move(Math.min(position + 1, layout.count - 1), STEP_MS, "BELT:STEP"); },
+    /** n screens up / down in one move (the board's BELT:UP:n / BELT:BACK:n; Tankeleseren jumps to its guess) */
+    up(n) { return n > 0 ? move(Math.min(position + n, layout.count - 1), STEP_MS * n, `BELT:UP:${n}`, HARDWARE_TIMEOUT_MS * n) : Promise.resolve(); },
+    back(n) { return n > 0 ? move(Math.max(position - n, 0), STEP_MS * n, `BELT:BACK:${n}`, HARDWARE_TIMEOUT_MS * n) : Promise.resolve(); },
     rewind() {
       // always ask the board, even at 0 on screen: it may have been moved by hand
       return move(0, Math.max(800, position * REWIND_MS_PER_SCREEN), "BELT:HOME", HOME_TIMEOUT_MS);
