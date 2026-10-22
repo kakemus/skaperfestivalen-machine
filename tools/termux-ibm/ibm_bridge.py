@@ -7,8 +7,9 @@ serves http://127.0.0.1:8765 for the game page in Chrome:
     GET /show?top=...&bottom=...   -> shows two lines (20 characters each)
     GET /clear
 Protocol (worked out 2026-10-02, tools/ibmlcd.py): 23-byte output reports
-[cmd, len, data...]; 0x81 top line, 0x82 bottom line, 0x02 clear; 0x01 with the
-length byte = the cursor's place (0-19 top row, 40 = off the screen: hidden).
+[cmd, len, data...]; 0x81 top line, 0x82 bottom line, 0x02 clear. The cursor (an
+underline) sits under the bottom row's first cell after every line write and can't be
+switched off; 0x01 moves it but blanks the top row, so the game keeps that cell empty.
 The display has a second HID interface (usage 0xA000) for firmware upgrades:
 NEVER write to it. Only the interface whose report descriptor has usage 0x2600 and
 not 0xA000 is used; if that can't be told apart, nothing is written at all.
@@ -181,13 +182,6 @@ class Display:
         if self.shown[row] != data:
             self.send(0x81 if row == 0 else 0x82, data)
             self.shown[row] = data
-            self.hide_cursor()
-
-    def hide_cursor(self):
-        """Every line write puts the cursor (an underline) back under the bottom row's first
-        letter — an F read as an E. 0x01's length byte places it: 0-19 along the top row,
-        40 is off the screen. Found by trial with the maker watching, 2026-10-22."""
-        self.send(0x01, b"", length=40)
 
     def pil(self, kind):
         """Defines the arrow's characters (if it changed); returns the 3 characters per row."""
@@ -201,7 +195,6 @@ class Display:
     def clear(self):
         self.send(0x02)
         self.shown = [None, None]
-        self.hide_cursor()
 
 
 class Handler(BaseHTTPRequestHandler):
