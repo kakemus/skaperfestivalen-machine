@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 n";
+const VERSION = "phone 2026-10-22 o";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -136,12 +136,13 @@ const kvitteringIo = {
     for (let i = 0; i < 4; i++) after(i * 900, () => controller.send("LED:FLASH:R"));
   },
   hurry(ms) { controller.send(`LED:HURRY:${ms}`); },
-  // a win: the rainbow twice over (~11 s), and the bell for ~30 s — the board rings at most
-  // 10 per BELL command but queues them, so 6 commands 5 s apart (old firmware, no update)
+  // a win: the rainbow twice over (~11 s), and the bell for ~15 s (30 s was too long, the maker,
+  // 2026-10-22) — the board rings at most 10 per BELL command (~5 s) but queues them, so 3
+  // commands 5 s apart (old firmware, no update)
   celebrate() {
     controller.send("LED:WIN");
     after(5000, () => controller.send("LED:WIN"));
-    for (let i = 0; i < 6; i++) after(i * 5000, () => controller.send("BELL:10"));
+    for (let i = 0; i < 3; i++) after(i * 5000, () => controller.send("BELL:10"));
   },
   idle() { runTimer(0); showLevels(0); },
   log,
