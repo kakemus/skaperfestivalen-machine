@@ -85,7 +85,8 @@ export const BILDE = { w: 400, h: 240 };      // as wide as the strip's content 
 const JUSTER = {
   5: { kant: true },                      // white microscope on white paper
   6: { gamma: 0.6 },                      // the red chair went almost solid: lighter, so its tubes show
-  10: { hoyde: 320 },                     // the machine itself, upright (2026-10-22): a taller picture area
+  10: { hoyde: 320, gamma: 0.5, lys: 1.2, kant: true },   // the machine itself, upright (2026-10-22): a taller picture
+                                          // area; printed too dark at first — lighter, with an outline
 };
 // A picture swapped for a newer one without touching manus.js (tests/ keeps it equal to
 // Aksel's script): question 10 is now the maker's photo of the finished machine (2026-10-22;
