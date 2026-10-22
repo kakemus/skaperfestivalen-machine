@@ -19,6 +19,13 @@ function sizeFor(ctx) {
 
 // all-capital lines ("SPILLET ER TAPT", "DU KLARTE DET!") are headings: bold
 const heading = l => /\p{Lu}/u.test(l) && !/\p{Ll}/u.test(l);
+// A clearer hierarchy (2026-10-22, after user testing): each answer starts with its line
+// ("3. Ja ------- 23 år") reversed out of a black band; the entries (a name or a post with a
+// number on the right, columns made of spaces) stay normal; the story under them — what
+// the player is meant to read — is bold. Told apart by shape: the answer line is "n. … år",
+// an entry has a run of spaces before its number, story text has only single spaces.
+const svarlinje = l => /^\d+\. .*-+ \d+ år$/.test(l);
+const post = l => /\S {2,}\S/.test(l);
 
 /** The game's lines as one piece of receipt, no margins above or below (so pieces
  *  join seamlessly). Empty lines = a little space. feedMm: blank paper after it —
@@ -38,7 +45,16 @@ export function linjer(lines, { feedMm = 0 } = {}) {
   let y = Math.round(size * 0.1);
   for (const l of lines) {
     if (!l) { y += gap; continue; }
-    ctx.font = font(size, { weight: heading(l) ? "bold" : "normal", family: MONO });
+    if (svarlinje(l)) {                             // white on a black band, the dashes as plain space
+      ctx.fillRect(0, y - Math.round(size * 0.1), WIDTH, lh);
+      ctx.fillStyle = "#fff";
+      ctx.font = font(size, { weight: "bold", family: MONO });
+      ctx.fillText(l.replace(/-/g, " "), MARGIN, y);
+      ctx.fillStyle = "#000";
+      y += lh;
+      continue;
+    }
+    ctx.font = font(size, { weight: heading(l) || !post(l) ? "bold" : "normal", family: MONO });
     ctx.fillText(l, MARGIN, y);
     y += lh;
   }

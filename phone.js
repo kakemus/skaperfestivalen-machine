@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-22 c";
+const VERSION = "phone 2026-10-22 d";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -309,9 +309,10 @@ let lcdUp = null, lcdNext = 0, lcdShown = "";
 every(250, () => {
   const now = Date.now();
   if (lcdUp === false && now < lcdNext) return;
-  const [top, bottom] = lcdLinjer(game, now, game.state === "ready" && settings.lure ? now - klarSiden : 0), key = top + "|" + bottom;
+  // pil: Kvitteringsspillet's big arrow in the right 2 columns (the helper draws it, slots 4–7)
+  const [top, bottom, pil] = lcdLinjer(game, now, game.state === "ready" && settings.lure ? now - klarSiden : 0), key = top + "|" + bottom + "|" + pil;
   if (lcdUp && key === lcdShown) return;
-  fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}`, { cache: "no-store" })
+  fetch(`${LCD}/show?top=${encodeURIComponent(top)}&bottom=${encodeURIComponent(bottom)}${pil !== undefined ? "&pil=" + (pil || "none") : ""}`, { cache: "no-store" })
     .then(r => {
       if (!r.ok) throw new Error("helper answered " + r.status);
       lcdShown = key;

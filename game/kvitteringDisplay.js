@@ -1,60 +1,61 @@
-// What the IBM till display (2 × 20 characters) shows during Kvitteringsspillet
-// (2026-10-20). On the phone it's driven through a small helper in Termux
-// (tools/termux-ibm/), since Android's Chrome has no WebHID; phone.js sends these two
-// lines a few times a second, the helper skips lines that haven't changed.
-//   ready      KVITTERINGSSPILLET / SVAR JA ELLER NEI (taking turns with a teaser)
-//   deciding   DU ER 23 ÅR    2:41 / 1900 KR — the age as of the last answer, and the life's
-//              clock counting down; "SKYND DEG!" blinks in the last 10 s
-//   answering  the same, the age standing still while the machine prints
-//   over       DU KLARTE DET! / SPILLET ER TAPT / TIDEN ER UTE!  +  DU BLE 80 ÅR
+// What the IBM till display (2 × 20 characters) shows during Kvitteringsspillet.
+// On the phone it's driven through a small helper in Termux (tools/termux-ibm/), since
+// Android's Chrome has no WebHID; phone.js sends these lines a few times a second, the
+// helper skips lines that haven't changed.
+//
+// Since 2026-10-22 (after a lot of user testing — less noise): the left 18 characters are
+// text, one line per row; the right 2 columns hold ONE big arrow over both rows, drawn by
+// the helper with custom characters: up = the receipt (the printer sits above the display),
+// right = the question on the scroll, down = the buttons. Text and arrow stand still —
+// nothing blinks. While playing: what to read on top, the kroner and friends below (they
+// change once a choice is made). The life's clock shows only in its last 30 s.
 export const LCD_BREDDE = 20;
-// 20 characters each; ^ = up, at the printer. The arrows blink, the words stand still.
-const pil = (tekst, on) => on ? `^ ${tekst} ^` : `  ${tekst}  `;
-const LES = on => pil("LES KVITTERINGEN", on), TA = on => pil("TA KVITTERINGEN!", on);
+export const TEKST_BREDDE = 18;
+export const LOKK_ETTER_MS = 300000;   // 5 min standing ready → the lure (if switched on in the panel)
+const KLOKKE_MS = 30000;               // the clock appears for the last 30 s only
 
-const sider = (l, rt) => (l + " ".repeat(Math.max(1, LCD_BREDDE - l.length - rt.length)) + rt).slice(0, LCD_BREDDE);
 const tid = ms => { const t = Math.max(0, Math.ceil(ms / 1000)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; };
-const midt = t => { t = t.slice(0, LCD_BREDDE); const p = Math.floor((LCD_BREDDE - t.length) / 2); return " ".repeat(p) + t; };
+const felt = t => String(t).slice(0, TEKST_BREDDE).padEnd(TEKST_BREDDE);
 
-// Five minutes standing ready with nobody playing: the display turns into a lure (the light and the
-// bell join in from phone.js), until someone presses.
-export const LOKK_ETTER_MS = 300000;   // 5 min (1 min was too eager, 2026-10-21)
+/** "1900 KR 8 VENNER", shortened until it fits the text field. */
+export function saldo(sp) {
+  const kr = sp.kroner, v = sp.venner.length;
+  return [`${kr} KR ${v} VENNER`, `${kr}KR ${v} VENNER`, `${kr} KR ${v} V`, `${kr}KR ${v}V`]
+    .find(t => t.length <= TEKST_BREDDE) || `${kr}KR ${v}V`;
+}
 
-/** [top, bottom] for the game's state right now. `ms` = a clock for the blinking and turns;
- *  `klarMs` = how long the machine has stood ready (for the lure). */
-export function lcdLinjer(game, ms, klarMs = 0) {
-  const sp = game.spill, igjen = game.igjenMs, skift = Math.floor(ms / 2000) % 2 === 1;
-  const blink = Math.floor(ms / 500) % 2 === 0;                    // arrows on / off
-  const runde = (...ord) => midt(ord[Math.floor(ms / 1000) % ord.length]);   // the result: a word a second
-  // the age as of the last answer — not ticking live: a changing number distracted players in
-  // the user test (2026-10-21), so it moves on only when they choose
-  const alder = game.alder;
-  const saldo = sp.visning === "venner" ? `${sp.venner.length} VENNER` : `${sp.kroner} KR`;
+/** { top, bottom, pil } for the game's state: top/bottom are the 18-character text field,
+ *  pil = "up" | "right" | "down" | null. `ms` is unused now (nothing blinks), kept for the
+ *  caller; `klarMs` = how long the machine has stood ready (for the lure). */
+export function lcdInnhold(game, ms, klarMs = 0) {
+  const sp = game.spill, igjen = game.igjenMs;
   switch (game.state) {
-    // Waiting: the display points right, at the question in the scroll window (user test,
-    // 2026-10-21: people liked the machine but didn't get the game); after a minute, a lure.
     case "ready":
-      if (klarMs >= LOKK_ETTER_MS && Math.floor(ms / 4000) % 2)
-        return blink ? [midt("TRYKK JA ELLER NEI"), midt("FOR Å STARTE!")] : ["", ""];
-      return [midt(blink ? "LES SPØRSMÅLET >>>" : "LES SPØRSMÅLET    "), midt("JA/NEI FOR Å STARTE")];
+      if (klarMs >= LOKK_ETTER_MS) return { top: "TRYKK JA ELLER NEI", bottom: "FOR Å STARTE!", pil: "down" };
+      return { top: "LES SPØRSMÅLET", bottom: "TRYKK JA ELLER NEI", pil: "right" };
     case "deciding":
-      // the age (as of the last answer) and the life's clock counting down (2026-10-21)
-      if (igjen <= 10000 && Math.floor(ms / 500) % 2) return [sider("SKYND DEG!", tid(igjen)), midt(saldo)];
-      return [sider(`DU ER ${alder} ÅR`, tid(igjen)), midt(saldo)];
-    // From the moment an answer is pressed the display says how it went and points up at the
-    // receipt (the printer sits above it): three screens talking at once confused people in the
-    // maker's user test (2026-10-21), so this one sends them to the receipt.
-    case "answering":                                      // (the clock stands still meanwhile)
-      if (game.nr === 1 && !sp.tapt) return [runde("LIVET ER I GANG!", "IKKE GÅ I MINUS!"), LES(blink)];   // the first answer: the goal
-      return [sp.tapt ? runde("GAME OVER", "FEIL VALG") : runde("RIKTIG VALG!", "DU LEVER VIDERE"), LES(blink)];
+      return { top: igjen <= KLOKKE_MS ? `SKYND DEG!   ${tid(igjen)}` : "LES SPØRSMÅLET", bottom: saldo(sp), pil: "right" };
+    case "answering":
+      return { top: "LES KVITTERINGEN", bottom: saldo(sp), pil: "up" };
     case "over":
-      if (!sp.tapt) return [runde("DU KLARTE DET!", `DU BLE ${game.alder} ÅR`), LES(blink)];
-      return [sp.grunn === "tid" ? runde("TIDEN ER UTE!", "TILBAKE TIL START")
-        : runde("GAME OVER", "FEIL VALG", "TILBAKE TIL START"), LES(blink)];
     case "pause":
+      return { top: sp.tapt ? (sp.grunn === "tid" ? "TIDEN ER UTE!" : "SPILLET ER TAPT") : "DU KLARTE DET!",
+        bottom: "TA KVITTERINGEN", pil: "up" };
     case "rewinding":
-      return [TA(blink), midt(skift ? "TAKK FOR SPILLET" : "OG TA DEN MED DEG")];
-    default:                                              // starting, rewinding, resetting
-      return [midt("KVITTERINGSSPILLET"), midt("SPOLER TILBAKE ...")];
+      return { top: "TAKK FOR SPILLET!", bottom: "SPOLER TILBAKE", pil: null };
+    default:                                              // starting, resetting
+      return { top: "KVITTERINGSSPILLET", bottom: "SPOLER TILBAKE", pil: null };
   }
+}
+
+// The arrow's four custom characters (helper slots 4–7): top-left, top-right, bottom-left,
+// bottom-right — so the right 2 columns of both rows show one arrow.
+const PIL_TEGN = ["\u0004\u0005", "\u0006\u0007"];
+
+/** [top, bottom, pil]: the two full 20-character lines for the helper, and which arrow its
+ *  slots 4–7 should hold. */
+export function lcdLinjer(game, ms, klarMs = 0) {
+  const { top, bottom, pil } = lcdInnhold(game, ms, klarMs);
+  const hoyre = pil ? PIL_TEGN : ["  ", "  "];
+  return [felt(top) + hoyre[0], felt(bottom) + hoyre[1], pil];
 }

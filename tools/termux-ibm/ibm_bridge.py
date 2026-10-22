@@ -39,6 +39,23 @@ GLYPHS = {
     "Æ": (3, [0x0F, 0x14, 0x14, 0x1F, 0x14, 0x14, 0x17, 0x00]),
 }
 
+# Kvitteringsspillet's big arrow (2026-10-22): one arrow over the right 2 columns of both rows,
+# 10 x 16 pixels = 4 custom characters in slots 4-7 (top-left, top-right, bottom-left,
+# bottom-right). The page puts characters 4-7 there and says which arrow (?pil=); the slots
+# are redefined only when the arrow changes.
+PIL_SLOTS = (4, 5, 6, 7)
+PIL_FORM = {
+    "up": lambda x, y: (y <= 7 and abs(x - 4.5) <= y * 0.62 + 0.5) or (8 <= y <= 14 and abs(x - 4.5) <= 1.5),
+    "down": lambda x, y: (y >= 8 and abs(x - 4.5) <= (15 - y) * 0.62 + 0.5) or (1 <= y <= 7 and abs(x - 4.5) <= 1.5),
+    "right": lambda x, y: (x >= 5 and abs(y - 7.5) <= (9 - x) * 1.6 + 0.5) or (1 <= x <= 4 and abs(y - 7.5) <= 1.5),
+}
+
+
+def pil_tegn(kind):
+    on = PIL_FORM.get(kind, lambda x, y: False)
+    return [[sum(1 << (4 - i) for i in range(5) if on(gx + i, gy + r)) for r in range(8)]
+            for gy in (0, 8) for gx in (0, 5)]
+
 
 def err(code):
     return usb.libusb_strerror(code).decode()
@@ -140,6 +157,13 @@ class Display:
             self.send(0x81 if row == 0 else 0x82, data)
             self.shown[row] = data
 
+    def pil(self, kind):
+        if getattr(self, "pil_na", None) == kind:
+            return
+        for slot, rows in zip(PIL_SLOTS, pil_tegn(kind)):
+            self.send(0x40, bytes(rows), length=slot)
+        self.pil_na = kind
+
     def clear(self):
         self.send(0x02)
         self.shown = [None, None]
@@ -168,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/ping":
                 return self.reply(200, "ok")
             if url.path == "/show":
+                if "pil" in q:
+                    DISPLAY.pil(q["pil"])
                 DISPLAY.line(0, q.get("top", ""))
                 DISPLAY.line(1, q.get("bottom", ""))
                 return self.reply(200, "ok")
