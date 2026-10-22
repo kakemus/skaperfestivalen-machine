@@ -179,9 +179,11 @@ export function sluttLinjer(spill, avslutning) {
   } else {
     ut.push("DU KLARTE DET!");
   }
-  if (!spill.sumSkrevet) ut.push(spill.visning === "venner"
-    ? kolonner("SUM VENNER", spill.venner.length + "x")
-    : kolonner("SUM", spill.kroner + " kr"));
+  // uten "visning" (manuset fra 2026-10-22) vises begge, så begge summene
+  if (!spill.sumSkrevet) {
+    if (spill.visning !== "kroner") ut.push(kolonner(spill.visning ? "SUM VENNER" : "VENNER", spill.venner.length + "x"));
+    if (spill.visning !== "venner") ut.push(kolonner(spill.visning ? "SUM" : "KRONER", spill.kroner + " kr"));
+  }
   ut.push("=".repeat(BREDDE));
   if (avslutning) ut.push("", ...brytTekst(avslutning));
   return ut;

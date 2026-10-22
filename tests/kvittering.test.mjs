@@ -1,7 +1,8 @@
 // Test for Kvitteringsspillet. Kjør med:  node tests/kvittering.test.mjs
 // Ingen avhengigheter. Sjekker at
-//   1. game/manus.js er manuset fra kvitteringsspillet/kvitteringsspillet.html, med bare de
-//      endringene vi har gjort (spørsmål 10 «Nei», panten på seilbåten),
+//   1. game/manus.js er Aksels manus fra kvitteringsspillet/kvitteringsspillet.html, skrevet om
+//      2026-10-22 (enklere tekster, ingen død, begge saldoer vises): samme spørsmål og priser,
+//      og hvert tap kommer av penger eller venner,
 //   2. game/kvitteringMotor.js gir de samme kvitteringene som den originale motoren i HTML-fila
 //      der saldoen aldri er under null, og følger den nye regelen ellers: saldoen sjekkes
 //      først når hele svaret er utført, så historien alltid kommer ut,
@@ -70,14 +71,13 @@ const veier = alleVeier(MANUS);
 const gamleVeier = alleVeier(gammeltManus);
 
 console.log("Manus");
-sjekk("game/manus.js = manuset i HTML-fila + svaret på spørsmål 10 «Nei» + panten på 50 kr", () => {
-  const forventet = structuredClone(gammeltManus);
-  assert.deepEqual(forventet.sporsmal[9].svar.Nei, []);
-  forventet.sporsmal[9].svar.Nei = [{ no: "Vil du ha kvitteringen?" }];
-  const pant = forventet.sporsmal[7].svar.Ja.find(s => s.post === "Kambo marina (pant)");
-  assert.equal(pant.kroner, 9500);
-  pant.kroner = 50;
-  assert.deepEqual(MANUS, forventet);
+sjekk("game/manus.js: de samme spørsmålene, prisene og bildene som i HTML-fila (tekstene skrevet om 2026-10-22)", () => {
+  const del = m => m.sporsmal.map(({ nr, tekst, bilde, pris }) => ({ nr, tekst, bilde, pris }));
+  assert.deepEqual(del(MANUS), del(gammeltManus));
+});
+sjekk("ingen død og ingen «visning» i manuset: begge saldoer vises, og man taper bare på penger eller venner", () => {
+  for (const s of MANUS.sporsmal) for (const steg of Object.values(s.svar))
+    for (const st of steg) assert.ok(!("slutt" in st) && !("visning" in st), `spørsmål ${s.nr}: ${JSON.stringify(st)}`);
 });
 sjekk("høyst to svar per spørsmål (maskinen har bare JA og NEI)", () => {
   for (const s of MANUS.sporsmal) {
@@ -102,12 +102,12 @@ sjekk("der saldoen aldri er under null, gir ny motor samme kvittering som den or
   }
 });
 // En spiller rett før spørsmål `nr` (1-basert) med gitte kroner og venner.
-const spillerVed = (kroner, antallVenner) => ({ ...ny.nyttSpill(), kroner, venner: Array.from({ length: antallVenner }, (_, i) => "V" + i), visning: "venner" });
+const spillerVed = (kroner, antallVenner) => ({ ...ny.nyttSpill(), kroner, venner: Array.from({ length: antallVenner }, (_, i) => "V" + i) });   // ingen visning: begge vises (manuset fra 2026-10-22)
 sjekk("spørsmål 8 «Ja» uten råd: hele historien skrives ut før tapet", () => {
   const s = spillerVed(9800, 11), linjer = ny.spillSvar(s, MANUS.sporsmal[7], "Ja").join(" ");
   assert.equal(s.tapt, true);
   assert.equal(s.grunn, "kroner");
-  for (const biter of ["Kjetil", "vil lære å seile", "Kambo marina"]) assert.ok(linjer.includes(biter), `mangler «${biter}»`);
+  for (const biter of ["Kjetil", "vil være med og seile", "Båten solgt"]) assert.ok(linjer.includes(biter), `mangler «${biter}»`);
 });
 sjekk("saldoen sjekkes etter hele svaret: Labubu kjøpt og solgt med 0 kr går bra", () => {
   const s = spillerVed(0, 3);
@@ -127,10 +127,16 @@ sjekk("venner som mangler og ikke dekkes er tap, men teksten kommer ut", () => {
   assert.equal(s.grunn, "venner");
   assert.ok(linjer.includes("kjedelig"));
 });
-sjekk("døden stopper svaret med en gang", () => {
+sjekk("døden stopper svaret med en gang (det gamle manuset; det nye har ingen død)", () => {
   const s = spillerVed(1000, 5);
-  ny.spillSvar(s, MANUS.sporsmal[6], "Nei");
+  ny.spillSvar(s, gammeltManus.sporsmal[6], "Nei");
   assert.equal(s.grunn, "død");
+});
+sjekk("romaskinen «Nei»: redningsskøyta koster mer enn noen kan ha, så det er alltid tap på penger", () => {
+  const s = spillerVed(22100, 5);                     // mest mulig penger før spørsmål 7
+  ny.spillSvar(s, MANUS.sporsmal[6], "Nei");
+  assert.equal(s.tapt, true);
+  assert.equal(s.grunn, "kroner");
 });
 sjekk("panten redder ingen: alle som når spørsmål 8 uten råd til båten, taper på «Ja»", () => {
   let uten = 0;

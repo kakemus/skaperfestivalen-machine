@@ -1,7 +1,9 @@
-// Aksels manus for Kvitteringsspillet: ti valg gjennom et helt liv, og alt havner på kvitteringen.
-// Hentet fra kvitteringsspillet/kvitteringsspillet.html. Endringer: spørsmål 10 «Nei» har fått et
-// svar (det var tomt), og panten på seilbåten (spørsmål 8 «Ja») er 50 kr i stedet for 9500, så den
-// ikke redder noen nå som saldoen sjekkes etter hele svaret. "format" forklarer stegene; reglene
+// Manuset for Kvitteringsspillet: ti valg gjennom et helt liv, og alt havner på kvitteringen.
+// Aksels manus fra kvitteringsspillet/kvitteringsspillet.html, skrevet om 2026-10-22 etter
+// brukertesting med barn (maskinmakeren godkjente endringene): kortere og enklere tekster,
+// både kroner og venner vises alltid (ingen "visning"-steg), du taper bare ved å gå tom for
+// penger eller venner (romaskinen «Nei» gir en dyr redningsskøyte i stedet for døden), og
+// begge svar på spørsmål 1 gir familien og barnetrygden. "format" forklarer stegene; reglene
 // som utfører dem ligger i kvitteringMotor.js, og klokka (3 minutter = 80 år) i kvittering.js.
 export const MANUS = {
   "tittel": "Kvitteringsspillet",
@@ -47,12 +49,23 @@ export const MANUS = {
             "post": "Barnetrygd"
           },
           {
-            "no": "Så godt det er å leve! Hvem du er, og hva du velger, setter spor i verden, og du har gleden av å oppleve konsekvensene!"
+            "no": "Så godt det er å leve! Alt du velger fra nå, havner på kvitteringen."
           }
         ],
         "Nei": [
           {
-            "no": "Vi velger ikke å bli født. Kjenn godt etter. Du fortsetter å leve, uansett om dagen er god eller dårlig. Livet er alle de andre valgene, de du faktisk har."
+            "venner": [
+              "Mamma",
+              "Pappa",
+              "Farmor"
+            ]
+          },
+          {
+            "kroner": 1900,
+            "post": "Barnetrygd"
+          },
+          {
+            "no": "Ingen får velge å bli født – du ble det likevel! Men resten av valgene er dine."
           }
         ]
       }
@@ -68,9 +81,6 @@ export const MANUS = {
       "svar": {
         "Venner": [
           {
-            "visning": "venner"
-          },
-          {
             "venner": [
               "Emma",
               "Noah",
@@ -80,19 +90,16 @@ export const MANUS = {
             ]
           },
           {
-            "no": "Venner gir deg valgmuligheter. De inviterer deg med, gir deg gratis kaffe hvis de jobber på kafé, og kanskje kjenner de noen som kan gi deg jobb."
+            "no": "Venner inviterer deg med på ting, og hjelper deg når du trenger det."
           }
         ],
         "Penger": [
-          {
-            "visning": "kroner"
-          },
           {
             "kroner": 1000,
             "post": "Sparing"
           },
           {
-            "no": "Penger gir deg valgmuligheter. Du kan betale for å få ting gjort, for å dra dit du vil, og for å få det du vil ha."
+            "no": "Penger kan du bruke på det du vil."
           }
         ]
       }
@@ -120,7 +127,7 @@ export const MANUS = {
             "post": "Labubu"
           },
           {
-            "no": "Labubuen er et statussymbol, som gjør deg populær. Du selger den 1 år senere."
+            "no": "Labubuen gjør deg populær! Et år senere selger du den."
           },
           {
             "kroner": 900,
@@ -129,10 +136,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Labubuen er en meningsløs og dyr kosebamse. Du vil heller investere pengene lurt. Du tenker på ROI."
-          },
-          {
-            "no": "Vennene dine synes du er kjedelig."
+            "no": "Labubuen er bare en dyr kosebamse. Du sparer heller pengene, så de kan bli flere. Vennene dine synes du er kjedelig."
           },
           {
             "venner": -4
@@ -164,7 +168,7 @@ export const MANUS = {
             "post": "Vaffeljern"
           },
           {
-            "no": "Du har skjønt at vaffelhjerter er veien inn i venners hjerter. Vennene dine sier vaflene er så gode at du kan selge dem. Du selger vafler."
+            "no": "Vaflene dine er så gode at du begynner å selge dem!"
           },
           {
             "kroner": 2900,
@@ -173,14 +177,14 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Vaffeljernet er dyrt. Når du vil ha vafler, drar du heller til farmor. Hun bor langt unna."
+            "no": "Når du vil ha vafler, tar du toget til farmor. Det er langt og dyrt."
           },
           {
             "kroner": -2000,
             "post": "Togbillett"
           },
           {
-            "no": "Hun gir deg penger."
+            "no": "Farmor gir deg penger."
           },
           {
             "kroner": 5000,
@@ -204,10 +208,10 @@ export const MANUS = {
           },
           {
             "kroner": -1000,
-            "post": "Binokularlupe"
+            "post": "Mikroskop"
           },
           {
-            "no": "Du kjøper mikroskopet for å se på insekter. Snart oppdager du en hel verden av interessante ting du tidligere ikke kunne se. For eksempel støvmidd. Et helt år går. Du får ekstrem støvallergi, og må kjøpe allergimedisin."
+            "no": "Du ser på insekter, og oppdager støvmidd overalt. Du blir allergisk og må kjøpe medisin."
           },
           {
             "kroner": -4000,
@@ -215,9 +219,6 @@ export const MANUS = {
           }
         ],
         "Nei": [
-          {
-            "no": "Du vil heller forholde deg til verden på din størrelse, som for eksempel venner og jobb."
-          },
           {
             "no": "Du jobber så mye at du ikke rekker å treffe vennene dine."
           },
@@ -246,7 +247,7 @@ export const MANUS = {
             "post": "Ekstremstol"
           },
           {
-            "no": "Ekstremstolen din er kul, og alle vil sitte i den. Når den siste av vennene dine slenger seg ned i den, knekker stolen. De krever erstatning."
+            "no": "Alle vil sitte i den kule stolen din. Så knekker den, og vennen som satt i den, krever penger."
           },
           {
             "venner": -1
@@ -258,22 +259,19 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du lager en modell av Ekstremstolen med piperensere, og setter den i vinduet."
+            "no": "Du lager en modell av stolen med piperensere."
           },
           {
             "kroner": -1100,
             "post": "Piperensere"
           },
           {
-            "no": "En dag stopper naboen deg for å fortelle at han kjente Terje Ekstrøms kone."
+            "no": "Naboen Arild vil lage flere sammen med deg. Dere selger dem som julegaver!"
           },
           {
             "venner": [
               "Arild"
             ]
-          },
-          {
-            "no": "Dere blir enige om å lage modeller av Ekstremstolen sammen, for å selge dem for 250 kroner stykket. Det er den perfekte julegaven."
           },
           {
             "kroner": 4000,
@@ -297,7 +295,7 @@ export const MANUS = {
             "post": "Casall romaskin"
           },
           {
-            "no": "Du har sett Terje Vigen på teatret. Inspirert av roingen hans kjøper du deg en romaskin. Du trener lite, men leser masse om Napoleonskrigene, og blir populær på fest."
+            "no": "Du trener masse og blir sterk. Du blir med i en roklubb!"
           },
           {
             "venner": [
@@ -311,13 +309,11 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du kjøper ikke romaskinen. Det bryter ut krig i Europa, og England innfører handelsblokade i Nordsjøen. Du bestemmer deg for å ro til Danmark for å skaffe korn. Halvveis over Skagerrak får du prolaps."
+            "no": "Du vil heller ro en ekte båt over Skagerrak. Halvveis får du vondt i ryggen og må hentes med redningsskøyte."
           },
           {
-            "no": "Du dør."
-          },
-          {
-            "slutt": "død"
+            "kroner": -25000,
+            "post": "Redningsskøyte"
           }
         ]
       }
@@ -334,10 +330,10 @@ export const MANUS = {
         "Ja": [
           {
             "kroner": -19000,
-            "post": "Hallberg-Rassy Rasmus 35"
+            "post": "Seilbåt"
           },
           {
-            "no": "Å seile med vinden, og leve i takt med bølgene frister. Du kjøper en seilbåt og får plutselig tre nye venner som sier de «vil lære å seile»."
+            "no": "Du kjøper en seilbåt og får tre nye venner som vil være med og seile."
           },
           {
             "venner": [
@@ -347,19 +343,19 @@ export const MANUS = {
             ]
           },
           {
-            "no": "Du skjønner at vinteropplag vil koste 7680 kroner, og vil selge båten. Ingen vil kjøpe den, så du panter den hos Kambo marina."
+            "no": "Om vinteren vil ingen seile. Vennene forsvinner, og du blir kvitt båten for nesten ingenting."
           },
           {
             "venner": -4
           },
           {
             "kroner": 50,
-            "post": "Kambo marina (pant)"
+            "post": "Båten solgt"
           }
         ],
         "Nei": [
           {
-            "no": "Livet på havet fortsetter å friste, og du blir med tre jenter som skal krysse Atlanterhavet. Opplevelsen er skjellsettende, og du kan endelig gi slipp på samfunnets krav og leve livet ditt."
+            "no": "Du blir med tre jenter som seiler over Atlanterhavet. Det blir tidenes eventyr!"
           },
           {
             "venner": [
@@ -390,13 +386,13 @@ export const MANUS = {
             "post": "Urne med lokk"
           },
           {
-            "no": "Du finner en «pent brukt» urne på Finn. Vennene dine skjønner at noe er galt. Du mister noen, mens andre kommer nærmere."
+            "no": "Du kjøper en brukt urne. Vennene dine synes det er litt rart."
           },
           {
             "venner": -2
           },
           {
-            "no": "I begravelsen din kommer det mange flere enn du trodde, til og med klassekamerater fra barneskolen."
+            "no": "Men i begravelsen din kommer mange flere enn du trodde!"
           },
           {
             "venner": [
@@ -417,13 +413,13 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du trenger ingen urne, og vil bli strødd for vinden over Skagerrak, der Terje Vigen rodde. Flere venner syns det er rart."
+            "no": "Du vil heller at asken din strøs over havet. Noen venner synes det er rart."
           },
           {
             "venner": -5
           },
           {
-            "no": "Seremonien blir plukket opp av Hvaler Budstikke og blir en nasjonal sensasjon. Kirkene åpner for at publikum kan komme og minnes livet ditt i hele Norge."
+            "no": "Det havner i avisen, og hele Norge vil minnes deg!"
           },
           {
             "venner": 4567,
@@ -445,10 +441,10 @@ export const MANUS = {
       "svar": {
         "Ja": [
           {
-            "no": "Gratulerer! Du har kjøpt maskinen. Vi vil straks betjene kjøpet ditt!"
+            "no": "Gratulerer! Du har kjøpt maskinen."
           },
           {
-            "no": "Livsforsikringen din betaler ut."
+            "no": "Livsforsikringen din betaler for den."
           },
           {
             "kroner": 10000,
@@ -457,9 +453,6 @@ export const MANUS = {
           {
             "kroner": -10000,
             "post": "Kvitteringsspillet"
-          },
-          {
-            "no": "Beregner summer ...."
           },
           {
             "sum": "venner"
