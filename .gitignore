@@ -6,3 +6,6 @@ __pycache__/
 firmware/names.txt
 rescue-report/
 bilder/original/
+
+# The strip's pictures stay on the Mac (rights unclear for some; the strip is printed). Not in git since 2026-10-23.
+bilder/*.png
