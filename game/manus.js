@@ -95,7 +95,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du leverer den til politiet. Eieren blir så glad at hun spanderer pizza på hele klassen."
+            "no": "Lommeboka var lærerens. Hun roser deg foran hele klassen. Fem av dem tilgir deg."
           },
           {
             "venner": [
