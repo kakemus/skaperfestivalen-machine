@@ -222,7 +222,7 @@ export function createKvitteringGame(io, manus = MANUS, { intro = false, finale 
         return over(id, true);
       }
       io.flash?.(true);
-      io.bell?.(3);                       // three dings for a right answer (user test, 2026-10-21)
+      io.bell?.(2);                       // two dings for a right answer (three from the user test 2026-10-21; a bit much, 2026-10-23)
       // the answer is printed first, then the belt moves on to the next question (2026-10-20,
       // the maker: the player reads the receipt, and the next question doesn't run ahead of it)
       await printAnswer();
