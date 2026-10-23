@@ -95,7 +95,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Lommeboka var lærerens. Hun roser deg foran hele klassen. Fem av dem tilgir deg."
+            "no": "Du leverer den tilbake. Finnerlønnen er en invitasjon i bursdag. Der får du fem nye venner."
           },
           {
             "venner": [
