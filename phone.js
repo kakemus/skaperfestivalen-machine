@@ -20,7 +20,7 @@ import { ding, buzzer, preloadSounds } from "./game/sound.js";
 import { createBelt } from "./belt/belt.js";
 import { DEFAULT_STRIP, drawStrip, stripLengthCm } from "./belt/strip.js";
 
-const VERSION = "phone 2026-10-23 b";
+const VERSION = "phone 2026-10-24";
 const $ = id => document.getElementById(id);
 
 // ---------- settings (kept on the phone) ----------
@@ -280,6 +280,15 @@ every(1000, async () => {
     if (still) {
       controller.send(`POS:${screen}`);
       log(`micro:bit reset — told it it's on screen ${screen}; the game goes on`);
+    } else if (belt.inFlight?.command === "BELT:STEP") {
+      // frozen during one step up (2026-10-24, a player on 9/10 sent back to START): tell it the
+      // screen it left and step again — it stops at the next mark, the one it was heading for
+      controller.send(`POS:${belt.inFlight.from}`);
+      belt.resend();
+      log(`micro:bit reset during a step — told it it's on screen ${belt.inFlight.from}, stepping again; the game goes on`);
+    } else if (belt.inFlight?.command === "BELT:HOME") {
+      belt.resend();
+      log("micro:bit reset while rewinding — rewinding again");
     } else {
       log("micro:bit reset during a move — the game goes back to START");
       game.reset();

@@ -20,6 +20,7 @@ export function createBelt({ canvas, send }) {
   let position = 0;                       // screen index the window shows
   let anim = { from: 0, to: 0, start: 0, ms: 0 };
   let waitingForBoard = null;
+  let inFlight = null;                    // { command, from, timeout } of the move the board hasn't finished
 
   function view() {
     if (!strip) return;
@@ -42,6 +43,10 @@ export function createBelt({ canvas, send }) {
     if (k < 1) requestAnimationFrame(view);
   }
 
+  function armTimeout(resolve, ms) {
+    after(ms, () => { if (waitingForBoard === resolve) { waitingForBoard = null; inFlight = null; resolve("timeout"); } });
+  }
+
   function move(to, ms, command, timeout = HARDWARE_TIMEOUT_MS) {
     const from = position;
     position = to;
@@ -49,10 +54,11 @@ export function createBelt({ canvas, send }) {
     requestAnimationFrame(view);
     const screenDone = new Promise(resolve => after(ms, resolve));
     if (!send(command)) return screenDone;
+    inFlight = { command, from, timeout };
     // Wait for the board too, but never forever.
     const boardDone = new Promise(resolve => {
       waitingForBoard = resolve;
-      after(timeout, () => { if (waitingForBoard === resolve) { waitingForBoard = null; resolve("timeout"); } });
+      armTimeout(resolve, timeout);
     });
     return Promise.all([screenDone, boardDone]);
   }
@@ -75,12 +81,23 @@ export function createBelt({ canvas, send }) {
       // always ask the board, even at 0 on screen: it may have been moved by hand
       return move(0, Math.max(800, position * REWIND_MS_PER_SCREEN), "BELT:HOME", HOME_TIMEOUT_MS);
     },
+    /** The move the board was in the middle of, if any: { command, from }. */
+    get inFlight() { return waitingForBoard ? inFlight : null; },
+    /** After the board was reset mid-move (phone.js's watchdog, 2026-10-24): send the same
+     *  command again and give the board its full time for it; the game keeps waiting. */
+    resend() {
+      if (!waitingForBoard || !inFlight) return false;
+      if (!send(inFlight.command)) return false;
+      armTimeout(waitingForBoard, inFlight.timeout);
+      return true;
+    },
     /** call with every line from the micro:bit */
     handleLine(line) {
       // BUSY too: a move the board refused must not leave the game waiting a minute
       if (line.startsWith("BELT:DONE") || line.startsWith("BELT:ERROR") || line === "BUSY") {
         const resolve = waitingForBoard;
         waitingForBoard = null;
+        inFlight = null;
         resolve?.(line);
       }
     },
