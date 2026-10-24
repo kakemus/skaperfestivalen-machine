@@ -108,7 +108,7 @@ sjekk("spørsmål 8 «Ja» uten råd: hele historien skrives ut før tapet", () 
   const s = spillerVed(9800, 11), linjer = ny.spillSvar(s, MANUS.sporsmal[7], "Ja").join(" ");
   assert.equal(s.tapt, true);
   assert.equal(s.grunn, "kroner");
-  for (const biter of ["Kjetil", "vil være med og seile", "Båten solgt"]) assert.ok(linjer.includes(biter), `mangler «${biter}»`);
+  for (const biter of ["Kjetil", "vil lære å seile", "Båten solgt"]) assert.ok(linjer.includes(biter), `mangler «${biter}»`);
 });
 sjekk("saldoen sjekkes etter hele svaret: Labubu kjøpt og solgt med 0 kr går bra", () => {
   const s = spillerVed(0, 3);
