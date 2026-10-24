@@ -141,10 +141,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Labubuen er en meningsløs og dyr kosebamse. Du vil heller investere pengene lurt. Du tenker på ROI."
-          },
-          {
-            "no": "Vennene dine synes du er kjedelig."
+            "no": "Labubuen er bare en dyr kosebamse. Du sparer heller pengene, så de kan bli flere. Vennene dine synes du er kjedelig."
           },
           {
             "venner": -4
