@@ -360,7 +360,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du blir med tre jenter som seiler over Atlanterhavet. Det blir tidenes eventyr!"
+            "no": "Du kjøper ikke båten, men havet frister fortsatt. Du blir med tre jenter som seiler over Atlanterhavet. Turen koster deg 10 000 kr."
           },
           {
             "venner": [
