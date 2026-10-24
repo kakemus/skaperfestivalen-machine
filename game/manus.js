@@ -141,7 +141,10 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Labubuen er bare en dyr kosebamse. Du sparer heller pengene, så de kan bli flere. Vennene dine synes du er kjedelig."
+            "no": "Labubuen er en meningsløs og dyr kosebamse. Du vil heller investere pengene lurt. Du tenker på ROI."
+          },
+          {
+            "no": "Vennene dine synes du er kjedelig."
           },
           {
             "venner": -4
@@ -182,14 +185,14 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Når du vil ha vafler, tar du toget til farmor. Det er langt og dyrt."
+            "no": "Vaffeljernet er dyrt. Når du vil ha vafler, drar du heller til farmor. Hun bor langt unna."
           },
           {
             "kroner": -2000,
             "post": "Togbillett"
           },
           {
-            "no": "Farmor gir deg penger."
+            "no": "Hun gir deg penger."
           },
           {
             "kroner": 5000,
@@ -216,7 +219,7 @@ export const MANUS = {
             "post": "Mikroskop"
           },
           {
-            "no": "Du ser på insekter, og oppdager støvmidd overalt. Du blir allergisk og må kjøpe medisin."
+            "no": "Du kjøper mikroskopet for å se på insekter. Snart oppdager du en hel verden av interessante ting du tidligere ikke kunne se. For eksempel støvmidd. Et helt år går. Du får ekstrem støvallergi, og må kjøpe allergimedisin."
           },
           {
             "kroner": -4000,
@@ -224,6 +227,9 @@ export const MANUS = {
           }
         ],
         "Nei": [
+          {
+            "no": "Du vil heller forholde deg til verden på din størrelse, som for eksempel venner og jobb."
+          },
           {
             "no": "Du jobber så mye at du ikke rekker å treffe vennene dine."
           },
@@ -338,7 +344,7 @@ export const MANUS = {
             "post": "Seilbåt"
           },
           {
-            "no": "Du kjøper en seilbåt og får tre nye venner som vil være med og seile."
+            "no": "Å seile med vinden, og leve i takt med bølgene frister. Du kjøper en seilbåt og får plutselig tre nye venner som sier de «vil lære å seile»."
           },
           {
             "venner": [
@@ -348,7 +354,7 @@ export const MANUS = {
             ]
           },
           {
-            "no": "Om vinteren vil ingen seile. Vennene forsvinner, og du blir kvitt båten for nesten ingenting."
+            "no": "Du skjønner at vinteropplag vil koste 7680 kroner, og vil selge båten. Ingen vil kjøpe den, så du panter den hos Kambo marina."
           },
           {
             "venner": -4
@@ -360,7 +366,7 @@ export const MANUS = {
         ],
         "Nei": [
           {
-            "no": "Du kjøper ikke båten, men havet frister fortsatt. Du blir med tre jenter som seiler over Atlanterhavet. Turen koster deg 10 000 kr."
+            "no": "Du kjøper ikke båten, men livet på havet fortsetter å friste, og du blir med tre jenter som skal krysse Atlanterhavet. Opplevelsen er skjellsettende, og du kan endelig gi slipp på samfunnets krav og leve livet ditt."
           },
           {
             "venner": [
@@ -391,13 +397,13 @@ export const MANUS = {
             "post": "Urne med lokk"
           },
           {
-            "no": "Du kjøper en brukt urne. Vennene dine synes det er litt rart."
+            "no": "Du finner en «pent brukt» urne på Finn. Vennene dine skjønner at noe er galt. Du mister noen, mens andre kommer nærmere."
           },
           {
             "venner": -2
           },
           {
-            "no": "Men i begravelsen din kommer mange flere enn du trodde!"
+            "no": "I begravelsen din kommer det mange flere enn du trodde, til og med klassekamerater fra barneskolen."
           },
           {
             "venner": [
@@ -446,10 +452,10 @@ export const MANUS = {
       "svar": {
         "Ja": [
           {
-            "no": "Gratulerer! Du har kjøpt maskinen."
+            "no": "Gratulerer! Du har kjøpt maskinen. Vi vil straks betjene kjøpet ditt!"
           },
           {
-            "no": "Livsforsikringen din betaler for den."
+            "no": "Livsforsikringen din betaler ut."
           },
           {
             "kroner": 10000,
@@ -458,6 +464,9 @@ export const MANUS = {
           {
             "kroner": -10000,
             "post": "Kvitteringsspillet"
+          },
+          {
+            "no": "Beregner summer ...."
           },
           {
             "sum": "venner"
