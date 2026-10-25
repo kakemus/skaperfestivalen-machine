@@ -96,34 +96,9 @@ export function synthBuzzer(ctx) {
   } catch { /* no sound available — the game doesn't depend on it */ }
 }
 
-// The losing sound the maker picked (2026-10-21): lyder/tap.mp3, played a little lower
-// (playbackRate 0.8 — about 4 semitones down, and a bit slower) and twice in a row. The file
-// is decoded once; until it has loaded, or if it can't be, the synthesized buzzer above plays.
-const TAP_URL = "lyder/tap.mp3", TAP_RATE = 0.8, TAP_TIMES = 2;
-let tapBuffer = null, tapLoading = null;
-function loadTap() {
-  if (tapLoading) return tapLoading;
-  audio ??= new AudioContext();
-  tapLoading = fetch(TAP_URL).then(r => r.arrayBuffer())
-    .then(data => new Promise((ok, fail) => audio.decodeAudioData(data, ok, fail)))   // the callback form: Chrome 87
-    .then(buf => { tapBuffer = buf; return buf; }, () => null);
-  return tapLoading;
-}
-export function buzzer() {
-  try {
-    audio ??= new AudioContext();
-    audio.resume();
-    if (!tapBuffer) { loadTap(); return synthBuzzer(); }
-    let t = audio.currentTime + 0.02;
-    for (let n = 0; n < TAP_TIMES; n++) {
-      const src = audio.createBufferSource();
-      src.buffer = tapBuffer;
-      src.playbackRate.value = TAP_RATE;
-      src.connect(audio.destination);
-      src.start(t);
-      t += tapBuffer.duration / TAP_RATE;
-    }
-  } catch { /* no sound available — the game doesn't depend on it */ }
-}
-/** Load the losing sound ahead of time (the first tap on the page). */
-export const preloadSounds = () => { try { loadTap(); } catch {} };
+// The losing sound: the synthesized buzzer above. From 2026-10-21 a sound file from Freesound
+// (lyder/tap.mp3) played instead once it had loaded, but at the festival the buzzer was what
+// mostly played, and a file of our own needs no credit in the public post (2026-10-25).
+export function buzzer() { synthBuzzer(); }
+/** Kept for the callers; there is nothing to load any more. */
+export const preloadSounds = () => {};
